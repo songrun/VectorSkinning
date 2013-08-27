@@ -51,7 +51,6 @@ def precompute_W_i( handle_positions, i, P, M, a, b, num_samples = 100 ):
  		tbar = tbar.reshape( (4,1) )
 		
 		w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
-		print 'small w is :', ti, w
 		
 		W_i += dot( dt * w * tbar, tbar.T )
 	
@@ -74,7 +73,6 @@ def w_i( handle_positions, i, p ):
 	
 	## Ensure our inputs are numpy.arrays:
 	handle_positions = asarray( handle_positions )
-	print 'haha: ', asarray( p )
 	p = asarray( p ).reshape(3)
 	
 	## 'handle_positions' must be a num-handles-by-k array.
@@ -125,8 +123,6 @@ def precompute_inv_A( M, a, b, num_samples = 100 ):
 		tbar = tbar.reshape( (4,1) )
 
 		A = A + dot( dt * tbar, tbar.T )
-	
-	print 'check', dot(M, A)
 	
 	return linalg.inv( dot(M, A) )	
 	
