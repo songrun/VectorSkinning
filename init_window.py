@@ -15,7 +15,7 @@ class Window:
 	root = None
 	selected = None
 	popup = None
-	trace = None
+	traceT, traceR, traceS = [], [], []
 	transforms = {}
 	
 	def __init__(self, parent):
@@ -71,8 +71,6 @@ class Window:
 			sels = set(overlaps) & set(self.canvas.find_withtag('handles')) 
 			if len(sels) > 0:
 				self.selected = sels.pop()
-				coord = self.canvas.coords( self.selected )
-				self.trace = [(coord[0]+coord[2])/2, (coord[1]+coord[3])/2]
 				self.popup_handle_editor(self.selected)
 				
 #	def on_double_click_handler(self, event):		
@@ -81,12 +79,17 @@ class Window:
 #			sels = set(overlaps) & set(self.canvas.find_withtag('handles')) 
 #			if len(sels) > 0:
 #				self.popup_handle_editor(sels.pop())
-	
+
+	# for translation ---- press and drag
 	def on_motion_handler(self, event):
 		if self.selected != None and self.popup != None: 
 			h = self.selected
-			trans_x, trans_y = event.x-self.trace[0], event.y-self.trace[1]
-			self.trace = [event.x, event.y]
+			if len(self.traceT) != 2:
+				self.traceT = [event.x, event.y]
+				return
+				
+			trans_x, trans_y = event.x-self.traceT[0], event.y-self.traceT[1]
+			self.traceT = [event.x, event.y]
 			
 			window_name = self.canvas.itemcget( self.popup, 'window' )
 			p = self.root.nametowidget( window_name )
@@ -108,15 +111,119 @@ class Window:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier()				
 		return
-		
+	
+	# for rotation	---- Shift + press and drag
 	def on_shift_mouse_handler(self, event):
 		if self.selected != None and self.popup != None: 
-			print 'hello world'
-		
-	def on_control_mouse_handler(self, event):
-		if self.selected != None and self.popup != None: 
-			print 'control'
+			h = self.selected
+			if len(self.traceR) != 2:
+				coord = self.canvas.coords( h )
+				self.traceR = [(coord[0]+coord[2])/2, (coord[1]+coord[3])/2]
+				
+			coord = self.canvas.coords( h )
+			origin = [(coord[0]+coord[2])/2, (coord[1]+coord[3])/2]
+			vec_0 = array([self.traceR[0]-origin[0], self.traceR[1]-origin[1]])
+			vec_1 = array([event.x-origin[0], event.y-origin[1]])
+			self.traceR = [event.x, event.y]
+			
+			assert len(vec_0) == len(vec_1)
+			len_0 = sum([vec_0[i]**2 for i in range(len(vec_0))])**.5
+			len_1 = sum([vec_1[i]**2 for i in range(len(vec_1))])**.5
+			if len_0*len_1 == 0:
+				return
+			costheta = dot(vec_1, vec_0)/(len_0*len_1)
+			sintheta = cross(vec_1, vec_0)/(len_0*len_1)
+			
+			window_name = self.canvas.itemcget( self.popup, 'window' )
+			p = self.root.nametowidget( window_name )
+
+			labelFrame = p.winfo_children()[0]
+			entry_1 = labelFrame.winfo_children()[0]
+			entry_2 = labelFrame.winfo_children()[1]
+			entry_3 = labelFrame.winfo_children()[3]
+			entry_4 = labelFrame.winfo_children()[4]
+			
+			entry_5 = labelFrame.winfo_children()[2]
+			entry_6 = labelFrame.winfo_children()[5]
+			
+			R = array([[costheta, sintheta, 0], [-sintheta, costheta, 0], [0, 0, 1]])
+			T = array([[1, 0, -origin[0]], [0, 1, -origin[1]], [0, 0, 1]])
+
+			newM = dot((dot( dot(np.linalg.inv(T), R), T )), self.transforms[h].reshape(3, -1))
+			self.transforms[h] = newM.reshape(-1)			
+							
+			entry_1.delete(0,END)
+			entry_1.insert(0,newM[0][0])
+			entry_2.delete(0,END)
+			entry_2.insert(0,newM[0][1])
+			entry_3.delete(0,END)
+			entry_3.insert(0,newM[1][0])
+			entry_4.delete(0,END)
+			entry_4.insert(0,newM[1][1])
+			entry_5.delete(0,END)
+			entry_5.insert(0,newM[0][2])
+			entry_6.delete(0,END)
+			entry_6.insert(0,newM[1][2])
+			
+			if len( self.canvas.find_withtag('controls') ) == 4:
+				self.redraw_handle_affected_curve()
+				self.redraw_approximated_bezier()				
+		return
 	
+	# for scaling ---- Control + press and drag
+	def on_control_mouse_handler(self, event):
+		if self.selected != None and self.popup != None:
+			h = self.selected 
+			if len(self.traceS) != 2:
+				self.traceS = [event.x, event.y]
+				return
+				
+			coord = self.canvas.coords( h )
+			origin = [(coord[0]+coord[2])/2, (coord[1]+coord[3])/2]
+
+			box = self.canvas.bbox('original_bezier')
+			width, height = box[2]-box[0], box[3]-box[1]
+			scaleX, scaleY = np.power(2., float(event.x-self.traceS[0])/width), np.power(2., float(event.y-self.traceS[1])/height)
+			
+			self.traceS = [event.x, event.y]
+			
+			T = array([[1, 0, -origin[0]], [0, 1, -origin[1]], [0, 0, 1]])
+			S = array([[scaleX, 0., 0.], [0., scaleY, 0.], [0., 0., 1.]])
+ 			newM = dot( np.linalg.inv(T), dot( S, dot( T, self.transforms[h].reshape(3, -1) )) )
+
+			self.transforms[h] = newM.reshape(-1)
+
+			
+			window_name = self.canvas.itemcget( self.popup, 'window' )
+			p = self.root.nametowidget( window_name )
+
+			labelFrame = p.winfo_children()[0]
+			entry_1 = labelFrame.winfo_children()[0]
+			entry_2 = labelFrame.winfo_children()[1]
+			entry_3 = labelFrame.winfo_children()[3]
+			entry_4 = labelFrame.winfo_children()[4]
+			
+			entry_5 = labelFrame.winfo_children()[2]
+			entry_6 = labelFrame.winfo_children()[5]
+			entry_1.delete(0,END)
+			entry_1.insert(0,newM[0][0])
+			entry_2.delete(0,END)
+			entry_2.insert(0,newM[0][1])
+			entry_3.delete(0,END)
+			entry_3.insert(0,newM[1][0])
+			entry_4.delete(0,END)
+			entry_4.insert(0,newM[1][1])
+			entry_5.delete(0,END)
+			entry_5.insert(0,newM[0][2])
+			entry_6.delete(0,END)
+			entry_6.insert(0,newM[1][2])
+			
+			if len( self.canvas.find_withtag('controls') ) == 4:
+				self.redraw_handle_affected_curve()
+				self.redraw_approximated_bezier()		
+						
+		return	
+			
 	def redraw_bezier_curve(self):
 		self.canvas.delete( 'original_bezier' )
 		cps = self.canvas.find_withtag('controls')
@@ -217,7 +324,9 @@ class Window:
 
 	
 	def onrelease_handler(self, event):
-		self.trace = []
+		self.traceT = []
+		self.traceR = []
+		self.traceS = []
 		if self.selected == None:
 			self.canvas.delete('popup') 
 		else:	
