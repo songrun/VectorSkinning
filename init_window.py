@@ -4,14 +4,14 @@ import ttk as ttk
 import tkMessageBox
 import numpy as np
 from weight_inverse_distance import *
-
-M = np.matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.')
+from bezier_chain_constraints import *
 
 gOnce = False
 
 class Window:
 	canvas = None
 	mode = None #indicator of one of the three modes.
+	constraint = None #indicator of which constraint is being used.
 	root = None
 	selected = None
 	popup = None
@@ -28,10 +28,10 @@ class Window:
 		
 	def init_UI(self, parent):
 	
-		menubar = ttk.Frame(parent, relief=GROOVE, borderwidth=1, width=600, height=28)
+		menubar = ttk.Frame(parent, relief=GROOVE, borderwidth=1, width=800, height=28)
 		self.init_menubar(menubar)
 		
-		self.canvas = Canvas(parent, width=600, height=400, bd=2, cursor='pencil', relief=SUNKEN)
+		self.canvas = Canvas(parent, width=800, height=600, bd=2, cursor='pencil', relief=SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
 		self.canvas.bind("<Control-B1-Motion>", self.on_control_mouse_handler)
@@ -40,7 +40,9 @@ class Window:
 		self.canvas.bind("<ButtonRelease-1>", self.onrelease_handler)
 		self.canvas.grid()
 		return	
-		
+	'''
+	A series of actions a user can do
+	'''		
 	def onclick_handler(self, event):
 	
 		mode = self.mode.get()
@@ -222,7 +224,24 @@ class Window:
 				self.redraw_approximated_bezier()		
 						
 		return	
-			
+	
+	def onrelease_handler(self, event):
+	
+		self.traceT = []
+		self.traceR = []
+		self.traceS = []
+		
+		if self.selected == None:
+			self.canvas.delete('popup') 
+		else:	
+			self.selected = None
+
+	'''
+		Actions End
+	'''
+	'''
+		algorithms for drawing
+	'''		
 	def redraw_bezier_curve(self):
 	
 		self.canvas.delete( 'original_bezier' )
@@ -268,11 +287,13 @@ class Window:
 		self.canvas.delete( 'new_controls' )
 		
 		handles = []
+		trans = []
 		H_set = self.canvas.find_withtag('handles')
 		for i in range( len( H_set ) ):
 			pos = self.canvas.coords( H_set[i] )
 			pos = [(pos[0]+pos[2])/2, (pos[1]+pos[3])/2, 1.]
 			handles.append(pos)
+			trans.append( self.transforms[H_set[i]] )
 		
 		cps = self.canvas.find_withtag('controls')
 		cps = [self.canvas.bbox(x) for x in cps]
@@ -296,32 +317,11 @@ class Window:
 		
 		writer = csv.writer( open( uniquepath( 'integration_accuracy.csv' ), 'w' ) )
 		'''
-		#sections = [0., 0.5, 1.]
-		#sections = [0., 0.25, 0.333, 0.5, 1.]
-		sections = [0., 0.1, 1.]
-		P_primes = []
-		control_set =  control_points_after_split( cps, sections ) 
-		control_set = control_set + cps.tolist()
-		control_set = asarray( control_set )
 		
-		for k in range( len(control_set)/4  ):
-			
-			P_prime = np.zeros(12).reshape(3,4)
-			for i in range( len( H_set ) ):
-
-				T_i = np.mat( np.asarray(self.transforms[H_set[i]]).reshape(3,3) )
-# 				W_i = precompute_W_i( handles, i, cps, M, sections[k], sections[k+1], 50 )
-# 				inv_A = precompute_inv_A( M, sections[k], sections[k+1], 50 )
-				W_i = precompute_W_i( handles, i, control_set[k*4:k*4+4], M, 0., 1., 50 )
-				inv_A = precompute_inv_A( M, 0., 1., 50 )		
-			
-				#for num_samples in xrange(1,501):
-				#	writer.writerow( [ num_samples, i ] + list( precompute_W_i( handles, i, cps, M, 0., 1., num_samples ).flat ) )
-					
-				P_prime = P_prime + T_i * (control_set[k*4:k*4+4].T) * M * np.mat(W_i) * inv_A	
-						
-# 				P_prime = P_prime + T_i * (cps.T) * M * np.mat(W_i) * inv_A
-			P_primes.append( P_prime.T )
+# 		partition = [0., 0.25, 0.333, 1.]
+		partition = [0., 0.1, 1.]
+		level = self.constraint.get()
+		P_primes = compute_control_points_chain_with_constraint( partition, cps, handles, trans, level)
 
 		#del writer
 		colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray']
@@ -357,74 +357,10 @@ class Window:
 				p = np.dot( np.asarray( [t**3, t**2, t, 1] ), known )
 				ps = ps + [p[0], p[1]]	
 			self.canvas.create_line(ps, smooth=True, width=2, fill=colors[i]+'1', tags='approximated')	 
-	
-	def onrelease_handler(self, event):
-	
-		self.traceT = []
-		self.traceR = []
-		self.traceS = []
-		
-		if self.selected == None:
-			self.canvas.delete('popup') 
-		else:	
-			self.selected = None
 
-	def change_mode(self):
-	
-		mode = self.mode.get()
-		
-		if mode == 0:
-			self.canvas.config(cursor = 'pencil')
-		elif mode == 1: 
-			self.canvas.config(cursor = 'target')
-		elif mode == 2:
-			self.canvas.config(cursor = 'hand1')
-
-	def del_controls(self):
-	
-		self.canvas.delete('controls')
-		self.canvas.delete('original_bezier')
-		self.canvas.delete('handle_affected')
-		self.canvas.delete('approximated')
-		
-	
-	def del_handles(self):
-	
-		self.canvas.delete('handles')
-		self.canvas.delete('handle_affected')
-		self.canvas.delete('approximated')
-		self.transforms.clear()
-
-	def clear_canvas(self):
-	
-		self.canvas.delete('all')
-		self.transforms.clear()
-	
-	def save_transforms(self, id, vals, popup):
-		
-		for i in range(0, 9):
-			self.transforms[id][i] = vals[i].get()
-		self.remove_popup(popup)
-		
-		if len( self.canvas.find_withtag('controls') ) == 4:
-			self.redraw_handle_affected_curve()
-			self.redraw_approximated_bezier()	
-		return
-		
-	def delete_handle(self, id, popup):
-	
-		self.canvas.delete(id)
-		self.remove_popup(popup)
-		
-		if len( self.canvas.find_withtag('controls') ) == 4:
-			self.redraw_handle_affected_curve()
-			self.redraw_approximated_bezier()	
-		return	
-		
-	def remove_popup(self, popup):
-	
-		self.canvas.delete(popup)
-		
+	'''
+		Drawing End
+	'''	
 	def init_menubar(self, menubar):
 	
 		menubar.grid_propagate(0)
@@ -434,7 +370,7 @@ class Window:
 		#menu) and the Menu (what drops down when the Menubutton is pressed)
 			
 		mb_file = ttk.Menubutton(menubar, text='file')
-		mb_file.grid(column=0, row=0)
+		mb_file.grid(column=0, row=0, ipadx=20)
 		mb_file.menu = Menu(mb_file)
 		
 		#Once we've specified the menubutton and the menu, we can add
@@ -444,7 +380,7 @@ class Window:
 		mb_file.menu.add_command(label='close')
 		
 		mb_edit = ttk.Menubutton(menubar, text='edit')
-		mb_edit.grid(column=1, row=0)
+		mb_edit.grid(column=1, row=0, ipadx=20 )
 		mb_edit.menu = Menu(mb_edit)
 		
 		self.mode = IntVar()
@@ -457,11 +393,23 @@ class Window:
 		mb_edit.menu.add_command(label='clear canvas', command=self.clear_canvas)
 		
 		
+		## menu dealing with constrains 
+		mb_cons = ttk.Menubutton(menubar, text='constrains')
+		mb_cons.grid(column=2, row=0)
+		mb_cons.menu = Menu(mb_cons)
+		self.constraint = IntVar()
+		mb_cons.menu.add_radiobutton(label='No constrains', variable=self.constraint, value=0, command=self.change_constrain)		
+		mb_cons.menu.add_radiobutton(label='C^0', variable=self.constraint, value=1, command=self.change_constrain)
+		mb_cons.menu.add_radiobutton(label='C^1', variable=self.constraint, value=2, command=self.change_constrain)
+		mb_cons.menu.add_radiobutton(label='G^1', variable=self.constraint, value=3, command=self.change_constrain)
+		
 		mb_help = ttk.Menubutton(menubar,text='help')
-		mb_help.grid(column=2, row=0, padx=340, sticky=E)
+		mb_help.grid(column=3, row=0, padx=300, sticky=E)
 		
 		mb_file['menu'] = mb_file.menu
 		mb_edit['menu'] = mb_edit.menu
+		mb_cons['menu'] = mb_cons.menu
+# 		mb_help['menu'] = mb_help.menu
 		return 
 		
 	def popup_handle_editor(self, handle_id):
@@ -510,9 +458,73 @@ class Window:
 		self.popup = popup
 #		return popup
 
+
+
 	def onExit(self):
+	
 		self.quit()
 
+
+	def change_mode(self):
+	
+		mode = self.mode.get()
+		
+		if mode == 0:
+			self.canvas.config(cursor = 'pencil')
+		elif mode == 1: 
+			self.canvas.config(cursor = 'target')
+		elif mode == 2:
+			self.canvas.config(cursor = 'hand1')
+			
+	def change_constrain(self):
+		
+		if ( len( self.canvas.find_withtag( 'approximated' ) ) != 0 ):
+			self.redraw_approximated_bezier()
+
+	def del_controls(self):
+	
+		self.canvas.delete('controls')
+		self.canvas.delete('original_bezier')
+		self.canvas.delete('handle_affected')
+		self.canvas.delete('approximated')
+		
+	
+	def del_handles(self):
+	
+		self.canvas.delete('handles')
+		self.canvas.delete('handle_affected')
+		self.canvas.delete('approximated')
+		self.transforms.clear()
+
+	def clear_canvas(self):
+	
+		self.canvas.delete('all')
+		self.transforms.clear()
+	
+	def save_transforms(self, id, vals, popup):
+		
+		for i in range(0, 9):
+			self.transforms[id][i] = vals[i].get()
+		self.remove_popup(popup)
+		
+		if len( self.canvas.find_withtag('controls') ) == 4:
+			self.redraw_handle_affected_curve()
+			self.redraw_approximated_bezier()	
+		return
+		
+	def delete_handle(self, id, popup):
+	
+		self.canvas.delete(id)
+		self.remove_popup(popup)
+		
+		if len( self.canvas.find_withtag('controls') ) == 4:
+			self.redraw_handle_affected_curve()
+			self.redraw_approximated_bezier()	
+		return	
+		
+	def remove_popup(self, popup):
+	
+		self.canvas.delete(popup)
 
 def main():
   

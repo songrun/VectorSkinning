@@ -40,10 +40,11 @@ def precompute_W_i( handle_positions, i, P, M, a, b, num_samples = 100 ):
 	### Compute the integral.
 	W_i = zeros( ( 4,4 ) )
 	tbar = ones( 4 )
+
 	dt = (b-a)/num_samples
 	#for t in linspace( a, b, num_samples ):
 	for ti in xrange( num_samples ):
-		t = (ti+.5) / num_samples
+		t = a + ( ti + .5 ) * dt
 		
 		tbar[0] = t**3
 		tbar[1] = t**2
@@ -105,19 +106,26 @@ def w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def precompute_inv_A( M, a, b, num_samples = 100 ):
+def precompute_A( M, a, b, num_samples = 100 ):
 
 	M = asarray( M )
 	assert M.shape == (4,4)
 	a = float(a)
 	b = float(b)
+	'''
+	t_prime = (1-t)*a + t*b
+	'''
+	a_prime = (1-a)*a + a*b
+	b_prime = (1-b)*a + b*b
 	
 	A = zeros( (4, 4) )
 	tbar = ones( 4 )
-	dt = (b-a)/num_samples
+# 	dt = (b_prime-a_prime)/num_samples
+	dt = (1.0 - 0.)/num_samples
 	#for t in linspace( a, b, num_samples ):
 	for ti in xrange( num_samples ):
-		t = (ti+.5) / num_samples
+# 		t = a_prime + (ti+.5) * dt
+		t = ( ti + 0.5 ) * dt
 		
 		tbar[0] = t**3
 		tbar[1] = t**2
@@ -126,33 +134,7 @@ def precompute_inv_A( M, a, b, num_samples = 100 ):
 
 		A = A + dot( dt * tbar, tbar.T )
 	
-	return linalg.inv( dot(M, A) )	
+	A = A*(b-a)
 	
-def control_points_after_split( P, S ):
-	
-	assert len( P.shape ) == 2
-	assert P.shape[0] == 4
-	P = asarray( P )
-	
-	S = asarray( S )
-	
-	if len( S ) < 2: 
-		return P
-	
-	result = []
-	for i, k in enumerate( S[1:-1] ):
-		assert k > 0 and k < 1
-		
-		r1 = P[:-1]*(1.-k) + P[1:]*k
-		r2 = r1[:-1]*(1.-k) + r1[1:]*k
-		r3 = r2[:-1]*(1.-k) + r2[1:]*k
-		
-# 		print 'r1 ', r1, 'r2 ', r2, 'r3 ', r3, 'P ', P
-		result = result + [P[0].tolist(), r1[0].tolist(), r2[0].tolist(), r3[0].tolist()]
-# 		print 'result ', result
-		P = array( [r3[-1], r2[-1], r1[-1], P[-1]] )
-	
-	result = result + P.tolist()
-	
-	return result
+	return dot(M, A)
 	
