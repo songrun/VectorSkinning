@@ -113,6 +113,7 @@ def compute_control_points_chain_with_continuity( controls, handles, transforms 
 
 	temps = []
 	result = []
+	partitions = [0.1, 0.9]
 	
 	const_k = 3
 	num = len( controls ) /4 -1 # num is the number of splited curves
@@ -154,6 +155,13 @@ def compute_control_points_chain_with_continuity( controls, handles, transforms 
 	for i in range( num-1 ): 
 		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+const_k*i:num*const_k*4+const_k*(i+1) ] = R
 		Left[ num*const_k*4+const_k*i:num*const_k*4+const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R.T
+	
+	'''
+	add weights
+	'''
+	for i in range( num ):
+		Left[4*const_k*i:4*(i+1)*const_k, 4*const_k*i:4*(i+1)*const_k] *= partitions[i]
+		Right[4*const_k*i:4*(i+1)*const_k] *= partitions[i]
 		
 	X = linalg.solve(Left, Right)	
 	X = array( X[:num*const_k*4] ).reshape(-1,4).T
@@ -177,6 +185,7 @@ def compute_control_points_chain_with_derivative_continuity( controls, handles, 
 
 	temps = []
 	result = []
+	partitions = [0.1, 0.9]
 	
 	const_k = 3
 	num = len( controls ) /4 -1 # num is the number of splited curves
@@ -220,6 +229,13 @@ def compute_control_points_chain_with_derivative_continuity( controls, handles, 
 	for i in range( num-1 ): 
 		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1) ] = R
 		Left[ num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R.T
+	
+		'''
+	add weights
+	'''
+	for i in range( num ):
+		Left[4*const_k*i:4*(i+1)*const_k, 4*const_k*i:4*(i+1)*const_k] *= partitions[i]
+		Right[4*const_k*i:4*(i+1)*const_k] *= partitions[i]
 		
 	X = linalg.solve(Left, Right)	
 	X = array( X[:num*const_k*4] ).reshape(-1,4).T
