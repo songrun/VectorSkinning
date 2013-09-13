@@ -226,11 +226,18 @@ def compute_control_points_chain_with_derivative_continuity( controls, handles, 
 		R[4*const_k+i*4, i] = R[4*const_k+i*4+1, i+const_k] = -1
 		R[4*const_k+i*4, i+const_k] = 1
 		
+	'''
+	add weights to lambda
+	'''
+	assert len(partitions) == num	
 	for i in range( num-1 ): 
-		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1) ] = R
-		Left[ num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R.T
+		R_copy = R[:,:]	
+		R_copy[ :4*const_k, const_k: ] *= 1/partitions[i]
+		R_copy[ :4*const_k, const_k: ] *= 1/partitions[i+1]
+		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1) ] = R_copy
+		Left[ num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R_copy.T
 	
-		'''
+	'''
 	add weights
 	'''
 	for i in range( num ):
