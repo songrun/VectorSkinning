@@ -318,8 +318,14 @@ class Window:
 		writer = csv.writer( open( uniquepath( 'integration_accuracy.csv' ), 'w' ) )
 		'''
 		
-# 		partition = [0., 0.25, 0.333, 1.]
-		partition = [0., 0.1, 1.]
+# 		partition = [0., 0.2, 0.5, 1.]
+		partition = [0.2, 0.8]
+# 		partition = [0., 0.1, 1.]
+
+		assert sum( partition ) == 1.0
+		for x in partition:
+			assert x > 0. and x <=1.
+		
 		level = self.constraint.get()
 		P_primes = compute_control_points_chain_with_constraint( partition, cps, handles, trans, level)
 

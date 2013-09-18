@@ -120,11 +120,10 @@ def precompute_A( M, a, b, num_samples = 100 ):
 	
 	A = zeros( (4, 4) )
 	tbar = ones( 4 )
-# 	dt = (b_prime-a_prime)/num_samples
 	dt = (1.0 - 0.)/num_samples
 	#for t in linspace( a, b, num_samples ):
 	for ti in xrange( num_samples ):
-# 		t = a_prime + (ti+.5) * dt
+	
 		t = ( ti + 0.5 ) * dt
 		
 		tbar[0] = t**3
@@ -137,4 +136,29 @@ def precompute_A( M, a, b, num_samples = 100 ):
 	A = A*(b-a)
 	
 	return dot(M, A)
+
+def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
+	### Compute the integral.
+	R = zeros( ( 4, 4 ) )
+	tbar = ones( 4 )
+
+	dt = (b-a)/num_samples
+	#for t in linspace( a, b, num_samples ):
+	for ti in xrange( num_samples ):
+		t = a + ( ti + .5 ) * dt
+		
+		tbar[0] = t**3
+		tbar[1] = t**2
+		tbar[2] = t
+ 		tbar = tbar.reshape( (4,1) )
+		
+		w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
+		
+		C_P = dot( M, tbar )
+		
+		R[:, 0] += asarray(w * tbar * C_P[0]).reshape(-1) 
+		R[:, 1] += asarray(w * tbar * C_P[1]).reshape(-1)
+		R[:, 2] += asarray(w * tbar * C_P[2]).reshape(-1)
+		R[:, 3] += asarray(w * tbar * C_P[3]).reshape(-1)	
 	
+	return R

@@ -1,5 +1,7 @@
 from numpy import *
 from weight_inverse_distance import *
+from copy import copy, deepcopy
+from myarray import *
 
 M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.')
 
@@ -11,11 +13,13 @@ def control_points_after_split( P, S ):
 	
 	S = asarray( S )
 	
-	if len( S ) < 2: 
-		return P
+	ref = 1.0
+	for i in range( len(S) ):
+		S[i] = S[i] / ref
+		ref = ( 1 - S[i] ) * ref
 	
 	result = []
-	for i, k in enumerate( S[1:-1] ):
+	for i, k in enumerate( S[:-1] ):
 		assert k > 0 and k < 1
 		
 		r1 = P[:-1]*(1.-k) + P[1:]*k
@@ -35,7 +39,7 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 	result = []
 	
 	Cset =  control_points_after_split( original_controls, partition ) 
-	Cset = Cset + original_controls.tolist()
+# 	Cset = Cset + original_controls.tolist()
 	Cset = asarray( Cset )
 	
 	if constraint_level == 0:
@@ -44,24 +48,25 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 #  		result = compute_control_points_chain_without_constraint_2( original_controls, partition, handles, transforms )	
 	elif constraint_level == 1:
 		
-		result = compute_control_points_chain_with_continuity( Cset, handles, transforms )
+		result = compute_control_points_chain_with_C0_continuity( Cset, handles, transforms, partition )
 	
 	elif constraint_level == 2:
 	
-		result = compute_control_points_chain_with_derivative_continuity( Cset, handles, transforms )
+		result = compute_control_points_chain_with_C1_continuity( Cset, handles, transforms, partition )
 	
 	elif constraint_level == 3:
 		
-		result = compute_control_points_chain_with_second_derivative_continuity( Cset, handles, transforms )
+		result = compute_control_points_chain_with_G1_continuity( Cset, handles, transforms, partition )
 
 	return result
 	
 def compute_control_points_chain_without_constraint( controls, handles, transforms ): 
 
 	result = []
+	num = len( transforms )
 	
 	inv_A = linalg.inv( precompute_A( M, 0., 1., 50 ) )					
-	for k in range( len( controls ) /4  ):
+	for k in range( num ):
 		
 		P_prime = zeros(12).reshape(3,4)
 		for i in range( len( handles ) ):
@@ -79,44 +84,19 @@ def compute_control_points_chain_without_constraint( controls, handles, transfor
 	return result
 
 '''
-	has bugs
-'''
-def compute_control_points_chain_without_constraint_2( controls, partition, handles, transforms ):
-
-	result = []
-	
-	for k in range( len( partition ) - 1  ):
-		
-		a, b = partition[k], partition[k+1]
-		a, b = 0.0, 0.5
-		inv_A = linalg.inv( precompute_A( M, a, b, 50 )	)
-		P_prime = zeros(12).reshape(3,4)
-		for i in range( len( handles ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-			W_i = precompute_W_i( handles, i, controls, M, a, b, 50 )
-			
-			P_prime = P_prime + T_i * mat(controls.T) * M * mat(W_i) * inv_A	
-
-		result.append( P_prime.T )
-	
-	return result
-
-'''
 	Compute the control points for each splited curve with endpoints connected.
 	Boundary Conditions are as follows:
 		lambda1 * ( P41' - Q11' ) = 0
 		lambda2 * ( P42' - Q12' ) = 0
 		lambda3 * ( P43' - Q13' ) = 0
 '''	
-def compute_control_points_chain_with_continuity( controls, handles, transforms ):
+def compute_control_points_chain_with_C0_continuity( controls, handles, transforms, partitions ):
 
 	temps = []
 	result = []
-	partitions = [0.1, 0.9]
 	
 	const_k = 3
-	num = len( controls ) /4 -1 # num is the number of splited curves
+	num = len( controls ) /4 # num is the number of splited curves
 	
 	A = precompute_A( M, 0., 1., 50 )
 	inv_M = linalg.inv( M )
@@ -169,6 +149,12 @@ def compute_control_points_chain_with_continuity( controls, handles, transforms 
 	for i in range(num):
 		result.append( X[:, i*const_k:(i+1)*const_k ] )		
 	
+	'''
+	for test
+	'''
+	
+	
+	
 	return result
 
 '''
@@ -181,14 +167,21 @@ def compute_control_points_chain_with_continuity( controls, handles, transforms 
 		lambda5 * ( P42' - P32' + Q12' - Q22') = 0
 		lambda6 * ( P43' - P33' + Q13' - Q23') = 0
 '''		
-def compute_control_points_chain_with_derivative_continuity( controls, handles, transforms ):
+def compute_control_points_chain_with_C1_continuity( controls, handles, transforms, partitions ):
+	
+	num = len( partitions )
+	mags = ones( (num, 2) )
+	result = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
+	
+	return result
+
+def compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags ):
 
 	temps = []
 	result = []
-	partitions = [0.1, 0.9]
 	
 	const_k = 3
-	num = len( controls ) /4 -1 # num is the number of splited curves
+	num = len( controls ) /4 # num is the number of splited curves
 	
 	A = precompute_A( M, 0., 1., 50 )
 	inv_M = linalg.inv( M )
@@ -231,9 +224,9 @@ def compute_control_points_chain_with_derivative_continuity( controls, handles, 
 	'''
 	assert len(partitions) == num	
 	for i in range( num-1 ): 
-		R_copy = R[:,:]	
-		R_copy[ :4*const_k, const_k: ] *= 1/partitions[i]
-		R_copy[ :4*const_k, const_k: ] *= 1/partitions[i+1]
+		R_copy = deepcopy( R )	
+		R_copy[ :4*const_k, const_k: ] *= mags[i][1]/partitions[i]
+		R_copy[ :4*const_k, const_k: ] *= mags[i+1][0]/partitions[i+1]
 		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1) ] = R_copy
 		Left[ num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R_copy.T
 	
@@ -253,9 +246,129 @@ def compute_control_points_chain_with_derivative_continuity( controls, handles, 
 	return result
 
 '''
+	Compute the control points for each splited curve with endpoints connected and the direction of the derivative at the endpoints collineared.
 '''	
-def compute_control_points_chain_with_second_derivative_continuity( controls, handles, transforms ):
-
+def compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions ):
+	
 	result = []
+	const_k = 3
+	num = len( partitions ) # num is the number of splited curves
+	
+	base = (const_k+1)*2	
+	solution = zeros( base*num )
+	mags = ones( (num, 2) )
+	v = []
+	r = []
+	
+	count = 0
+# 	for count in range( 3 ):
+	while True:
+		count += 1
+		if count == 4:
+			print 'stop at count: ', count
+			result = []
+			for i in range( num ):
+				P1 = solution[base*i: base*i+const_k*2 : 2]
+				P4 = solution[base*i+1: base*i+const_k*2 : 2]
+				P2 = P1 + solution[base*(i+1)-2]*v[i]
+				P3 = P4 - solution[base*(i+1)-1]*r[i]
+				#print solution, P1, P2, P3, P4
+				result.append( array([P1, P2, P3, P4]) )
+			break
+			
+		del v[:]
+		del r[:]
 		
+		result = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
+		old_solution = deepcopy( solution )
+		for i in range( num ):
+			solution[base*i: base*i+const_k*2 : 2] = result[i][0].reshape(-1) 
+			solution[base*i+1: base*i+const_k*2 : 2] = result[i][3].reshape(-1)
+			solution[base*(i+1)-2] = mag( result[i][1]-result[i][0] ) 		
+			solution[base*(i+1)-1] = mag( result[i][3]-result[i][2] )
+		## check if the new solution is close enough to previous solution
+		## if not, update the direction vector for each split
+		if allclose( old_solution, solution ):
+			print 'stop at count: ', count
+			break
+		else:
+			for i in range( num ):
+				v.append( dir( result[i][1]-result[i][0] ) )
+				r.append( dir( result[i][3]-result[i][2] ) )		
+	
+# 		Right = zeros( base*num + (num-1)*const_k )
+		Right = zeros( base*num )
+		for k in range( num ):	
+		
+			temp = zeros( (const_k, 4) )
+			for i in range( len( handles ) ):
+
+				T_i = mat( asarray(transforms[i]).reshape(const_k, const_k) )
+				partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 50 )		
+	
+				temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR)
+		
+			Right[k*base : k*base + const_k] = asarray(temp[:,0] +  temp[:,1]).reshape(-1)
+			Right[k*base + const_k : k*base + const_k*2 ] = asarray(temp[:,2] +  temp[:,3]).reshape(-1)
+			Right[(k+1)*base-2] = dot( asarray(temp[:,1]).reshape(-1), v[k] )
+			Right[(k+1)*base-1] = dot( asarray(temp[:,2]).reshape(-1), r[k] )	
+	
+# 		print 'G1 Right: ', Right.shape, Right
+		
+		AA1 = array([[(13./35.), (-19./70.)], [(-19./70.), (153./35.)]])
+		AA2 = array([[(11./70.), (-43./140.)], [(-29./140.), (361./70.)]])
+		
+		dim = len( Right )
+		Left = zeros( ( dim, dim ) )
+		
+		for k in range( num ):
+		
+			for i in range( const_k ):
+				
+				Left[ base*k+i*2:base*k+i*2+2, base*k+i*2:base*k+i*2+2 ] = AA1[:,:]
+				AA2_copy = deepcopy( AA2 )
+				AA2_copy[:, 0] *= v[k][i]
+				AA2_copy[:, 1] *= r[k][i]
+				Left[ base*k+i*2:base*k+i*2+2, base*(k+1)-2:base*(k+1) ] = AA2_copy[:,:]
+				Left[ base*(k+1)-2:base*(k+1), base*k+i*2:base*k+i*2+2 ] = AA2_copy[:,:].T
+			
+			tmp = -(33./140.)*dot(v[k], r[k])	
+			Left[ base*(k+1)-2:base*(k+1), base*(k+1)-2:base*(k+1) ] = array([[(3./35.), tmp], [tmp, (213./35.)]])
+		
+# 		R = zeros( ( 2*base, const_k ) )
+# 		for i in range( const_k ):
+# 			R[2*i+1, i] = 1
+# 			R[base+2*i, i] = -1	
+# 			
+# 		for i in range( num-1 ): 
+# 			Left[ base*i:base*(i+2), num*base+const_k*i:num*base+const_k*(i+1) ] = R
+# 			Left[ num*base+const_k*i:num*base+const_k*(i+1), base*i:base*(i+2) ] = R.T
+		'''
+		add weights
+		'''
+		for i in range( num ):
+			Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
+			Right[base*i:base*(i+1)] *= partitions[i]
+	
+		X = linalg.solve(Left, Right)	
+# 		X = array( X[:num*base] ).reshape(-1,2).T
+		if count == 1: 
+			print 'round 1: ', X[:base*num]
+		
+		if allclose( asarray(X[:base*num]), solution ):
+			print 'stop at count: ', count
+			result = []
+			for i in range( num ):
+				P1 = solution[base*i: base*i+const_k*2 : 2]
+				P4 = solution[base*i+1: base*i+const_k*2 : 2]
+				P2 = P1 + solution[base*(i+1)-2]*v[i]
+				P3 = P4 + solution[base*(i+1)-1]*r[i]
+				result.append( array([P1, P2, P3, P4]) )
+			break
+			
+		else:
+			solution = asarray(X[:base*num])
+			for i in range( num ):
+				mags[i, :] = X[base*(i+1)-2:base*(i+1)]  
+			
 	return result
