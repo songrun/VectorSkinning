@@ -3,9 +3,25 @@ from weight_inverse_distance import *
 from copy import copy, deepcopy
 from myarray import *
 
+try:
+   from pydb import debugger
+
+   ## Also add an exception hook.
+   import pydb, sys
+   sys.excepthook = pydb.exception_hook
+
+except ImportError:
+   import pdb
+   def debugger():
+       pdb.set_trace()
+
+
 M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.')
 
 def control_points_after_split( P, S ):
+	
+# 	fake = asarray([[200., 200., 1.], [200., 400., 1.], [600., 400., 1.], [600., 200., 1.]])
+# 	P = fake
 	
 	assert len( P.shape ) == 2
 	assert P.shape[0] == 4
@@ -44,7 +60,7 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 	
 	if constraint_level == 0:
 		
- 		result = compute_control_points_chain_without_constraint( Cset, handles, transforms )
+ 		result = compute_control_points_chain_without_constraint( Cset, handles, transforms, partition )
 #  		result = compute_control_points_chain_without_constraint_2( original_controls, partition, handles, transforms )	
 	elif constraint_level == 1:
 		
@@ -60,10 +76,10 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 
 	return result
 	
-def compute_control_points_chain_without_constraint( controls, handles, transforms ): 
+def compute_control_points_chain_without_constraint( controls, handles, transforms, partitions ): 
 
 	result = []
-	num = len( transforms )
+	num = len( partitions )
 	
 	inv_A = linalg.inv( precompute_A( M, 0., 1., 50 ) )					
 	for k in range( num ):
@@ -73,9 +89,6 @@ def compute_control_points_chain_without_constraint( controls, handles, transfor
 
 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
 			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 50 )		
-			
-			#for num_samples in xrange(1,501):
-			#	writer.writerow( [ num_samples, i ] + list( precompute_W_i( handles, i, cps, M, 0., 1., num_samples ).flat ) )
 			
 			P_prime = P_prime + T_i * (controls[k*4:k*4+4].T) * M * mat(W_i) * inv_A	
 
@@ -171,6 +184,9 @@ def compute_control_points_chain_with_C1_continuity( controls, handles, transfor
 	
 	num = len( partitions )
 	mags = ones( (num, 2) )
+	for i in range( len( partitions ) ):
+		mags[i] *= partitions[i]
+	print 'mags: ', mags
 	result = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
 	
 	return result
@@ -225,8 +241,9 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( control
 	assert len(partitions) == num	
 	for i in range( num-1 ): 
 		R_copy = deepcopy( R )	
-		R_copy[ :4*const_k, const_k: ] *= mags[i][1]/partitions[i]
-		R_copy[ :4*const_k, const_k: ] *= mags[i+1][0]/partitions[i+1]
+		R_copy[ :4*const_k, const_k: ] /= mags[i][1]
+		R_copy[ 4*const_k:, const_k: ] /= mags[i+1][0]
+		print 'R', R, 'R_copy ', R_copy
 		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1) ] = R_copy
 		Left[ num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R_copy.T
 	
@@ -257,21 +274,24 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 	base = (const_k+1)*2	
 	solution = zeros( base*num )
 	mags = ones( (num, 2) )
+	for i in range( len( partitions ) ):
+		mags[i] *= partitions[i]
 	v = []
 	r = []
 	
+# 	debugger()
 	count = 0
-# 	for count in range( 3 ):
 	while True:
 		count += 1
-		if count == 4:
+		if count == 20:
 			print 'stop at count: ', count
 			result = []
+			
 			for i in range( num ):
 				P1 = solution[base*i: base*i+const_k*2 : 2]
 				P4 = solution[base*i+1: base*i+const_k*2 : 2]
 				P2 = P1 + solution[base*(i+1)-2]*v[i]
-				P3 = P4 - solution[base*(i+1)-1]*r[i]
+				P3 = P4 + solution[base*(i+1)-1]*r[i]
 				#print solution, P1, P2, P3, P4
 				result.append( array([P1, P2, P3, P4]) )
 			break
@@ -280,6 +300,7 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 		del r[:]
 		
 		result = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
+		
 		old_solution = deepcopy( solution )
 		for i in range( num ):
 			solution[base*i: base*i+const_k*2 : 2] = result[i][0].reshape(-1) 
@@ -288,7 +309,7 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 			solution[base*(i+1)-1] = mag( result[i][3]-result[i][2] )
 		## check if the new solution is close enough to previous solution
 		## if not, update the direction vector for each split
-		if allclose( old_solution, solution ):
+		if allclose( old_solution, solution, atol = 0.01 ):
 			print 'stop at count: ', count
 			break
 		else:
@@ -296,8 +317,8 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 				v.append( dir( result[i][1]-result[i][0] ) )
 				r.append( dir( result[i][3]-result[i][2] ) )		
 	
-# 		Right = zeros( base*num + (num-1)*const_k )
-		Right = zeros( base*num )
+		Right = zeros( base*num + (num-1)*const_k )
+# 		Right = zeros( base*num )
 		for k in range( num ):	
 		
 			temp = zeros( (const_k, 4) )
@@ -305,18 +326,18 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 
 				T_i = mat( asarray(transforms[i]).reshape(const_k, const_k) )
 				partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 50 )		
-	
-				temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR)
-		
-			Right[k*base : k*base + const_k] = asarray(temp[:,0] +  temp[:,1]).reshape(-1)
-			Right[k*base + const_k : k*base + const_k*2 ] = asarray(temp[:,2] +  temp[:,3]).reshape(-1)
+				
+ 				temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR)
+			
+			Right[k*base : k*base + const_k*2 : 2] = asarray(temp[:,0] +  temp[:,1]).reshape(-1)
+			Right[k*base + 1 : k*base + const_k*2 : 2 ] = asarray(temp[:,2] +  temp[:,3]).reshape(-1)
 			Right[(k+1)*base-2] = dot( asarray(temp[:,1]).reshape(-1), v[k] )
 			Right[(k+1)*base-1] = dot( asarray(temp[:,2]).reshape(-1), r[k] )	
 	
 # 		print 'G1 Right: ', Right.shape, Right
 		
-		AA1 = array([[(13./35.), (-19./70.)], [(-19./70.), (153./35.)]])
-		AA2 = array([[(11./70.), (-43./140.)], [(-29./140.), (361./70.)]])
+		AA1 = array([[(13./35.), (9./70.)], [(9./70.), (13./35.)]])
+		AA2 = array([[(11./70.), (13./140.)], [(13./140.), (11./70.)]])
 		
 		dim = len( Right )
 		Left = zeros( ( dim, dim ) )
@@ -332,17 +353,17 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 				Left[ base*k+i*2:base*k+i*2+2, base*(k+1)-2:base*(k+1) ] = AA2_copy[:,:]
 				Left[ base*(k+1)-2:base*(k+1), base*k+i*2:base*k+i*2+2 ] = AA2_copy[:,:].T
 			
-			tmp = -(33./140.)*dot(v[k], r[k])	
-			Left[ base*(k+1)-2:base*(k+1), base*(k+1)-2:base*(k+1) ] = array([[(3./35.), tmp], [tmp, (213./35.)]])
-		
-# 		R = zeros( ( 2*base, const_k ) )
-# 		for i in range( const_k ):
-# 			R[2*i+1, i] = 1
-# 			R[base+2*i, i] = -1	
-# 			
-# 		for i in range( num-1 ): 
-# 			Left[ base*i:base*(i+2), num*base+const_k*i:num*base+const_k*(i+1) ] = R
-# 			Left[ num*base+const_k*i:num*base+const_k*(i+1), base*i:base*(i+2) ] = R.T
+			tmp = (9./140.)*dot(v[k], r[k])	
+			Left[ base*(k+1)-2:base*(k+1), base*(k+1)-2:base*(k+1) ] = array([[(3./35.), tmp], [tmp, (3./35.)]])
+			
+		R = zeros( ( 2*base, const_k ) )
+		for i in range( const_k ):
+			R[2*i+1, i] = 1
+			R[base+2*i, i] = -1	
+			
+		for i in range( num-1 ): 
+			Left[ base*i:base*(i+2), num*base+const_k*i:num*base+const_k*(i+1) ] = R
+			Left[ num*base+const_k*i:num*base+const_k*(i+1), base*i:base*(i+2) ] = R.T
 		'''
 		add weights
 		'''
@@ -351,11 +372,8 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 			Right[base*i:base*(i+1)] *= partitions[i]
 	
 		X = linalg.solve(Left, Right)	
-# 		X = array( X[:num*base] ).reshape(-1,2).T
-		if count == 1: 
-			print 'round 1: ', X[:base*num]
 		
-		if allclose( asarray(X[:base*num]), solution ):
+		if allclose( asarray(X[:base*num]), solution, atol = 0.01 ):
 			print 'stop at count: ', count
 			result = []
 			for i in range( num ):
@@ -371,4 +389,5 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 			for i in range( num ):
 				mags[i, :] = X[base*(i+1)-2:base*(i+1)]  
 			
+	print 'result: ', result
 	return result

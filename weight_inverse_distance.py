@@ -28,9 +28,12 @@ def precompute_W_i( handle_positions, i, P, M, a, b, num_samples = 100 ):
 	assert len( handle_positions.shape ) == 2
 	assert handle_positions.shape[1] == P.shape[1]
 	
+
+	print P.shape, P
 	## P must be 4-by-k.
 	assert len( P.shape ) == 2
 	assert P.shape[0] == 4
+	
 	## M must be 4-by-4.
 	assert M.shape == (4,4)
 	
@@ -147,6 +150,7 @@ def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
 	for ti in xrange( num_samples ):
 		t = a + ( ti + .5 ) * dt
 		
+		
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
@@ -156,9 +160,9 @@ def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
 		
 		C_P = dot( M, tbar )
 		
-		R[:, 0] += asarray(w * tbar * C_P[0]).reshape(-1) 
-		R[:, 1] += asarray(w * tbar * C_P[1]).reshape(-1)
-		R[:, 2] += asarray(w * tbar * C_P[2]).reshape(-1)
-		R[:, 3] += asarray(w * tbar * C_P[3]).reshape(-1)	
+		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
+		R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
+		R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
+		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
 	
 	return R

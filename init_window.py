@@ -318,9 +318,8 @@ class Window:
 		writer = csv.writer( open( uniquepath( 'integration_accuracy.csv' ), 'w' ) )
 		'''
 		
-# 		partition = [0., 0.2, 0.5, 1.]
-		partition = [0.2, 0.8]
-# 		partition = [0., 0.1, 1.]
+#		partition = [0.2, 0.4, 0.4]
+ 		partition = [0.2, 0.8]
 
 		assert sum( partition ) == 1.0
 		for x in partition:
