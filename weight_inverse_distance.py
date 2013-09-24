@@ -28,8 +28,6 @@ def precompute_W_i( handle_positions, i, P, M, a, b, num_samples = 100 ):
 	assert len( handle_positions.shape ) == 2
 	assert handle_positions.shape[1] == P.shape[1]
 	
-
-	print P.shape, P
 	## P must be 4-by-k.
 	assert len( P.shape ) == 2
 	assert P.shape[0] == 4
