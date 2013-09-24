@@ -71,7 +71,7 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 	
 	elif constraint_level == 3:
 		
-		debugger()
+ 		debugger()
 		result = compute_control_points_chain_with_G1_continuity( Cset, handles, transforms, partition )
 
 	return result
@@ -261,7 +261,7 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 	
 	assert mags is None or dirs is None
 	
-	if index >= 20:
+	if index >= 10:
 		print 'stop at index: ', index
 		return old_solution
 # 		return [old_solution, index]
@@ -285,7 +285,7 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 		else:
 			for i in range( num ):
 				dirs[i][0] = dir( (solution[i][1]-solution[i][0])[:2] ) 
-				dirs[i][1] = dir( (solution[i][3]-solution[i][2])[:2] ) 
+				dirs[i][1] = dir( (solution[i][2]-solution[i][3])[:2] ) 
 	
 # 		return [solution, index+1]
 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, dirs = dirs, index = index+1 )
@@ -305,7 +305,7 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 		else:
 			for i in range( num ):
 				mags[i][0] = mag( (solution[i][1]-solution[i][0])[:2] )  
-				mags[i][1] = mag( (solution[i][3]-solution[i][2])[:2] ) 
+				mags[i][1] = mag( (solution[i][2]-solution[i][3])[:2] ) 
 
 # 		return [solution, index+1]
 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, mags = mags, index = index+1 )
