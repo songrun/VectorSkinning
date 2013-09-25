@@ -336,7 +336,7 @@ class Window:
         assert sum( partition ) == 1.0
         for x in partition:
             assert x > 0. and x <=1.
-            
+        '''    
         P_primes = compute_control_points_chain_with_constraint( partition, cps, handles, trans, level)
         #del writer
 
@@ -358,7 +358,8 @@ class Window:
                 p = np.dot( np.asarray( [t**3, t**2, t, 1] ), known )
                 ps = ps + [p[0], p[1]]  
             self.canvas.create_line(ps, smooth=True, width=2, fill=colors[i], tags='approximated')
-    '''     
+        '''
+         
         if level != 3:
             P_primes = compute_control_points_chain_with_constraint( partition, cps, handles, trans, level)
             #del writer
@@ -390,7 +391,7 @@ class Window:
             result = []
             count = 0
                     
-#           debugger()
+            debugger()
             for cc in range(20):
                 if count % 2 == 0:
                     mags = ones( (num, 2) )
@@ -414,6 +415,7 @@ class Window:
                 P_primes = result[0]
                 #del writer
                 # new control points
+                self.canvas.delete( 'new_controls' )
                 for i in range( len( P_primes ) ):
                     for pp in P_primes[i]:
                         pp = asarray( pp ).reshape(-1)
@@ -421,6 +423,7 @@ class Window:
                         x0, x1, y0, y1 = pp[0]-r, pp[0]+r, pp[1]-r, pp[1]+r
                         self.canvas.create_oval(x0, y0, x1, y1, fill=colors[count*num+i], outline=colors[count*num+i], tags='new_controls')
 
+		        self.canvas.delete( 'approximated' )
                 num_sample = 100
                 for i in range( len( P_primes ) ):
                     known = asarray( M * P_primes[i] ).reshape(4, -1)   
@@ -432,7 +435,7 @@ class Window:
                         ps = ps + [p[0], p[1]]  
                     self.canvas.create_line(ps, smooth=True, width=2, fill=colors[count*num+i], tags='approximated')
             
-    '''     
+         
 
 
     '''
