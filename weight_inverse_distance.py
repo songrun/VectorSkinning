@@ -1,5 +1,17 @@
 from numpy import *
 
+try:
+   from pydb import debugger
+
+   ## Also add an exception hook.
+   import pydb, sys
+   sys.excepthook = pydb.exception_hook
+
+except ImportError:
+   import pdb
+   def debugger():
+       pdb.set_trace()
+       
 def precompute_W_i( handle_positions, i, P, M, a, b, num_samples = 100 ):
 	'''
 	Given a sequence of k-dimensional handle positions,
@@ -164,3 +176,36 @@ def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
 		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
 	
 	return R
+
+## Compute error computed by numerical approach
+def compute_error_metric( transforms, handle_positions, P_primes, P, M, num_samples = 100, dim = 3 ):
+	
+	P_primes = asarray( P_primes )
+	P = asarray( P )
+	M = asarray( M )
+	
+	assert P_primes.shape == (4, dim)
+	assert P.shape == (4, dim)
+	assert M.shape == (4, 4)
+	
+	Error = 0.0
+	tbar = ones( 4 )
+	dt = 1./num_samples
+	#for t in linspace( a, b, num_samples ):
+	for ti in xrange( num_samples ):
+		t = ( ti + .5 ) * dt
+		
+		tbar[0] = t**3
+		tbar[1] = t**2
+		tbar[2] = t
+ 		tbar = tbar.reshape( (4,1) )
+		
+		tmp = 0
+		for i in range( len( transforms ) ):
+			w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
+			tmp += w * dot( transforms[i].reshape(3,3),  dot( dot(P.T, M), tbar ) )
+			
+		diff = dot( dot(P_primes.T, M), tbar ) - tmp 
+		Error += dot( diff.T, diff ) * dt
+		
+	return Error

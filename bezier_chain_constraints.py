@@ -15,8 +15,15 @@ except ImportError:
    def debugger():
        pdb.set_trace()
 
+## The bezier curve's coefficient matrix
+M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.') 
+## The dimensions of a point represented in the homogeneous coordinates
+dim = 3
 
-M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.')
+## Compute the control points for each split curve, and return them in a list
+## input: 	The 4-by-dim control points of the original bezier curve
+## 			A list containing the fractions for each split
+## output:	A list containing the same number of control points as the splits
 
 def control_points_after_split( P, S ):
 	
@@ -49,18 +56,22 @@ def control_points_after_split( P, S ):
 	
 	return result
 
+
+## A method the dispatch different specific methods to do the approximation 
+## according to the constraint requirement indicated by constraint_level
+
 def compute_control_points_chain_with_constraint( partition, original_controls, handles, transforms, constraint_level ):
 
 	result = []
 	
 	Cset =  control_points_after_split( original_controls, partition ) 
-# 	Cset = Cset + original_controls.tolist()
+
 	Cset = asarray( Cset )
 	
 	if constraint_level == 0:
 		
  		result = compute_control_points_chain_without_constraint( Cset, handles, transforms, partition )
-#  		result = compute_control_points_chain_without_constraint_2( original_controls, partition, handles, transforms )	
+
 	elif constraint_level == 1:
 		
 		result = compute_control_points_chain_with_C0_continuity( Cset, handles, transforms, partition )
@@ -75,7 +86,9 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 		result = compute_control_points_chain_with_G1_continuity( Cset, handles, transforms, partition )
 
 	return result
-	
+
+
+## Optimize the approximation without any constraint on joints and return the control points of each optimized split bezier in a list	
 def compute_control_points_chain_without_constraint( controls, handles, transforms, partitions ): 
 
 	result = []
@@ -96,30 +109,30 @@ def compute_control_points_chain_without_constraint( controls, handles, transfor
 	
 	return result
 
-'''
-	Compute the control points for each splited curve with endpoints connected.
-	Boundary Conditions are as follows:
-		lambda1 * ( P41' - Q11' ) = 0
-		lambda2 * ( P42' - Q12' ) = 0
-		lambda3 * ( P43' - Q13' ) = 0
-'''	
+
+##	Optimize the approximation with all splits connected and return the control points of each optimized split bezier in a list.
+##	Boundary Conditions are as follows:
+## 		lambda1 * ( P41' - Q11' ) = 0
+## 		lambda2 * ( P42' - Q12' ) = 0
+## 		lambda3 * ( P43' - Q13' ) = 0
+	
 def compute_control_points_chain_with_C0_continuity( controls, handles, transforms, partitions ):
 
 	temps = []
 	result = []
-	
-	const_k = 3
-	num = len( controls ) /4 # num is the number of splited curves
+
+	num = len( partitions ) # num is the number of splited curves
+	base = dim * 4
 	
 	A = precompute_A( M, 0., 1., 50 )
 	inv_M = linalg.inv( M )
 	
 	for k in range( num ):
 
-		C = zeros(const_k*4).reshape(const_k,4)
+		C = zeros( (dim, 4) )
 		for i in range( len( handles ) ):
 
-			T_i = mat( asarray(transforms[i]).reshape(const_k,const_k) )
+			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
 			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 50 )	
 	
 			C = C + T_i * (controls[k*4:k*4+4].T) * M * mat(W_i) * M
@@ -129,51 +142,54 @@ def compute_control_points_chain_with_C0_continuity( controls, handles, transfor
 	Right = []
 
 	for R in temps:
-		Right = Right + (R.T.reshape(const_k*4)).tolist()
-	Right = array( Right + zeros( const_k * (num-1) ).tolist() )
+		Right = Right + (R.T.reshape(-1)).tolist()
+	Right = array( Right + zeros( dim * (num-1) ).tolist() )
 	
-	dim = len( Right )
+	rank = len( Right )
 	AA = M.T * A.T
 	assert AA.shape == (4,4)
 	
-	Left =  zeros( (dim, dim) )		
-	for i in range( num * const_k ):
+	Left =  zeros( (rank, rank) )		
+	for i in range( num * dim ):
 		Left[ i*4:i*4+4, i*4:i*4+4 ] = AA[:,:]
 	
-	R = zeros( ( 8*const_k, const_k ) )
-	for i in range( const_k ):
+	R = zeros( ( 2*base, dim ) )
+	for i in range( dim ):
 		R[i*4+3, i] = 1
-		R[4*const_k + i*4, i] = -1
+		R[base + i*4, i] = -1
 		
 	for i in range( num-1 ): 
-		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+const_k*i:num*const_k*4+const_k*(i+1) ] = R
-		Left[ num*const_k*4+const_k*i:num*const_k*4+const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R.T
+		Left[ base*i:(i+2)*base, num*base+dim*i:num*base+dim*(i+1) ] = R
+		Left[ num*base+dim*i:num*base+dim*(i+1), base*i:(i+2)*base ] = R.T
 	
 	'''
 	add weights
 	'''
 	for i in range( num ):
-		Left[4*const_k*i:4*(i+1)*const_k, 4*const_k*i:4*(i+1)*const_k] *= partitions[i]
-		Right[4*const_k*i:4*(i+1)*const_k] *= partitions[i]
+		Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
+		Right[base*i:base*(i+1)] *= partitions[i]
 		
 	X = linalg.solve(Left, Right)	
-	X = array( X[:num*const_k*4] ).reshape(-1,4).T
+	X = array( X[:num*base] ).reshape(-1,4).T
 	
 	for i in range(num):
-		result.append( X[:, i*const_k:(i+1)*const_k ] )		
+		result.append( X[:, i*dim:(i+1)*dim ] )		
 		
 	return result
 
-'''
-	Compute the control points for each splited curve with endpoints connected and the derivative at the endpoints equaled.
-	Boundary Conditions are as follows:
-		lambda1 * ( P41' - Q11' ) = 0
-		lambda2 * ( P42' - Q12' ) = 0
-		lambda3 * ( P43' - Q13' ) = 0
-		lambda4 * ( P41' - P31' + Q11' - Q21') = 0
-		lambda5 * ( P42' - P32' + Q12' - Q22') = 0
-		lambda6 * ( P43' - P33' + Q13' - Q23') = 0
-'''		
+
+## 	Optimize the approximation with constraints that all splits connected, 
+##	the magnitudes of derivatives at joints are identical with the corresponding fraction, 
+##	and the directions of derivatives at joints are collinear.
+##	Then return the control points of each optimized split bezier in a list.
+## 	Boundary Conditions are as follows:
+## 		lambda1 * ( P41' - Q11' ) = 0
+## 		lambda2 * ( P42' - Q12' ) = 0
+## 		lambda3 * ( P43' - Q13' ) = 0
+## 		lambda4 * ( P41' - P31' + Q11' - Q21') = 0
+## 		lambda5 * ( P42' - P32' + Q12' - Q22') = 0
+## 		lambda6 * ( P43' - P33' + Q13' - Q23') = 0
+		
 def compute_control_points_chain_with_C1_continuity( controls, handles, transforms, partitions ):
 	
 	num = len( partitions )
@@ -181,27 +197,33 @@ def compute_control_points_chain_with_C1_continuity( controls, handles, transfor
 	for i in range( len( partitions ) ):
 		mags[i] *= partitions[i]
 	result = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
-	
+
 	return result
+
+
+## 	Optimize the approximation with constraints that all splits connected, 
+##	a given magnitudes proportion of derivatives at joints, 
+##	and the directions of derivatives at joints are collinear.
+##	then return the control points of each optimized split bezier in a list.
 
 def compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags ):
 
 	temps = []
 	result = []
 	
-	const_k = 3
-	num = len( controls ) /4 # num is the number of splited curves
+	num = len( partitions ) # num is the number of splited curves
+	base = dim * 4
 	
-	A = precompute_A( M, 0., 1., 50 )
+# 	A = precompute_A( M, 0., 1., 50 )
 	inv_M = linalg.inv( M )
 	
 	for k in range( num ):
 
-		C = zeros(const_k*4).reshape(const_k,4)
+		C = zeros( (dim, 4) )
 		for i in range( len( handles ) ):
 
-			T_i = mat( asarray(transforms[i]).reshape(const_k,const_k) )
-			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 50 )	
+			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
+			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )	
 	
 			C = C + T_i * (controls[k*4:k*4+4].T) * M * mat(W_i) * M
 	
@@ -210,23 +232,25 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( control
 	Right = []
 
 	for R in temps:
-		Right = Right + (R.T.reshape(const_k*4)).tolist()
-	Right = array( Right + zeros( 2 * const_k * (num-1) ).tolist() )
+		Right = Right + (R.T.reshape(-1)).tolist()
+	Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
 	
-	dim = len( Right )
-	AA = M.T * A.T
+	rank = len( Right )
+# 	AA = M.T * A.T
+	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+
 	assert AA.shape == (4,4)
 	
-	Left =  zeros( (dim, dim) )		
-	for i in range( num * const_k ):
+	Left =  zeros( (rank, rank) )		
+	for i in range( num * dim ):
 		Left[ i*4:i*4+4, i*4:i*4+4 ] = AA[:,:]
 	
-	R = zeros( ( 8*const_k, 2*const_k ) )
-	for i in range( const_k ):
-		R[i*4+3, i] = R[i*4+3, i+const_k] = 1
-		R[i*4+2, i+const_k] = -1
-		R[4*const_k+i*4, i] = R[4*const_k+i*4+1, i+const_k] = -1
-		R[4*const_k+i*4, i+const_k] = 1
+	R = zeros( ( 2*base, 2*dim ) )
+	for i in range( dim ):
+		R[i*4+3, i] = R[i*4+3, i+dim] = 1
+		R[i*4+2, i+dim] = -1
+		R[base+i*4, i] = R[base+i*4+1, i+dim] = -1
+		R[base+i*4, i+dim] = 1
 		
 	'''
 	add weights to lambda
@@ -234,81 +258,93 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( control
 	assert len(partitions) == num	
 	for i in range( num-1 ): 
 		R_copy = deepcopy( R )	
-		R_copy[ :4*const_k, const_k: ] /= mags[i][1]
-		R_copy[ 4*const_k:, const_k: ] /= mags[i+1][0]
-		Left[ 4*const_k*i:(4*i+8)*const_k, num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1) ] = R_copy
-		Left[ num*const_k*4+2*const_k*i:num*const_k*4+2*const_k*(i+1), 4*const_k*i:(4*i+8)*const_k ] = R_copy.T
+		R_copy[ :base, dim: ] /= mags[i][1]
+		R_copy[ base:, dim: ] /= mags[i+1][0]
+		Left[ base*i:(i+2)*base, num*base+2*dim*i:num*base+2*dim*(i+1) ] = R_copy
+		Left[ num*base+2*dim*i:num*base+2*dim*(i+1), base*i:(i+2)*base ] = R_copy.T
 	
 	'''
 	add weights
 	'''
 	for i in range( num ):
-		Left[4*const_k*i:4*(i+1)*const_k, 4*const_k*i:4*(i+1)*const_k] *= partitions[i]
-		Right[4*const_k*i:4*(i+1)*const_k] *= partitions[i]
+		Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
+		Right[base*i:base*(i+1)] *= partitions[i]
 		
 	X = linalg.solve(Left, Right)	
-	X = array( X[:num*const_k*4] ).reshape(-1,4).T
+	X = array( X[:num*base] ).reshape(-1,4).T
 	
 	for i in range(num):
-		result.append( X[:, i*const_k:(i+1)*const_k ] )		
+		result.append( X[:, i*dim:(i+1)*dim ] )		
 	
 	return result
 
-'''
-	Compute the control points for each splited curve with endpoints connected and the direction of the derivative at the endpoints collineared.
-'''	
+
+## 	Optimize the approximation with all splits connected and the directions of derivatives at joints collinear. 
+##	then return the control points of each optimized split bezier in a list.
+	
 def compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = None, mags = None, dirs = None, index = 0):
 	
 	assert mags is None or dirs is None
 	
-	if index >= 10:
+	if index >= 20:
 		print 'stop at index: ', index
-# 		return old_solution
-		return [old_solution, index]
+ 		return old_solution
+#		return [old_solution, index]
 		
 	rs = []
-	const_k = 3
 	num = len( partitions ) # num is the number of splited curves		
 	
 	if mags is not None:
 		
 		assert mags.shape == (num, 2)
-		dirs = ones( (num, 2, const_k-1) )
-		
+ 		dirs = ones( (num, 2, dim-1) )
+			
 		solution = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
 		## check if the new solution is close enough to previous solution
 		## if not, update the direction vector for each split
-		if old_solution is not None and allclose( old_solution, solution, atol = 0.5 ):
+		error = 0.0
+		for k in range( len( solution ) ):
+	 		error += compute_error_metric(transforms, handles, solution[k], controls[k*4:k*4+4], M )*partitions[k]
+	 	print 'mags error: ', error
+	 	
+		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
 			print 'stop at index: ', index
-			return [solution, index]
-# 			return solution
+#			return [solution, index]
+ 			return solution
 		else:
 			for i in range( num ):
 				dirs[i][0] = dir( (solution[i][1]-solution[i][0])[:2] ) 
 				dirs[i][1] = dir( (solution[i][2]-solution[i][3])[:2] ) 
 	
-		return [solution, index+1]
-# 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, dirs = dirs, index = index+1 )
+#		return [solution, index+1]
+ 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, dirs = dirs, index = index+1 )
 		
 	elif dirs is not None:	
 	
-		assert dirs.shape == (num, 2, const_k-1 )
-		mags = ones( (num, 2) )
-		
+		assert dirs.shape == (num, 2, dim-1 )
+		mags = ones( (num, 2) )		
+
 		solution = compute_control_points_chain_fixing_directions( controls, handles, transforms, partitions, dirs[:, 0, :], dirs[:, 1, :])
+		
 		## get result of the iteration, and check if the result is stable
+		
+		error = 0.0	
+		for k in range( len( solution ) ):
+	 		error += compute_error_metric(transforms, handles, solution[k], controls[k*4:k*4+4], M )*partitions[k]
+	 	print 'dirs error: ', error
+		
 		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
 			print 'stop at index: ', index
-			return [solution, index]
-#  			return solution
+#			return [solution, index]
+  			return solution
 			
 		else:
 			for i in range( num ):
 				mags[i][0] = mag( (solution[i][1]-solution[i][0])[:2] )  
 				mags[i][1] = mag( (solution[i][2]-solution[i][3])[:2] ) 
 
-		return [solution, index+1]
-# 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, mags = mags, index = index+1 )
+#		return [solution, index+1]
+ 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, mags = mags, index = index+1 )
 
 	else:	
 	
@@ -318,43 +354,47 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 			
  		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, mags = mags )
 
+
+## 	Optimize the approximation with contraints that all splits connected,
+## 	A given magnitude proportion of derivatives at joints,
+##	and the directions of derivatives at joints are collinear. 
+##	then return the control points of each optimized split bezier in a list.
 	
 def compute_control_points_chain_fixing_directions( controls, handles, transforms, partitions, dir1, dir2): 
 
 	dir1 = append( dir1, zeros((len( dir1 ),1)), axis = 1 )
 	dir2 = append( dir2, zeros((len( dir2 ),1)), axis = 1 )
 	
-	const_k = 3
 	num = len( partitions ) # num is the number of splited curves
 	result = []
-	base = (const_k+1)*2	
+	base = (dim+1)*2	
 		
 	## A new iteration starts which fix the direction but optimize the magnitudes.
-	Right = zeros( base*num + (num-1)*const_k )
+	Right = zeros( base*num + (num-1)*dim )
 	for k in range( num ):	
 	
-		temp = zeros( (const_k, 4) )
+		temp = zeros( (dim, 4) )
 		for i in range( len( handles ) ):
 
-			T_i = mat( asarray(transforms[i]).reshape(const_k, const_k) )
-			partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 50 )		
+			T_i = mat( asarray(transforms[i]).reshape(dim, dim) )
+			partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )		
 			
-			temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR)
+			temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR) 
 		
-		Right[k*base : k*base + const_k*2 : 2] = asarray(temp[:,0] +  temp[:,1]).reshape(-1)
-		Right[k*base + 1 : k*base + const_k*2 : 2 ] = asarray(temp[:,2] +  temp[:,3]).reshape(-1)
+		Right[k*base : k*base + dim*2 : 2] = asarray(temp[:,0] +  temp[:,1]).reshape(-1)
+		Right[k*base + 1 : k*base + dim*2 : 2 ] = asarray(temp[:,2] +  temp[:,3]).reshape(-1)
 		Right[(k+1)*base-2] = dot( asarray(temp[:,1]).reshape(-1), dir1[k] )
 		Right[(k+1)*base-1] = dot( asarray(temp[:,2]).reshape(-1), dir2[k] )	
 	
 	AA1 = array([[(13./35.), (9./70.)], [(9./70.), (13./35.)]])
 	AA2 = array([[(11./70.), (13./140.)], [(13./140.), (11./70.)]])
 	
-	dim = len( Right )
-	Left = zeros( ( dim, dim ) )
-	
+	rank = len( Right )
+	Left = zeros( ( rank, rank ) )
+
 	for k in range( num ):
 	
-		for i in range( const_k ):
+		for i in range( dim ):
 			
 			Left[ base*k+i*2:base*k+i*2+2, base*k+i*2:base*k+i*2+2 ] = AA1[:,:]
 			AA2_copy = deepcopy( AA2 )
@@ -366,14 +406,14 @@ def compute_control_points_chain_fixing_directions( controls, handles, transform
 		tmp = (9./140.)*dot(dir1[k], dir2[k])	
 		Left[ base*(k+1)-2:base*(k+1), base*(k+1)-2:base*(k+1) ] = array([[(3./35.)*mag2(dir1[k]), tmp], [tmp, (3./35.)*mag2(dir2[k])]])
 		
-	R = zeros( ( 2*base, const_k ) )
-	for i in range( const_k ):
-		R[2*i+1, i] = 1
-		R[base+2*i, i] = -1	
+	R = zeros( ( 2*base, dim ) )
+	for i in range( dim ):
+		R[2*i+1, i] = 1 # should be 0.5, but it doesn't affect the result
+		R[base+2*i, i] = -1
 		
 	for i in range( num-1 ): 
-		Left[ base*i:base*(i+2), num*base+const_k*i:num*base+const_k*(i+1) ] = R
-		Left[ num*base+const_k*i:num*base+const_k*(i+1), base*i:base*(i+2) ] = R.T
+		Left[ base*i:base*(i+2), num*base+dim*i:num*base+dim*(i+1) ] = R
+		Left[ num*base+dim*i:num*base+dim*(i+1), base*i:base*(i+2) ] = R.T
 	'''
 	add weights
 	'''
@@ -383,8 +423,9 @@ def compute_control_points_chain_fixing_directions( controls, handles, transform
 
 	X = linalg.solve(Left, Right)
 	solution = asarray(X[:base*num])
+	
 	for i in range( num ):
-		P1, P4 = solution[base*i: base*i+const_k*2 : 2], solution[base*i+1: base*i+const_k*2 : 2]
+		P1, P4 = solution[base*i: base*i+dim*2 : 2], solution[base*i+1: base*i+dim*2 : 2]
 		P2, P3 = P1 + solution[base*(i+1)-2]*dir1[i], P4 + solution[base*(i+1)-1]*dir2[i]
 		
 		result.append(asarray([P1, P2, P3, P4]))
