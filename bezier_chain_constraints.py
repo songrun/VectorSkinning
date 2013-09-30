@@ -19,6 +19,21 @@ except ImportError:
 M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.') 
 ## The dimensions of a point represented in the homogeneous coordinates
 dim = 3
+## Two set of precomputed parameters
+precomputes_1 = []
+precomputes_2 = []
+
+## update the two set of precomputed parameters
+def update_precomputation_of_controls_or_handles(cps, handles):
+	
+	del precomputes_1[:]
+	del precomputes_2[:]
+	
+	for i in range( len(handles ) ):
+	
+		precomputes_1.append( precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 ) )
+		precomputes_2.append( precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 ) )
+		
 
 ## Compute the control points for each split curve, and return them in a list
 ## input: 	The 4-by-dim control points of the original bezier curve
@@ -63,8 +78,14 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 	result = []
 	
 	Cset =  control_points_after_split( original_controls, partition ) 
-
 	Cset = asarray( Cset )
+	
+# 	s = [0.] + cumsum(partition).tolist()
+# 	print s
+# 	for k in range( len( partition ) ):
+# 		for i in range( len( handles ) ):
+# 			print 'haha1: ', precompute_W_i( handles, i, original_controls, M, s[k], s[k+1], 100 )
+# 			print 'haha2: ', precompute_W_i( handles, i, Cset[k*4:k*4+4], M, 0., 1., 100 )
 	
 	if constraint_level == 0:
 		
@@ -243,9 +264,9 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( right, 
 	'''
 	assert len(partitions) == num	
 	for i in range( num-1 ): 
-		R_copy = deepcopy( R )	
-		R_copy[ :base, dim: ] /= mags[i][1]
-		R_copy[ base:, dim: ] /= mags[i+1][0]
+		R_copy = deepcopy( R )
+		R_copy[ :base, dim: ] *= mags[i+1][0]
+		R_copy[ base:, dim: ] *= mags[i][1]
 		Left[ base*i:(i+2)*base, num*base+2*dim*i:num*base+2*dim*(i+1) ] = R_copy
 		Left[ num*base+2*dim*i:num*base+2*dim*(i+1), base*i:(i+2)*base ] = R_copy.T
 	
@@ -272,7 +293,7 @@ def compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fi
 	
 	assert mags is None or dirs is None
 	
-	if index >= 10:
+	if index >= 20:
 		print 'stop at index: ', index
  		return old_solution
 #		return [old_solution, index]
@@ -299,8 +320,8 @@ def compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fi
  			return solution
 		else:
 			for i in range( num ):
-				dirs[i][0] = dir( (solution[i][1]-solution[i][0])[:2] ) 
-				dirs[i][1] = dir( (solution[i][2]-solution[i][3])[:2] ) 
+				dirs[i][0] = dir_allow_zero( (solution[i][1]-solution[i][0])[:2] ) 
+				dirs[i][1] = dir_allow_zero( (solution[i][2]-solution[i][3])[:2] ) 
 	
 #		return [solution, index+1]
  		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = solution, dirs = dirs, index = index+1 )
@@ -384,6 +405,12 @@ def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1
 		tmp = (9./140.)*dot(dir1[k], dir2[k])	
 		Left[ base*(k+1)-2:base*(k+1), base*(k+1)-2:base*(k+1) ] = array([[(3./35.)*mag2(dir1[k]), tmp], [tmp, (3./35.)*mag2(dir2[k])]])
 		
+		## deal with the case when direction is zero
+		if mag(dir1[k]) == 0:
+			Left[ base*(k+1)-2, base*(k+1)-2 ] = 1.	
+		if mag(dir2[k]) == 0:
+			Left[ base*(k+1)-1, base*(k+1)-1 ] = 1.
+			
 	R = zeros( ( 2*base, dim ) )
 	for i in range( dim ):
 		R[2*i+1, i] = 1 # should be 0.5, but it doesn't affect the result
@@ -403,7 +430,7 @@ def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1
 	solution = asarray(X[:base*num])
 	
 	for i in range( num ):
-		P1, P4 = solution[base*i: base*i+dim*2 : 2], solution[base*i+1: base*i+dim*2 : 2]
+		P1, P4 = solution[base*i: base*i+dim*2 : 2], solution[base*i+1: base*i+dim*2 : 2]	
 		P2, P3 = P1 + solution[base*(i+1)-2]*dir1[i], P4 + solution[base*(i+1)-1]*dir2[i]
 		
 		result.append(asarray([P1, P2, P3, P4]))
@@ -421,7 +448,7 @@ def precompute_rightside_for_fixing_directions( controls, handles, transforms ):
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim, dim) )
-			partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )		
+ 			partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )		
 			
 			temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR) 
 		
@@ -442,9 +469,9 @@ def precompute_rightside_for_fixing_magnitudes( controls, handles, transforms ):
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )	
+ 			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )	
 	
-			C = C + T_i * (controls[k*4:k*4+4].T) * M * mat(W_i) * M
+			C = C + T_i * (controls[k*4:k*4+4].T) * M * mat( W_i ) * M
 	
 		temps.append( asarray(C.T) )
 	

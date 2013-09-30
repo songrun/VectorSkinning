@@ -30,3 +30,20 @@ def mag( vec ):
     return sqrt(mag2(vec))
 def dir( vec ):
     return vec * 1./mag(vec)
+def dir_allow_zero( vec ):
+	if mag(vec) == 0:
+		return vec
+	else:
+		return vec * 1./mag(vec)
+def activate( test ):
+	if test >= 0:
+		return 1.
+	else:
+		return 0.
+def activates( test ):
+	result = []
+	for each in test:
+		result.append( activate( each ) )
+		
+	result = asarray( result )		
+	return result		

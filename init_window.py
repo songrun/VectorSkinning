@@ -49,7 +49,7 @@ class Window:
 	A series of actions a user can do
 	'''		
 	def onclick_handler(self, event):
-	
+		
 		mode = self.mode.get()
 		if mode == 0:
 			controls = self.canvas.find_withtag('controls')
@@ -65,6 +65,10 @@ class Window:
 				if len(self.canvas.find_withtag('handles')) > 0:
 					self.redraw_handle_affected_curve()
 					self.redraw_approximated_bezier()
+					
+# 					cps, handles = self.get_controls_and_handle_pos()
+# 					update_precomputation_of_controls_or_handles(cps, handles)
+					
 
 		elif mode == 1:
 			r = 3
@@ -75,6 +79,9 @@ class Window:
 			if len( self.canvas.find_withtag('controls') ) == 4:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier()
+				
+# 				cps, handles = self.get_controls_and_handle_pos()
+# 				update_precomputation_of_controls_or_handles(cps, handles)
 
 		elif mode == 2:
 			overlaps = self.canvas.find_overlapping(event.x-3, event.y-3, event.x+3, event.y+3)
@@ -604,6 +611,22 @@ class Window:
 	def remove_popup(self, popup):
 	
 		self.canvas.delete(popup)
+		
+	def get_controls_and_handle_pos(self):
+		
+		handles = []
+		H_set = self.canvas.find_withtag('handles')
+		for i in range( len( H_set ) ):
+			pos = self.canvas.coords( H_set[i] )
+			pos = [(pos[0]+pos[2])/2, (pos[1]+pos[3])/2, 1.]
+			handles.append(pos)
+		
+		cps = self.canvas.find_withtag('controls')
+		cps = [self.canvas.bbox(x) for x in cps]
+		cps = [((x[0]+x[2])/2, (x[1]+x[3])/2, 1) for x in cps]
+		cps = mat(cps)
+		
+		return cps, handles
 
 def main():
   
