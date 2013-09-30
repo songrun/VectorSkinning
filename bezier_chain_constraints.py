@@ -27,8 +27,6 @@ dim = 3
 
 def control_points_after_split( P, S ):
 	
-# 	fake = asarray([[200., 200., 1.], [200., 400., 1.], [600., 400., 1.], [600., 200., 1.]])
-# 	P = fake
 	assert len( P.shape ) == 2
 	assert P.shape[0] == 4
 	P = asarray( P )
@@ -81,9 +79,14 @@ def compute_control_points_chain_with_constraint( partition, original_controls, 
 		result = compute_control_points_chain_with_C1_continuity( Cset, handles, transforms, partition )
 	
 	elif constraint_level == 3:
-		
+			
 #  		debugger()
-		result = compute_control_points_chain_with_G1_continuity( Cset, handles, transforms, partition )
+		## precompute the Right part for G1 fixing directions
+		right_fixing_dirs = precompute_rightside_for_fixing_directions( Cset, handles, transforms )
+		
+		right_fixing_mags = precompute_rightside_for_fixing_magnitudes( Cset, handles, transforms )
+		
+		result = compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partition )
 
 	return result
 
@@ -124,8 +127,7 @@ def compute_control_points_chain_with_C0_continuity( controls, handles, transfor
 	num = len( partitions ) # num is the number of splited curves
 	base = dim * 4
 	
-	A = precompute_A( M, 0., 1., 50 )
-	inv_M = linalg.inv( M )
+# 	A = precompute_A( M, 0., 1., 50 )
 	
 	for k in range( num ):
 
@@ -146,7 +148,9 @@ def compute_control_points_chain_with_C0_continuity( controls, handles, transfor
 	Right = array( Right + zeros( dim * (num-1) ).tolist() )
 	
 	rank = len( Right )
-	AA = M.T * A.T
+# 	AA = M.T * A.T
+	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+
 	assert AA.shape == (4,4)
 	
 	Left =  zeros( (rank, rank) )		
@@ -196,7 +200,9 @@ def compute_control_points_chain_with_C1_continuity( controls, handles, transfor
 	mags = ones( (num, 2) )
 	for i in range( len( partitions ) ):
 		mags[i] *= partitions[i]
-	result = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
+		
+	right = precompute_rightside_for_fixing_magnitudes( controls, handles, transforms )	
+	result = compute_control_points_chain_with_derivative_continuity_with_weight( right, partitions, mags )
 
 	return result
 
@@ -206,39 +212,19 @@ def compute_control_points_chain_with_C1_continuity( controls, handles, transfor
 ##	and the directions of derivatives at joints are collinear.
 ##	then return the control points of each optimized split bezier in a list.
 
-def compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags ):
+def compute_control_points_chain_with_derivative_continuity_with_weight( right, partitions, mags ):
 
-	temps = []
 	result = []
 	
 	num = len( partitions ) # num is the number of splited curves
 	base = dim * 4
 	
-# 	A = precompute_A( M, 0., 1., 50 )
-	inv_M = linalg.inv( M )
-	
-	for k in range( num ):
-
-		C = zeros( (dim, 4) )
-		for i in range( len( handles ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )	
-	
-			C = C + T_i * (controls[k*4:k*4+4].T) * M * mat(W_i) * M
-	
-		temps.append( asarray(C.T) )
-	
-	Right = []
-
-	for R in temps:
-		Right = Right + (R.T.reshape(-1)).tolist()
-	Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
-	
+# 	A = precompute_A( M, 0., 1., 100 )
+	Right = deepcopy( right )
 	rank = len( Right )
-# 	AA = M.T * A.T
+#  	AA = M.T * A.T
 	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
-
+	
 	assert AA.shape == (4,4)
 	
 	Left =  zeros( (rank, rank) )		
@@ -269,7 +255,7 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( control
 	for i in range( num ):
 		Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
 		Right[base*i:base*(i+1)] *= partitions[i]
-		
+
 	X = linalg.solve(Left, Right)	
 	X = array( X[:num*base] ).reshape(-1,4).T
 	
@@ -282,11 +268,11 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( control
 ## 	Optimize the approximation with all splits connected and the directions of derivatives at joints collinear. 
 ##	then return the control points of each optimized split bezier in a list.
 	
-def compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = None, mags = None, dirs = None, index = 0):
+def compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = None, mags = None, dirs = None, index = 0):
 	
 	assert mags is None or dirs is None
 	
-	if index >= 20:
+	if index >= 10:
 		print 'stop at index: ', index
  		return old_solution
 #		return [old_solution, index]
@@ -299,13 +285,13 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 		assert mags.shape == (num, 2)
  		dirs = ones( (num, 2, dim-1) )
 			
-		solution = compute_control_points_chain_with_derivative_continuity_with_weight( controls, handles, transforms, partitions, mags )
+		solution = compute_control_points_chain_with_derivative_continuity_with_weight( right_fixing_mags, partitions, mags )
 		## check if the new solution is close enough to previous solution
 		## if not, update the direction vector for each split
-		error = 0.0
-		for k in range( len( solution ) ):
-	 		error += compute_error_metric(transforms, handles, solution[k], controls[k*4:k*4+4], M )*partitions[k]
-	 	print 'mags error: ', error
+# 		error = 0.0
+# 		for k in range( len( solution ) ):
+# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k*4:k*4+4], M )*partitions[k]
+# 	 	print 'mags error: ', error
 	 	
 		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
 			print 'stop at index: ', index
@@ -317,21 +303,21 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 				dirs[i][1] = dir( (solution[i][2]-solution[i][3])[:2] ) 
 	
 #		return [solution, index+1]
- 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, dirs = dirs, index = index+1 )
+ 		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = solution, dirs = dirs, index = index+1 )
 		
 	elif dirs is not None:	
 	
 		assert dirs.shape == (num, 2, dim-1 )
 		mags = ones( (num, 2) )		
-
-		solution = compute_control_points_chain_fixing_directions( controls, handles, transforms, partitions, dirs[:, 0, :], dirs[:, 1, :])
+# 		debugger()
+ 		solution = compute_control_points_chain_fixing_directions( right_fixing_dirs, partitions, dirs[:, 0, :], dirs[:, 1, :])
 		
 		## get result of the iteration, and check if the result is stable
 		
-		error = 0.0	
-		for k in range( len( solution ) ):
-	 		error += compute_error_metric(transforms, handles, solution[k], controls[k*4:k*4+4], M )*partitions[k]
-	 	print 'dirs error: ', error
+# 		error = 0.0	
+# 		for k in range( len( solution ) ):
+# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k*4:k*4+4], M )*partitions[k]
+# 	 	print 'dirs error: ', error
 		
 		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
 			print 'stop at index: ', index
@@ -344,47 +330,39 @@ def compute_control_points_chain_with_G1_continuity( controls, handles, transfor
 				mags[i][1] = mag( (solution[i][2]-solution[i][3])[:2] ) 
 
 #		return [solution, index+1]
- 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, old_solution = solution, mags = mags, index = index+1 )
+ 		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = solution, mags = mags, index = index+1 )
 
 	else:	
 	
 		mags = ones( (num, 2) )
-		for i in range( len( partitions ) ):
+		for i in range( num ):
 			mags[i] *= partitions[i]
 			
- 		return compute_control_points_chain_with_G1_continuity( controls, handles, transforms, partitions, mags = mags )
-
+ 		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, mags = mags )
+ 		
 
 ## 	Optimize the approximation with contraints that all splits connected,
 ## 	A given magnitude proportion of derivatives at joints,
 ##	and the directions of derivatives at joints are collinear. 
 ##	then return the control points of each optimized split bezier in a list.
 	
-def compute_control_points_chain_fixing_directions( controls, handles, transforms, partitions, dir1, dir2): 
+def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1, dir2): 
 
 	dir1 = append( dir1, zeros((len( dir1 ),1)), axis = 1 )
 	dir2 = append( dir2, zeros((len( dir2 ),1)), axis = 1 )
 	
 	num = len( partitions ) # num is the number of splited curves
 	result = []
-	base = (dim+1)*2	
-		
-	## A new iteration starts which fix the direction but optimize the magnitudes.
-	Right = zeros( base*num + (num-1)*dim )
-	for k in range( num ):	
+	base = (dim+1)*2
 	
-		temp = zeros( (dim, 4) )
-		for i in range( len( handles ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(dim, dim) )
-			partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )		
-			
-			temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR) 
+	Right = zeros( base*num + (num-1)*dim )
+	for k in range( num ):
 		
-		Right[k*base : k*base + dim*2 : 2] = asarray(temp[:,0] +  temp[:,1]).reshape(-1)
-		Right[k*base + 1 : k*base + dim*2 : 2 ] = asarray(temp[:,2] +  temp[:,3]).reshape(-1)
-		Right[(k+1)*base-2] = dot( asarray(temp[:,1]).reshape(-1), dir1[k] )
-		Right[(k+1)*base-1] = dot( asarray(temp[:,2]).reshape(-1), dir2[k] )	
+		temp = asarray( raw_rights[k] )
+		Right[k*base : k*base + dim*2 : 2] = (temp[:,0] +  temp[:,1]).reshape(-1)
+		Right[k*base + 1 : k*base + dim*2 : 2 ] = (temp[:,2] +  temp[:,3]).reshape(-1)
+		Right[(k+1)*base-2] = dot( temp[:,1], dir1[k] )
+		Right[(k+1)*base-1] = dot( temp[:,2], dir2[k] )		
 	
 	AA1 = array([[(13./35.), (9./70.)], [(9./70.), (13./35.)]])
 	AA2 = array([[(11./70.), (13./140.)], [(13./140.), (11./70.)]])
@@ -431,4 +409,49 @@ def compute_control_points_chain_fixing_directions( controls, handles, transform
 		result.append(asarray([P1, P2, P3, P4]))
 		
 	return result	
+
+## Precompute the right side for the G1 continuity for fixing directions		
+def precompute_rightside_for_fixing_directions( controls, handles, transforms ):
+	
+	num = len( controls ) / 4
+	result = []
+	for k in range( num ):	
+	
+		temp = zeros( (dim, 4) )
+		for i in range( len( handles ) ):
+
+			T_i = mat( asarray(transforms[i]).reshape(dim, dim) )
+			partOfR = precompute_partOfR( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )		
 			
+			temp = temp + T_i * (controls[k*4:k*4+4].T) * M * mat(partOfR) 
+		
+		result.append( temp )
+	
+	result = asarray( result )
+		
+	return result
+
+## Precompute the left side for the G1 continuity for fixing magnitudes
+def precompute_rightside_for_fixing_magnitudes( controls, handles, transforms ):	
+		
+	temps = []
+	num = len( controls ) / 4
+	for k in range( num ):
+
+		C = zeros( (dim, 4) )
+		for i in range( len( handles ) ):
+
+			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
+			W_i = precompute_W_i( handles, i, controls[k*4:k*4+4], M, 0., 1., 100 )	
+	
+			C = C + T_i * (controls[k*4:k*4+4].T) * M * mat(W_i) * M
+	
+		temps.append( asarray(C.T) )
+	
+	Right = []
+
+	for R in temps:
+		Right = Right + (R.T.reshape(-1)).tolist()
+	Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
+	
+	return Right	

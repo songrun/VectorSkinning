@@ -159,8 +159,7 @@ def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
 	#for t in linspace( a, b, num_samples ):
 	for ti in xrange( num_samples ):
 		t = a + ( ti + .5 ) * dt
-		
-		
+			
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
