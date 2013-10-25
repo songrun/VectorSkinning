@@ -1,0 +1,4 @@
+*~
+*.o
+*.dylib
+.DS_Store
