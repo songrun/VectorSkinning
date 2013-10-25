@@ -8,9 +8,9 @@ g++ -fPIC \
     bbw.cpp \
     -I/Users/yotam/Work/ext/libigl/include \
     -I/Installers/eigen/eigen-3.2-ffa86ffb5570/eigen-eigen-ffa86ffb5570 \
-    -I/Users/yotam/Work/ext/mosektoolsosx64x86/mosek/7/tools/platform/osx64x86/h \
-    -L/Users/yotam/Work/ext/mosektoolsosx64x86/mosek/7/tools/platform/osx64x86/bin \
-    -lmosek \
+    -I/Users/yotam/Work/ext/mosektoolsosx64x86/mosek/6/tools/platform/osx64x86/h \
+    -L/Users/yotam/Work/ext/mosektoolsosx64x86/mosek/6/tools/platform/osx64x86/bin \
+    -lmosek64 \
     -dynamiclib -o bbw.dylib \
     -g -O2 -Wall -Wshadow -Wno-sign-compare
 
