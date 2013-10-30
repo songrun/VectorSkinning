@@ -5,8 +5,9 @@ A "C" interface to libigl's bbw.
 #include <cassert>
 
 #define IGL_HEADER_ONLY
+#define IGL_NO_MOSEK
 #include <igl/boundary_conditions.h>
-#include <igl/mosek/bbw.h>
+#include <igl/bbw/bbw.h>
 
 #include <Eigen/Dense>
 
