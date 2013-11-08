@@ -1,0 +1,26 @@
+#ifndef IGL_LOAD_SHADER_H 
+#define IGL_LOAD_SHADER_H
+#ifndef IGL_NO_OPENGL
+#include "igl_inline.h" 
+
+#include "OpenGL_convenience.h"
+
+namespace igl
+{
+  // Creates and compiles a shader from a given string
+  // Inputs:
+  //   src  string containing GLSL shader code
+  //   type  GLSL type of shader, one of:
+  //     GL_VERTEX_SHADER
+  //     GL_FRAGMENT_SHADER
+  //     GL_GEOMETRY_SHADER
+  // Returns  index id of the newly created shader, 0 on error
+  IGL_INLINE GLuint load_shader(const char *src,const GLenum type);
+}
+
+#ifdef IGL_HEADER_ONLY
+#  include "load_shader.cpp"
+#endif
+
+#endif
+#endif

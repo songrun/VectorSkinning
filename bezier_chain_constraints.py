@@ -1,22 +1,7 @@
-from numpy import *
 from weight_inverse_distance import *
 from copy import copy, deepcopy
-from myarray import *
+from bezier_utility import *
 
-try:
-   from pydb import debugger
-
-   ## Also add an exception hook.
-   import pydb, sys
-   sys.excepthook = pydb.exception_hook
-
-except ImportError:
-   import pdb
-   def debugger():
-       pdb.set_trace()
-
-## The bezier curve's coefficient matrix
-M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.') 
 ## The dimensions of a point represented in the homogeneous coordinates
 dim = 3
 ## Two set of precomputed parameters
@@ -170,6 +155,7 @@ def compute_control_points_chain_with_C0_continuity( controls, handles, transfor
 	
 	rank = len( Right )
 # 	AA = M.T * A.T
+	## AA is computed using Sage.
 	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 
 	assert AA.shape == (4,4)
@@ -240,10 +226,10 @@ def compute_control_points_chain_with_derivative_continuity_with_weight( right, 
 	num = len( partitions ) # num is the number of splited curves
 	base = dim * 4
 	
-# 	A = precompute_A( M, 0., 1., 100 )
 	Right = deepcopy( right )
 	rank = len( Right )
-#  	AA = M.T * A.T
+	
+	## AA is computed using Sage.
 	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 	
 	assert AA.shape == (4,4)
@@ -385,6 +371,7 @@ def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1
 		Right[(k+1)*base-2] = dot( temp[:,1], dir1[k] )
 		Right[(k+1)*base-1] = dot( temp[:,2], dir2[k] )		
 	
+	## AA1 and AA2 is computed using Sage.
 	AA1 = array([[(13./35.), (9./70.)], [(9./70.), (13./35.)]])
 	AA2 = array([[(11./70.), (13./140.)], [(13./140.), (11./70.)]])
 	
@@ -402,6 +389,7 @@ def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1
 			Left[ base*k+i*2:base*k+i*2+2, base*(k+1)-2:base*(k+1) ] = AA2_copy[:,:]
 			Left[ base*(k+1)-2:base*(k+1), base*k+i*2:base*k+i*2+2 ] = AA2_copy[:,:].T
 		
+		## The coefficients are computed using Sage.
 		tmp = (9./140.)*dot(dir1[k], dir2[k])	
 		Left[ base*(k+1)-2:base*(k+1), base*(k+1)-2:base*(k+1) ] = array([[(3./35.)*mag2(dir1[k]), tmp], [tmp, (3./35.)*mag2(dir2[k])]])
 		

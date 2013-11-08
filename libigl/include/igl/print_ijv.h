@@ -1,0 +1,28 @@
+#ifndef IGL_PRINT_IJV_H
+#define IGL_PRINT_IJV_H
+#include "igl_inline.h"
+#define EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+namespace igl
+{
+  // Prints a 3 column matrix representing [I,J,V] = find(X). That is, each
+  // row is the row index, column index and value for each non zero entry. Each
+  // row is printed on a new line
+  //
+  // Templates:
+  //   T  should be a eigen sparse matrix primitive type like int or double
+  // Input:
+  //   X  m by n matrix whose entries are to be sorted
+  //   offset  optional offset for I and J indices {0}
+  template <typename T>
+  IGL_INLINE void print_ijv(
+    const Eigen::SparseMatrix<T>& X, 
+    const int offset=0);
+}
+
+#ifdef IGL_HEADER_ONLY
+#  include "print_ijv.cpp"
+#endif
+
+#endif

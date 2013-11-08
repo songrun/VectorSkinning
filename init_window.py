@@ -2,8 +2,10 @@
 from Tkinter import *  
 import ttk as ttk
 import tkMessageBox
+from triangle import *
 from weight_inverse_distance import *
 from bezier_chain_constraints import *
+import bbw_wrapper.bbw as bbw
 
 gOnce = False
 colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 'medium aquamarine', 'aquamarine', 'dark green', 'dark olive green',
@@ -52,22 +54,9 @@ class Window:
 		
 		mode = self.mode.get()
 		if mode == 0:
-			controls = self.canvas.find_withtag('controls')
-			if len( controls ) == 4:
-				self.canvas.delete( controls[0] )
-			
-			r= 3
+			r= 3		 
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
 			self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
-			
-			if len( self.canvas.find_withtag('controls') ) == 4:
-				self.redraw_bezier_curve( )
-				if len(self.canvas.find_withtag('handles')) > 0:
-					self.redraw_handle_affected_curve()
-					self.redraw_approximated_bezier()
-					
-# 					cps, handles = self.get_controls_and_handle_pos()
-# 					update_precomputation_of_controls_or_handles(cps, handles)
 					
 
 		elif mode == 1:
@@ -76,12 +65,13 @@ class Window:
 			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', tags='handles')
 			self.transforms[handle] = identity(3).reshape(-1)
 			self.popup_handle_editor( handle )
-			if len( self.canvas.find_withtag('controls') ) == 4:
+			if len( self.canvas.find_withtag('original_curve') ) > 0:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier()
 				
-# 				cps, handles = self.get_controls_and_handle_pos()
-# 				update_precomputation_of_controls_or_handles(cps, handles)
+#				cps = self.get_controls()
+#				handles = self.get_handle_pos()
+#				update_precomputation_of_controls_or_handles(cps, handles)
 
 		elif mode == 2:
 			overlaps = self.canvas.find_overlapping(event.x-3, event.y-3, event.x+3, event.y+3)
@@ -118,7 +108,7 @@ class Window:
 			self.transforms[h][2], self.transforms[h][5] = new_x, new_y
 			
 #			self.canvas.move(self.selected, event.x-ori_x, event.y-ori_y)
-			if len( self.canvas.find_withtag('controls') ) == 4:
+			if len( self.canvas.find_withtag('affected_curve') ) > 0:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier()				
 		return
@@ -177,7 +167,7 @@ class Window:
 			entry_6.delete(0,END)
 			entry_6.insert(0,newM[1][2])
 			
-			if len( self.canvas.find_withtag('controls') ) == 4:
+			if len( self.canvas.find_withtag('affected_curve') ) > 0:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier()				
 		return
@@ -231,7 +221,7 @@ class Window:
 			entry_6.delete(0,END)
 			entry_6.insert(0,newM[1][2])
 			
-			if len( self.canvas.find_withtag('controls') ) == 4:
+			if len( self.canvas.find_withtag('affected_curve') ) > 0:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier()		
 						
@@ -253,51 +243,85 @@ class Window:
 	'''
 	'''
 		algorithms for drawing
-	'''		
-	def redraw_bezier_curve(self):
-	
-		self.canvas.delete( 'original_bezier' )
-		cps = self.canvas.find_withtag('controls')
-		cps = [self.canvas.bbox(x) for x in cps]
-		cps = [((x[0]+x[2])/2, (x[1]+x[3])/2) for x in cps]
+	'''	   
+	# draw cubic bezier curve
+	def draw_bezier_curve(self, cps):
 		
-#		fake = asarray([(200., 200.), (200., 400.), (600., 400.), (600., 200.)])
-#		cps = fake
-		
-		cps = mat(cps)	
-		
+		assert cps.shape == (4,3)
 		known = asarray( M*cps ).reshape(4, -1)
 		
 		ps = [] 
 		for t in range(0, 101):
 			p = dot( asarray( [(float(t)/100)**3, (float(t)/100)**2, float(t)/100, 1] ), known )
 			ps = ps + [p[0], p[1]]	
-		self.canvas.create_line(ps, smooth=True, width=2, tags='original_bezier')
+		self.canvas.create_line(ps, width=2, tags='original_bezier')
+	 
+	def redraw_bezier_curve(self, cps):
+	
+		self.canvas.delete( 'original_bezier' )
+		self.draw_bezier_curve( cps )
 		
+	# draw curve affected by the handles' weight
 	def redraw_handle_affected_curve(self):
-		
-		self.canvas.delete( 'handle_affected' )
-		pts = self.canvas.find_withtag( 'original_bezier' )
-		pts = self.canvas.coords( pts )
-		
-		tps = []
-		for i in range(0, len(pts)/2):
-			p = asarray([pts[i*2], pts[i*2+1], 1.])
-			m = zeros(9)
-			w = {}
-			for h in self.canvas.find_withtag('handles'):
-			# coefficient decided by square of distance
-				pos = self.canvas.coords(h)
-				w[h] = 1 / ( (pos[0]/2+pos[2]/2-p[0])**2 + (pos[1]/2+pos[3]/2-p[1])**2 )
-				
-			for h in self.canvas.find_withtag('handles'):
-				m = m + self.transforms[h]*( w[h] / sum(w.values()) )
-			
-			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-			tps = tps + [p[0], p[1]]
 
-		self.canvas.create_line(tps, smooth=True, width=2, fill='magenta', tags='handle_affected')
+		MAX = 1e7
 		
+		self.canvas.delete( 'affected_curve' )
+		tags = self.canvas.find_withtag( 'original_bezier' )
+		all_pts = [self.canvas.coords( x ) for x in tags]
+		
+# 		debugger()
+		for pts in all_pts:
+			tps = []
+			for i in range(0, len(pts)/2):
+				p = asarray([pts[i*2], pts[i*2+1], 1.])
+				m = zeros(9)
+				w = {}
+				for h in self.canvas.find_withtag('handles'):
+				# coefficient decided by square of distance
+					pos = self.canvas.coords(h)
+					dist = ( (pos[0]/2+pos[2]/2-p[0])**2 + (pos[1]/2+pos[3]/2-p[1])**2 )
+					if dist != 0: w[h] = 1 / dist
+					else: w[h] = MAX
+				
+				for h in self.canvas.find_withtag('handles'):
+					m = m + self.transforms[h]*( w[h] / sum(w.values()) )
+			
+				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
+				tps = tps + [p[0], p[1]]
+
+			self.canvas.create_line(tps, width=2, fill='magenta', tags='affected_curve')
+	
+	def redraw_handle_affected_mesh(self):
+		
+		MAX = 1e7
+		
+		self.canvas.delete( 'affected_mesh' )
+		
+		tags_mesh = self.canvas.find_withtag( 'original_mesh' )
+		all_pts = [self.canvas.coords( x ) for x in tags_mesh]
+		
+		for pts in all_pts:
+			tps = []
+			for i in range(0, len(pts)/2):
+				p = asarray([pts[i*2], pts[i*2+1], 1.])
+				m = zeros(9)
+				w = {}
+				for h in self.canvas.find_withtag('handles'):
+				# coefficient decided by square of distance
+					pos = self.canvas.coords(h)
+					dist = ( (pos[0]/2+pos[2]/2-p[0])**2 + (pos[1]/2+pos[3]/2-p[1])**2 )
+					if dist != 0: w[h] = 1 / dist
+					else: w[h] = MAX
+			
+				for h in self.canvas.find_withtag('handles'):
+					m = m + self.transforms[h]*( w[h] / sum(w.values()) )
+		
+				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
+				tps = tps + [p[0], p[1]]
+
+			self.canvas.create_line(tps, fill='magenta', tags='affected_mesh')
+	
 	def redraw_approximated_bezier(self):
 		
 		level = self.constraint.get()
@@ -313,10 +337,7 @@ class Window:
 			handles.append(pos)
 			trans.append( self.transforms[H_set[i]] )
 		
-		cps = self.canvas.find_withtag('controls')
-		cps = [self.canvas.bbox(x) for x in cps]
-		cps = [((x[0]+x[2])/2, (x[1]+x[3])/2, 1) for x in cps]
-		cps = mat(cps)
+		cps = self.get_controls()
 		
 		'''
 		global gOnce
@@ -336,8 +357,8 @@ class Window:
 		writer = csv.writer( open( uniquepath( 'integration_accuracy.csv' ), 'w' ) )
 		'''
 		
-#		partition = [0.2, 0.4, 0.4]
-		partition = [0.2, 0.8]
+		partition = [0.2, 0.4, 0.4]
+#		partition = [0.5, 0.5]
 
 		assert sum( partition ) == 1.0
 		for x in partition:
@@ -463,6 +484,7 @@ class Window:
 		#different commands to the menu
 		
 		mb_file.menu.add_command(label='open')
+		mb_file.menu.add_command(label='triangle', command=self.triangulate)
 		mb_file.menu.add_command(label='close')
 		
 		mb_edit = ttk.Menubutton(menubar, text='edit')
@@ -571,14 +593,14 @@ class Window:
 	
 		self.canvas.delete('controls')
 		self.canvas.delete('original_bezier')
-		self.canvas.delete('handle_affected')
+		self.canvas.delete('affected_curve')
 		self.canvas.delete('approximated')
 		
 	
 	def del_handles(self):
 	
 		self.canvas.delete('handles')
-		self.canvas.delete('handle_affected')
+		self.canvas.delete('affected_curve')
 		self.canvas.delete('approximated')
 		self.transforms.clear()
 
@@ -593,8 +615,9 @@ class Window:
 			self.transforms[id][i] = vals[i].get()
 		self.remove_popup(popup)
 		
-		if len( self.canvas.find_withtag('controls') ) == 4:
+		if len( self.canvas.find_withtag('controls') ) >= 4:
 			self.redraw_handle_affected_curve()
+			self.redraw_handle_affected_mesh()
 			self.redraw_approximated_bezier()	
 		return
 		
@@ -603,7 +626,7 @@ class Window:
 		self.canvas.delete(id)
 		self.remove_popup(popup)
 		
-		if len( self.canvas.find_withtag('controls') ) == 4:
+		if len( self.canvas.find_withtag('controls') ) >= 4:
 			self.redraw_handle_affected_curve()
 			self.redraw_approximated_bezier()	
 		return	
@@ -611,23 +634,72 @@ class Window:
 	def remove_popup(self, popup):
 	
 		self.canvas.delete(popup)
+	
+	## calculate the handles points on the canvas	 
+	def get_handles(self):
 		
-	def get_controls_and_handle_pos(self):
-		
-		handles = []
+		handles = {}
 		H_set = self.canvas.find_withtag('handles')
-		for i in range( len( H_set ) ):
-			pos = self.canvas.coords( H_set[i] )
+		for h in H_set:
+			pos = self.canvas.coords( h )
 			pos = [(pos[0]+pos[2])/2, (pos[1]+pos[3])/2, 1.]
-			handles.append(pos)
+			handles[h] = pos
 		
+		return handles
+	
+	## calculate the control points on the canvas
+	def get_controls(self):
+	
 		cps = self.canvas.find_withtag('controls')
 		cps = [self.canvas.bbox(x) for x in cps]
 		cps = [((x[0]+x[2])/2, (x[1]+x[3])/2, 1) for x in cps]
-		cps = mat(cps)
+		cps = asarray(cps)
 		
-		return cps, handles
+		return cps
+		
+	## sample all the original bezier curves on canvas, 
+	## and tessellate with these sampled points.
+	def triangulate(self):
+		
+		curves = self.canvas.find_withtag('original_bezier')
+		cps = self.get_controls()
+		if len( cps ) %3 != 0 or len(cps) < 4:
+			print 'bad number of control points.'
+			return 
+		
+		pts = sample_cubic_bezier_curve_chain( cps )
+		pts = pts[:, :2]
+		boundary_edges = [ ( i, (i+1) % len(pts) ) for i in xrange(len( pts )) ]
+				
+		skeleton_handle_vertices = self.get_handles().values()
+		if len( skeleton_handle_vertices ) > 0:
+			skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2].tolist()
+		skeleton_point_handles = asarray( range( len(skeleton_handle_vertices) ) ).tolist()
+		
+		pts = pts.tolist() + skeleton_handle_vertices
+		vs, faces = triangles_for_points( pts, boundary_edges )
+		vs = asarray(vs)[:, :2].tolist()
+		
+ 		cps_closed = asarray(cps.tolist()+[(cps[0]).tolist()])
+		for i in range(len( cps ) / 3 ):
+			self.draw_bezier_curve(cps_closed[i*3:i*3+4])
+			
+		for face in faces:
+			self.canvas.create_line([vs[x] for x in face]+vs[face[0]], width=1, tags='original_mesh')
+			
+		self.redraw_handle_affected_curve()
+		self.redraw_handle_affected_mesh()
+ 		self.redraw_approximated_bezier()	
 
+
+		
+		faces = asarray(faces).tolist()
+		
+		print "vertices: ", asarray(vs).shape
+		Wout = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+		print "Wout: ", asarray(Wout).shape
+		
+		
 def main():
   
 	root = Tk()
