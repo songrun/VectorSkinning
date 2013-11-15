@@ -632,25 +632,28 @@ class Window:
 
 		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
 		all_pts = sample_cubic_bezier_curve_chain( cps )
-		loop = all_pts[:,:-1].reshape(-1, 2)
+		from itertools import chain
+		loop = list( chain( *[ samples for samples, ts in all_pts ] ) )[:-1]
 		self.all_vertices, self.faces, self.all_weights = (triangulate_and_compute_weights
 														(loop, skeleton_handle_vertices))
 		## draw boundary bezier curves
-		for pts in all_pts:
+		for pts, ts in all_pts:
 			pts = pts.reshape(-1).tolist()
 			self.canvas.create_line(pts, width=2, tags='original_bezier')
 
 		## boundaries is a table of all the indices of the points on the boundary 
 		## in all_vertices
-		self.boundaries = [range(len(pts)) for pts in all_pts]
+		self.boundaries = [range(len(pts)) for pts, ts in all_pts]
 		last = 0
 		for i in range(len(self.boundaries)):
 			self.boundaries[i] = asarray(self.boundaries[i])+last
 			last = self.boundaries[i][-1]
 		self.boundaries[-1][-1] = self.boundaries[0][0]	
 		
-		self.W_matrices = [precompute_W_i( self.all_weights, self.all_vertices, i, Cset[i],
-					 		M, 0., 1., 50 ) for i in range(len(skeleton_handle_vertices))]
+		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
+		for k in xrange(len( Cset )):
+			for i in xrange(len( skeleton_handle_vertices )):
+				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, self.all_weights, i, all_pts[k][0], all_pts[k][1] )
 		
 		## draw meshes
 		vs = self.all_vertices

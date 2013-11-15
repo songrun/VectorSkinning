@@ -1,6 +1,7 @@
 from bezier_utility import *
 from triangle import *
 import bbw_wrapper.bbw as bbw
+from itertools import izip as zip
 
 
 def triangulate_and_compute_weights(pts, skeleton_handle_vertices):
@@ -9,74 +10,116 @@ def triangulate_and_compute_weights(pts, skeleton_handle_vertices):
 	'''
 
 	boundary_edges = [ ( i, (i+1) % len(pts) ) for i in xrange(len( pts )) ]
-			
+	
+	pts = asarray( pts )[:, :2]
+	
 	if len( skeleton_handle_vertices ) > 0:
-		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2].tolist()
-	skeleton_point_handles = asarray( range( len(skeleton_handle_vertices) ) ).tolist()
+		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
+	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
-	pts = pts.tolist() + skeleton_handle_vertices
+	pts = concatenate( ( pts, skeleton_handle_vertices ), axis = 0 )
 	vs, faces = triangles_for_points( pts, boundary_edges )
-	vs = asarray(vs)[:, :2].tolist()
+	vs = asarray(vs)[:, :2]
 	
-	faces = asarray(faces).tolist()
+	faces = asarray(faces)
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
 	
 	return vs, faces, all_weights
 
-def precompute_W_i( weights, vs, i, P, M, a, b, num_samples = 100 ):
+def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	'''
-	Given a table of all the weights for each sample vertex
+	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
+	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
 	an index 'i' specifying which handle,
-	a 4-by-k numpy.array P containing the positions of the control points as the rows,
-	a 4-by-4 numpy.array M containing the Bezier curve weights,
-	and the interval to integrate from 'a' to 'b',
+	an M-by-k numpy.array 'sampling' containing sampled positions,
+	a length-M numpy.array of t values corresponding to each sample in 'sampling',
+	an optional length-M numpy.array of dt values corresponding to each sample in 'sampling',
 	returns W, a 4-by-4 numpy.array defined as:
-		\int_a^b w_i( P^T M^T \overbar{t}^T ) \overbar{t}^T \overbar{t}^T dt
+		\int weights_i( sample ) \overbar{t}^T \overbar{t}^T dt
+	where sample is drawn from 'sampling', t is drawn from 'ts', and dt is drawn from 'dts'.
+	
+	If 'dts' is not given, it defaults to 1/len(sampling).
+	'''
+	
+	if dts is None: dts = ones( len( sampling ) ) * (1./len(sampling))
+	
+	### Asserts
+	## Ensure our inputs are numpy.arrays:
+	weights = asarray( weights )
+	vs = asarray( vs )
+	sampling = asarray( sampling )
+	ts = asarray( ts )
+	dts = asarray( dts )
+	
+	assert len( weights.shape ) == 2
+	assert len( vs.shape ) == 2
+	assert len( sampling.shape ) == 2
+	assert len( ts.shape ) == 1
+	assert len( dts.shape ) == 1
+	
+	## Vertices and sampling must have the same dimension for each point.
+	assert vs.shape[1] == sampling.shape[1]
+	
+	## The index 'i' must be valid.
+	assert i >= 0 and i < weights.shape[1]
+	
+	### Compute the integral.
+	W_i = zeros( ( 4,4 ) )
+	tbar = ones( 4 )
+	
+	def weight_function( p ):
+		## Find the closest vertex in 'vs' to 'p'
+		vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
+		assert allclose( vs[vi], p, 1e-5 )
+		return weights[ vi, i ]
+	
+	return precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
+
+def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
+	'''
+	Given a function 'weight_function' that takes a point and returns its weight,
+	a N-by-k numpy.array 'sampling' containing the positions of the control points as the rows,
+	corresponding t values 'ts' for each point in 'sampling',
+	and an optional corresponding 'dt' for each point in sampling (default is 1/len(sampling)),
+	returns W, a 4-by-4 numpy.array defined as:
+		\int_i weight_function( sample ) \overbar{t}^T \overbar{t}^T dt
+	where sample, t, and dt are drawn from the corresponding input arrays.
 	
 	The optional parameter 'num_samples' determines how many samples to use to compute
 	the integral.
 	'''
 	
 	### Asserts
+	## Ensure our inputs are the same lengths:
+	assert len( sampling ) == len( ts )
+	assert len( sampling ) == len( dts )
+	
 	## Ensure our inputs are numpy.arrays:
-	P = asarray( P )
-	M = asarray( M )
-	weights = asarray( weights )
+	sampling = asarray( sampling )
+	ts = asarray( ts )
+	dts = asarray( dts )
 	
-	## The index 'i' must be valid.
+	## sampling must be N-by-k.
 	assert len( P.shape ) == 2
-	assert i >= 0 and i < weights.shape[1]
-	
-	## P must be 4-by-k.
-	assert len( P.shape ) == 2
-	assert P.shape[0] == 4
-	
-	## M must be 4-by-4.
-	assert M.shape == (4,4)
-	
-	## Use a default number of samples of 100.
-	assert num_samples > 0
+	assert len( ts.shape ) == 1
+	assert len( dts.shape ) == 1
 	
 	### Compute the integral.
 	W_i = zeros( ( 4,4 ) )
 	tbar = ones( 4 )
 	
-	dt = (b-a)/num_samples
-	#for t in linspace( a, b, num_samples ):
-	for ti in xrange( num_samples ):
-		t = a + ( ti + .5 ) * dt
-		
+	for sample, t, dt in zip( sampling, ts, dts ):
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
 		tbar = tbar.reshape( (4,1) )
 		
-		w = external_w_i( weights, vs, i, dot( P.T, dot( M.T, tbar ) ) )
+		w = weight_function( sample )
 		
 		W_i += dot( dt * w * tbar, tbar.T )
 	
 	return W_i
- 
+
 def external_w_i( weights, vs, i, p ):
 	'''
 	Given  a table of all the weights for each sample vertex,
@@ -97,7 +140,20 @@ def external_w_i( weights, vs, i, p ):
 # 	assert vi != -1
 			
 	return weights[ vi, i ] 
-	   
+
+def ts_and_dts_for_num_samples( a, b, num_samples ):
+	'''
+	Given two endpoints of integration 'a' and 'b',
+	and positive integer 'num_samples' determining how many samples to use to compute
+	the integral,
+	returns two same-length arrays for numerical integration 'ts' and 'dts',
+	where 'ts' contains the points at which to integrate and 'dts' contains
+	the weight of the corresponding sample.
+	'''
+	dts = ( float(b-a)/num_samples ) * ones( len( num_samples ) )
+	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
+	return ts, dts
+
 def precompute_W_i_default( handle_positions, i, P, M, a, b, num_samples = 100 ):
 	'''
 	Given a sequence of k-dimensional handle positions,
@@ -136,25 +192,20 @@ def precompute_W_i_default( handle_positions, i, P, M, a, b, num_samples = 100 )
 	## Use a default number of samples of 100.
 	assert num_samples > 0
 	
-	### Compute the integral.
-	W_i = zeros( ( 4,4 ) )
-	tbar = ones( 4 )
-	
-	dt = (b-a)/num_samples
-	#for t in linspace( a, b, num_samples ):
-	for ti in xrange( num_samples ):
-		t = a + ( ti + .5 ) * dt
-		
+	ts_and_dts_for_num_samples( a, b, num_samples )
+	samplings = []
+	for t, dt in zip( ts, dts ):
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
 		tbar = tbar.reshape( (4,1) )
 		
-		w = default_w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
-		
-		W_i += dot( dt * w * tbar, tbar.T )
+		samplings.append( dot( P.T, dot( M.T, tbar ) ) )
 	
-	return W_i
+	def weight_function( p ):
+		return default_w_i( handle_positions, i, p )
+	
+	return precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
 
 def default_w_i( handle_positions, i, p ):	  
 	'''

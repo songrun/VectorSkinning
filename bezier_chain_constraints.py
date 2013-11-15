@@ -134,7 +134,7 @@ def compute_control_points_chain_without_constraint(W_matrices, controls, handle
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-			W_i = W_matrices[i]		
+			W_i = W_matrices[k,i]
 			
 			P_prime = P_prime + T_i * (controls[k].T) * M * mat(W_i) * inv_A	
 
