@@ -633,12 +633,14 @@ class Window:
 		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
 		all_pts = sample_cubic_bezier_curve_chain( cps )
 		from itertools import chain
-		loop = list( chain( *[ samples for samples, ts in all_pts ] ) )[:-1]
+		loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
+
 		self.all_vertices, self.faces, self.all_weights = (triangulate_and_compute_weights
 														(loop, skeleton_handle_vertices))
+														
 		## draw boundary bezier curves
 		for pts, ts in all_pts:
-			pts = pts.reshape(-1).tolist()
+			pts = pts[:,:-1].reshape(-1).tolist()
 			self.canvas.create_line(pts, width=2, tags='original_bezier')
 
 		## boundaries is a table of all the indices of the points on the boundary 
@@ -661,7 +663,7 @@ class Window:
 			self.canvas.create_line([vs[x] for x in face]+vs[face[0]], tags='original_mesh')
 			
 		self.redraw_handle_affected_curve()
-		self.redraw_handle_affected_mesh()
+ 		self.redraw_handle_affected_mesh()
 		
  		self.redraw_approximated_bezier_curve()
  		self.redraw_approximated_bezier_mesh()	

@@ -8,7 +8,6 @@ def triangulate_and_compute_weights(pts, skeleton_handle_vertices):
 	'''
 	trianglue a region closed by a bunch of bezier curves, precompute the vertices at each sample point.
 	'''
-
 	boundary_edges = [ ( i, (i+1) % len(pts) ) for i in xrange(len( pts )) ]
 	
 	pts = asarray( pts )[:, :2]
@@ -19,9 +18,9 @@ def triangulate_and_compute_weights(pts, skeleton_handle_vertices):
 	
 	pts = concatenate( ( pts, skeleton_handle_vertices ), axis = 0 )
 	vs, faces = triangles_for_points( pts, boundary_edges )
-	vs = asarray(vs)[:, :2]
+	vs = asarray(vs)[:, :2].tolist()
 	
-	faces = asarray(faces)
+	faces = asarray(faces).tolist()
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
 	
 	return vs, faces, all_weights
@@ -56,8 +55,9 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	assert len( sampling.shape ) == 2
 	assert len( ts.shape ) == 1
 	assert len( dts.shape ) == 1
-	
+
 	## Vertices and sampling must have the same dimension for each point.
+	sampling = sampling[:,:-1]
 	assert vs.shape[1] == sampling.shape[1]
 	
 	## The index 'i' must be valid.
@@ -100,7 +100,7 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	dts = asarray( dts )
 	
 	## sampling must be N-by-k.
-	assert len( P.shape ) == 2
+	assert len( sampling.shape ) == 2
 	assert len( ts.shape ) == 1
 	assert len( dts.shape ) == 1
 	
