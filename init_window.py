@@ -41,7 +41,8 @@ class Window:
 		menubar = ttk.Frame(parent, relief=GROOVE, borderwidth=1, width=800, height=28)
 		self.init_menubar(menubar)
 		
-		self.canvas = Canvas(parent, width=800, height=600, bd=2, cursor='pencil', relief=SUNKEN)
+		self.canvas = Canvas(parent, width=800, height=600, bd=2, cursor='pencil', 
+						relief=SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
 		self.canvas.bind("<Control-B1-Motion>", self.on_control_mouse_handler)
@@ -59,13 +60,15 @@ class Window:
 		if mode == 0:
 			r= 3		 
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
-			self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
+			self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', 
+									tags='controls')
 					
 
 		elif mode == 1:
 			r = 3
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
-			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', tags='handles')
+			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', 
+					tags='handles')
 			self.transforms[handle] = identity(3).reshape(-1)
 			self.popup_handle_editor( handle )
 			if len( self.canvas.find_withtag('original_curve') ) > 0:
@@ -189,13 +192,14 @@ class Window:
 
 			box = self.canvas.bbox('original_bezier')
 			width, height = box[2]-box[0], box[3]-box[1]
-			scaleX, scaleY = power(2., float(event.x-self.traceS[0])/width), power(2., float(event.y-self.traceS[1])/height)
+			scaleX, scaleY = power(2., float(event.x-self.traceS[0])/width), power(2., 
+							float(event.y-self.traceS[1])/height)
 			
 			self.traceS = [event.x, event.y]
 			
 			T = array([[1, 0, -origin[0]], [0, 1, -origin[1]], [0, 0, 1]])
 			S = array([[scaleX, 0., 0.], [0., scaleY, 0.], [0., 0., 1.]])
-			newM = dot( linalg.inv(T), dot( S, dot( T, self.transforms[h].reshape(3, -1) )) )
+			newM = dot(linalg.inv(T), dot(S, dot(T, self.transforms[h].reshape(3, -1) )))
 
 			self.transforms[h] = newM.reshape(-1)
 
@@ -255,7 +259,8 @@ class Window:
 		
 		ps = [] 
 		for t in range(0, 101):
-			p = dot( asarray( [(float(t)/100)**3, (float(t)/100)**2, float(t)/100, 1] ), known )
+			p = dot( asarray( [(float(t)/100)**3, (float(t)/100)**2, float(t)/100, 1] ), 
+				known )
 			ps = ps + [p[0], p[1]]	
 		self.canvas.create_line(ps, width=2, tags='original_bezier')
 	 
@@ -413,7 +418,8 @@ class Window:
 				pp = asarray( pp ).reshape(3)
 				r= 3
 				x0, x1, y0, y1 = pp[0]-r, pp[0]+r, pp[1]-r, pp[1]+r
-				self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', tags='new_controls')
+				self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', 
+										tags='new_controls')
 
 		num_sample = 100
 		for i in range( len( P_primes ) ):
@@ -424,10 +430,8 @@ class Window:
 			for t in samples:
 				p = dot( asarray( [t**3, t**2, t, 1] ), known )
 				ps = ps + [p[0], p[1]]	
-			self.canvas.create_line(ps, smooth=True, width=2, fill='green', tags='approximated_curve')
-
-	def redraw_approximated_bezier_mesh(self):
-		pass
+			self.canvas.create_line(ps, smooth=True, width=2, fill='green', 
+									tags='approximated_curve')
 
 	'''
 		Drawing End
@@ -456,9 +460,12 @@ class Window:
 		mb_edit.menu = Menu(mb_edit)
 		
 		self.mode = IntVar()
-		mb_edit.menu.add_radiobutton(label='add control point', variable=self.mode, value=0, command=self.change_mode)
-		mb_edit.menu.add_radiobutton(label='add handle', variable=self.mode, value=1, command=self.change_mode)
-		mb_edit.menu.add_radiobutton(label='edit handle', variable=self.mode, value=2, command=self.change_mode)
+		mb_edit.menu.add_radiobutton(label='add control point', variable=self.mode, 
+									value=0, command=self.change_mode)
+		mb_edit.menu.add_radiobutton(label='add handle', variable=self.mode, value=1, 
+									command=self.change_mode)
+		mb_edit.menu.add_radiobutton(label='edit handle', variable=self.mode, value=2, 
+									command=self.change_mode)
 		mb_edit.menu.add_separator()
 		mb_edit.menu.add_command(label='delete controls', command=self.del_controls)
 		mb_edit.menu.add_command(label='delete handles', command=self.del_handles)
@@ -470,10 +477,14 @@ class Window:
 		mb_cons.grid(column=2, row=0)
 		mb_cons.menu = Menu(mb_cons)
 		self.constraint = IntVar()
-		mb_cons.menu.add_radiobutton(label='No constrains', variable=self.constraint, value=0, command=self.change_constrain)		
-		mb_cons.menu.add_radiobutton(label='C^0', variable=self.constraint, value=1, command=self.change_constrain)
-		mb_cons.menu.add_radiobutton(label='C^1', variable=self.constraint, value=2, command=self.change_constrain)
-		mb_cons.menu.add_radiobutton(label='G^1', variable=self.constraint, value=3, command=self.change_constrain)
+		mb_cons.menu.add_radiobutton(label='No constrains', variable=self.constraint, 
+									value=0, command=self.change_constrain)		
+		mb_cons.menu.add_radiobutton(label='C^0', variable=self.constraint, value=1, 
+									command=self.change_constrain)
+		mb_cons.menu.add_radiobutton(label='C^1', variable=self.constraint, value=2, 
+									command=self.change_constrain)
+		mb_cons.menu.add_radiobutton(label='G^1', variable=self.constraint, value=3, 
+									command=self.change_constrain)
 		
 		mb_help = ttk.Menubutton(menubar,text='help')
 		mb_help.grid(column=3, row=0, padx=300, sticky=E)
@@ -499,32 +510,45 @@ class Window:
 		frame = Frame(self.root, borderwidth=1, relief=RIDGE)
 		labelFrame = LabelFrame(frame, text='Transform', relief=GROOVE, borderwidth=1)
 		labelFrame.grid()
-		w11 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[0])
+		w11 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[0])
 		w11.grid(row=0, column=0)
-		w12 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[1])
+		w12 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[1])
 		w12.grid(row=0, column=1)
-		w13 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[2])
+		w13 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[2])
 		w13.grid(row=0, column=2)
-		w21 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[3])
+		w21 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[3])
 		w21.grid(row=1, column=0)
-		w22 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[4])
+		w22 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[4])
 		w22.grid(row=1, column=1)
-		w23 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[5])
+		w23 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[5])
 		w23.grid(row=1, column=2)
-		w31 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[6])
+		w31 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[6])
 		w31.grid(row=2, column=0)
-		w32 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[7])
+		w32 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[7])
 		w32.grid(row=2, column=1)
-		w33 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, textvariable=values[8])
+		w33 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[8])
 		w33.grid(row=2, column=2)
 		
-		popup = self.canvas.create_window((coord[0]+coord[2])/2, (coord[1]+coord[3])/2, anchor=NW, width=204, height=140, window=frame, tags='popup')	
+		popup = self.canvas.create_window((coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 
+				anchor=NW, width=204, height=140, window=frame, tags='popup')	
 		
-		btn1 = Button(frame, text='Save', command=lambda id=handle_id, vals=values, popup=popup : self.save_transforms(id, vals, popup), width=4)
+		btn1 = Button(frame, text='Save', command=lambda id=handle_id, vals=values, 
+				popup=popup : self.save_transforms(id, vals, popup), width=4)
 		btn1.grid(row=3, column=0, sticky=SW)
-		btn2 = Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : self.delete_handle(id, popup), width=4)
+		btn2 = Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
+				self.delete_handle(id, popup), width=4)
 		btn2.grid(row=3, column=0, sticky=S)
-		btn3 = Button(frame, text='Cancel', command=lambda popup=popup : self.remove_popup(popup), width=4)
+		btn3 = Button(frame, text='Cancel', command=lambda popup=popup : 
+				self.remove_popup(popup), width=4)
 		btn3.grid(row=3, column=0, sticky=SE)
 	
 		self.popup = popup
@@ -655,7 +679,8 @@ class Window:
 		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
 		for k in xrange(len( Cset )):
 			for i in xrange(len( skeleton_handle_vertices )):
-				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, self.all_weights, i, all_pts[k][0], all_pts[k][1] )
+				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
+										self.all_weights, i, all_pts[k][0], all_pts[k][1])
 		
 		## draw meshes
 		vs = self.all_vertices
@@ -665,9 +690,7 @@ class Window:
 		self.redraw_handle_affected_curve()
  		self.redraw_handle_affected_mesh()
 		
- 		self.redraw_approximated_bezier_curve()
- 		self.redraw_approximated_bezier_mesh()	
-		
+ 		self.redraw_approximated_bezier_curve()		
 		
 def main():
   
