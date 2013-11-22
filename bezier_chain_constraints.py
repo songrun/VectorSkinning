@@ -9,22 +9,22 @@ precomputes_1 = []
 precomputes_2 = []
 
 ## update the two set of precomputed parameters
-def update_precomputation_of_controls_or_handles(cps, handles):
-	
-	del precomputes_1[:]
-	del precomputes_2[:]
-	
-	for i in range( len(handles ) ):
-	
-		precomputes_1.append( precompute_W_i( handles, i, controls[k], M, 0., 1., 100 ) )
-		precomputes_2.append( precompute_partOfR( handles, i, controls[k], M, 0., 1., 100 ) )
+# def update_precomputation_of_controls_or_handles(cps, handles):
+# 	
+# 	del precomputes_1[:]
+# 	del precomputes_2[:]
+# 	
+# 	for i in range( len(handles ) ):
+# 	
+# 		precomputes_1.append( precompute_W_i( handles, i, controls[k], M, 0., 1., 100 ) )
+# 		precomputes_2.append( precompute_partOfR( handles, i, controls[k], M, 0., 1., 100 ) )
 		
 
 ## Compute the control points for each split curve, and return them in a list
 ## input: 	The 4-by-dim control points of the original bezier curve
 ## 			A list containing the fractions for each split
 ## output:	A list containing the same number of control points as the splits
-
+'''
 def control_points_after_split( P, S ):
 	
 	assert len( P.shape ) == 2
@@ -91,7 +91,7 @@ def approximate_bezier_partitions( partition, original_controls, handles, transf
 		result = compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partition )
 
 	return result
-
+'''
 
 def approximate_beziers(W_matrices, Cset, handles, transforms, constraint_level):
 		
@@ -103,10 +103,12 @@ def approximate_beziers(W_matrices, Cset, handles, transforms, constraint_level)
  				handles, transforms, partition )
 
 	elif constraint_level == 1:	
-		result = compute_control_points_chain_with_C0_continuity(W_matrices, Cset, handles, transforms, partition )
+		result = compute_control_points_chain_with_C0_continuity(W_matrices, Cset, 
+				handles, transforms, partition )
 	
 	elif constraint_level == 2:
-		result = compute_control_points_chain_with_C1_continuity(W_matrices, Cset, handles, transforms, partition )
+		result = compute_control_points_chain_with_C1_continuity(W_matrices, Cset, 
+				handles, transforms, partition )
 	
 	elif constraint_level == 3:			
 #  		debugger()
@@ -157,6 +159,11 @@ def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handle
 	num = len( partitions ) # num is the number of splited curves
 	base = dim * 4
 	
+	## AA is computed using Sage.
+	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
+		[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+	assert AA.shape == (4,4)
+	
 	for k in range( num ):
 
 		C = zeros( (dim, 4) )
@@ -173,13 +180,13 @@ def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handle
 
 	for R in temps:
 		Right = Right + (R.T.reshape(-1)).tolist()
-	Right = array( Right + zeros( dim * (num-1) ).tolist() )
+	if(	array_equal(controls[0][0], controls[-1][-1]) ): # test if it's close loop
+		Right = array( Right + zeros( dim * num ).tolist() )
+	else:
+		Right = array( Right + zeros( dim * (num-1) ).tolist() )
 	
 	rank = len( Right )
-	## AA is computed using Sage.
-	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 
-	assert AA.shape == (4,4)
 	
 	Left =  zeros( (rank, rank) )		
 	for i in range( num * dim ):
@@ -194,9 +201,14 @@ def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handle
 		Left[ base*i:(i+2)*base, num*base+dim*i:num*base+dim*(i+1) ] = R
 		Left[ num*base+dim*i:num*base+dim*(i+1), base*i:(i+2)*base ] = R.T
 	
-	'''
-	add weights
-	'''
+	## For close loop
+	if(	array_equal(controls[0][0], controls[-1][-1]) ):
+		Left[ :base, -dim:] = R[base:]
+		Left[ (num-1)*base:num*base, -dim: ] = R[:base]
+		Left[ -dim:, :base ] = R[base:].T
+		Left[ -dim:, (num-1)*base:num*base ] = R[:base].T
+	
+	## add weights proportional to length of each curve
 	for i in range( num ):
 		Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
 		Right[base*i:base*(i+1)] *= partitions[i]
@@ -225,12 +237,17 @@ def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handle
 def compute_control_points_chain_with_C1_continuity(W_matrices, controls, handles, transforms, partitions ):
 	
 	num = len( partitions )
+	## mags is the magnitudes of the derivatives of each curve at endpoints. 
+	## The mags are proportional to the lengths of each curve for C1 continuity.
 	mags = ones( (num, 2) )
 	for i in range( len( partitions ) ):
 		mags[i] *= partitions[i]
-		
-	right = precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms )	
-	result = compute_control_points_chain_with_derivative_continuity_with_weight( right, partitions, mags )
+	closed = False
+	if(	array_equal(controls[0][0], controls[-1][-1]) ): closed = True
+	
+	
+	right = precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms, closed )	
+	result = compute_control_points_chain_with_derivative_continuity_with_weight( right, partitions, mags, closed )
 
 	return result
 
@@ -240,7 +257,7 @@ def compute_control_points_chain_with_C1_continuity(W_matrices, controls, handle
 ##	and the directions of derivatives at joints are collinear.
 ##	then return the control points of each optimized split bezier in a list.
 
-def compute_control_points_chain_with_derivative_continuity_with_weight(right, partitions, mags ):
+def compute_control_points_chain_with_derivative_continuity_with_weight(right, partitions, mags, closed = True ):
 
 	result = []
 	
@@ -259,6 +276,7 @@ def compute_control_points_chain_with_derivative_continuity_with_weight(right, p
 	for i in range( num * dim ):
 		Left[ i*4:i*4+4, i*4:i*4+4 ] = AA[:,:]
 	
+	## Apply Langrange Multiplier to add constraints.
 	R = zeros( ( 2*base, 2*dim ) )
 	for i in range( dim ):
 		R[i*4+3, i] = R[i*4+3, i+dim] = 1
@@ -266,9 +284,7 @@ def compute_control_points_chain_with_derivative_continuity_with_weight(right, p
 		R[base+i*4, i] = R[base+i*4+1, i+dim] = -1
 		R[base+i*4, i+dim] = 1
 		
-	'''
-	add weights to lambda
-	'''
+	## add weights to lambda
 	assert len(partitions) == num	
 	for i in range( num-1 ): 
 		R_copy = deepcopy( R )
@@ -276,10 +292,17 @@ def compute_control_points_chain_with_derivative_continuity_with_weight(right, p
 		R_copy[ base:, dim: ] *= mags[i][1]
 		Left[ base*i:(i+2)*base, num*base+2*dim*i:num*base+2*dim*(i+1) ] = R_copy
 		Left[ num*base+2*dim*i:num*base+2*dim*(i+1), base*i:(i+2)*base ] = R_copy.T
+		
+	## For close loop
+	if(	closed ):
+		R[ :base, dim: ] *= mags[0,0]
+		R[ base:, dim: ] *= mags[-1,1]
+		Left[ :base, -2*dim:] = R[base:]
+		Left[ (num-1)*base:num*base, -2*dim: ] = R[:base]
+		Left[ -2*dim:, :base ] = R[base:].T
+		Left[ -2*dim:, (num-1)*base:num*base ] = R[:base].T
 	
-	'''
-	add weights
-	'''
+	## add weights
 	for i in range( num ):
 		Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
 		Right[base*i:base*(i+1)] *= partitions[i]
@@ -468,7 +491,7 @@ def precompute_rightside_for_fixing_directions(controls, handles, transforms ):
 	return result
 
 ## Precompute the left side for the G1 continuity for fixing magnitudes
-def precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms ):	
+def precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms, closed = True ):	
 		
 	temps = []
 	num = len( controls )
@@ -485,9 +508,13 @@ def precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, tr
 		temps.append( asarray(C.T) )
 	
 	Right = []
-
+		
 	for R in temps:
 		Right = Right + (R.T.reshape(-1)).tolist()
-	Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
+		
+	if(	closed ): 
+		Right = array( Right + zeros( 2 * dim * num ).tolist() )
+	else:
+		Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
 	
 	return Right	
