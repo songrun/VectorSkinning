@@ -119,7 +119,7 @@ def parse_svgfile(svg_file):
 				cps[-1] += pts.tolist()
 				current = pts[-1]
 			controls = asarray(controls).reshape(4,2)
-			samples[-1] += sample_cubic_bezier_curve(controls)[2:]
+			samples[-1] += sample_cubic_bezier_curve(controls)[0][2:]
 			
 			anchors[-1].append(deepcopy(current))		
 			pos += 6
@@ -143,7 +143,7 @@ def parse_svgfile(svg_file):
 				current = pts[-1]
 							
 			controls = asarray(controls).reshape(4,2)
-			samples[-1] += sample_cubic_bezier_curve(controls)[2:]
+			samples[-1] += sample_cubic_bezier_curve(controls)[0][2:]
 			
 			anchors[-1].append(deepcopy(current))
 			pos += 4
@@ -159,7 +159,7 @@ def parse_svgfile(svg_file):
 				cps[-1] += pts.tolist()
 				current = pts
 			end = current[:]
-			samples[-1] += sample_straight_line(begin, end)[2:]
+			samples[-1] += sample_straight_line(begin, end)[0][2:]
 			anchors[-1].append(deepcopy(current))
 			pos += 2
 			last_key = key
@@ -174,7 +174,7 @@ def parse_svgfile(svg_file):
 				cps[-1] += [pts, current[1]]
 				current[0] = pts
 			end = current[:]
-			samples[-1] += sample_straight_line(begin, end)[2:]
+			samples[-1] += sample_straight_line(begin, end)[0][2:]
 			anchors[-1].append(deepcopy(current))
 			pos += 1
 			last_key = key
@@ -190,7 +190,7 @@ def parse_svgfile(svg_file):
 				current[1] = pts
 			
 			end = current[:]
-			samples[-1] += sample_straight_line(begin, end)[2:]
+			samples[-1] += sample_straight_line(begin, end)[0][2:]
 			anchors[-1].append(deepcopy(current))
 			pos += 1
 			last_key = key
@@ -198,7 +198,7 @@ def parse_svgfile(svg_file):
 	for curve in samples:
 		curve[::2] = ((asarray(curve[::2])-scales[0])/scales[2]).tolist()
 		curve[1::2] = ((asarray(curve[1::2])-scales[0])/scales[2]).tolist()
-		
+
 	for i, each in enumerate(samples):
 		if len(each) < 4:
 			print i, each

@@ -47,6 +47,9 @@ def sample_cubic_bezier_curve( P, num_samples = 100 ):
 	a 4-by-k numpy.array P containing the positions of the control points as the rows,
 	return two lists: sample points of the bezier curve denoted in P, and corresponding t values
 	'''
+	if num_samples is None:
+		num_samples = max(int(length_of_cubic_bezier_curve(P) / 1), 2)
+	
 	result = []
 	ts = []
 	tbar = ones( 4 )
@@ -68,6 +71,9 @@ def sample_straight_line( begin, end, num_samples = 100 ):
 	begin = asarray(begin)
 	end = asarray(end)
 	result = []
+	
+	if num_samples is None:
+		num_samples = max(int(mag(begin - end) / 1), 2)
 	
 	ts = []	
 	for t in linspace( 0, 1, num_samples ):

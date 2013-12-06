@@ -29,6 +29,8 @@ class Window:
 	all_weights = None
 	boundaries = None
 	W_matrices = None
+	## temporarily use
+	curves = None
 	
 	'''
 	Construct UI
@@ -176,6 +178,20 @@ class Window:
 		sizes, pts = parse_svgfile(filename)
 		
 		self.canvas.config(width=sizes[0], height=sizes[1])
+		self.curves = pts
+		def draw_data():
+			'''
+			curves contain a list of curves, each curve has the form as x1, y1, x2, y2...
+			'''
+			if self.curves is None:
+				return
+			self.canvas.delete('curves')
+			
+			for curve in self.curves:
+				curve = curve.reshape(-1).tolist()
+				self.canvas.create_line(curve, tags='curves')
+		
+		draw_data()
 
 	def exit(self):
 		sys.exit(0)
@@ -645,10 +661,14 @@ class Window:
 			last = self.boundaries[i][-1]
 		self.boundaries[-1][-1] = self.boundaries[0][0]	
 		
-		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
-		for k in xrange(len( Cset )):
+		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 2, 4, 4 ) )
+		for k in xrange(len( Cset )):	
 			for i in xrange(len( skeleton_handle_vertices )):
-				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
+				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
+				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
+				self.W_matrices[k,i,0] = precompute_W_i_bbw( self.all_vertices, 
+										self.all_weights, i, all_pts[k][0], all_pts[k][1])
+				self.W_matrices[k,i,1] = precompute_W_i_part_of_R( self.all_vertices, 
 										self.all_weights, i, all_pts[k][0], all_pts[k][1])
 			
 		self.redraw_handle_affected_curve()	

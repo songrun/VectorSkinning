@@ -51,7 +51,7 @@ def approximate_bezier_chain_without_constraint(W_matrices, controls, handles, t
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = W_matrices[k,i]
+			W_i = W_matrices[k,i,0]
 			
 			P_prime = P_prime + T_i * (controls[k].T) * M * mat(W_i) * inv_MA
 
@@ -84,7 +84,7 @@ def approximate_bezier_chain_with_C0_continuity(W_matrices, controls, handles, t
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = W_matrices[k,i]	
+			W_i = W_matrices[k,i,0]	
 	
 			C = C + T_i * (controls[k].T) * M * mat(W_i) * M
 	
@@ -398,7 +398,7 @@ def precompute_rightside_for_fixing_directions(W_matrices, controls, handles, tr
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim, dim) )
- 			partOfR = precompute_partOfR( W_matrices, i, controls[k], M, 100 )		
+ 			partOfR = W_matrices[k,i,1]		
 			
 			temp = temp + T_i * (controls[k].T) * M * mat(partOfR) 
 		
@@ -419,7 +419,7 @@ def precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, tr
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
- 			W_i = W_matrices[k,i]	
+ 			W_i = W_matrices[k,i,0]	
 	
 			C = C + T_i * (controls[k].T) * M * mat( W_i ) * M
 	

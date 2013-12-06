@@ -63,10 +63,6 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	## The index 'i' must be valid.
 	assert i >= 0 and i < weights.shape[1]
 	
-	### Compute the integral.
-	W_i = zeros( ( 4,4 ) )
-	tbar = ones( 4 )
-	
 	def weight_function( p ):
 		## Find the closest vertex in 'vs' to 'p'
 		vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
@@ -257,7 +253,7 @@ def default_w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def precompute_partOfR( vs, weights, i, sampling, ts, dts = None):
+def precompute_W_i_part_of_R( vs, weights, i, sampling, ts, dts = None):
 	'''
 	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
 	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
@@ -295,10 +291,6 @@ def precompute_partOfR( vs, weights, i, sampling, ts, dts = None):
 	## The index 'i' must be valid.
 	assert i >= 0 and i < weights.shape[1]
 	
-	### Compute the integral.
-	W_i = zeros( ( 4,4 ) )
-	tbar = ones( 4 )
-	
 	def weight_function( p ):
 		## Find the closest vertex in 'vs' to 'p'
 		vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
@@ -308,7 +300,13 @@ def precompute_partOfR( vs, weights, i, sampling, ts, dts = None):
 	return precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
 
 def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
-	## Compute the integral.
+	'''
+	compute integral of w * tbar * (M * tbar11)
+			integral of w * tbar * (M * tbar21)
+			integral of w * tbar * (M * tbar31)
+			integral of w * tbar * (M * tbar41)
+	'''
+	## Compute the integral.	
 	R = zeros( ( 4, 4 ) )
 	tbar = ones( 4 )
 	
@@ -320,6 +318,7 @@ def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampl
 		
 		w = weight_function( sample )
 		
+		## M * tbar
 		C_P = dot( M, tbar )
 		
 		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
