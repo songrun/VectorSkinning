@@ -4,132 +4,47 @@ from bezier_utility import *
 
 ## The dimensions of a point represented in the homogeneous coordinates
 dim = 3
-## Two set of precomputed parameters
-precomputes_1 = []
-precomputes_2 = []
-
-## update the two set of precomputed parameters
-# def update_precomputation_of_controls_or_handles(cps, handles):
-# 	
-# 	del precomputes_1[:]
-# 	del precomputes_2[:]
-# 	
-# 	for i in range( len(handles ) ):
-# 	
-# 		precomputes_1.append( precompute_W_i( handles, i, controls[k], M, 0., 1., 100 ) )
-# 		precomputes_2.append( precompute_partOfR( handles, i, controls[k], M, 0., 1., 100 ) )
-		
-
-## Compute the control points for each split curve, and return them in a list
-## input: 	The 4-by-dim control points of the original bezier curve
-## 			A list containing the fractions for each split
-## output:	A list containing the same number of control points as the splits
-'''
-def control_points_after_split( P, S ):
-	
-	assert len( P.shape ) == 2
-	assert P.shape[0] == 4
-	P = asarray( P )
-	
-	S = asarray( S )
-	
-	ref = 1.0
-	for i in range( len(S) ):
-		S[i] = S[i] / ref
-		ref = ( 1 - S[i] ) * ref
-	
-	result = []
-	for i, k in enumerate( S[:-1] ):
-		assert k > 0 and k < 1
-		
-		r1 = P[:-1]*(1.-k) + P[1:]*k
-		r2 = r1[:-1]*(1.-k) + r1[1:]*k
-		r3 = r2[:-1]*(1.-k) + r2[1:]*k
-		
-		result.append([P[0].tolist(), r1[0].tolist(), r2[0].tolist(), r3[0].tolist()])
-
-		P = array( [r3[-1], r2[-1], r1[-1], P[-1]] )
-	
-	result.append(P)
-	
-	return result
-
-
-## A method the dispatch different specific methods to do the approximation 
-## according to the constraint requirement indicated by constraint_level
-
-def approximate_bezier_partitions( partition, original_controls, handles, transforms, constraint_level ):
-
-	result = []
-	
-	Cset =  control_points_after_split( original_controls, partition ) 
-	Cset = asarray( Cset )
-	
-# 	s = [0.] + cumsum(partition).tolist()
-# 	print s
-# 	for k in range( len( partition ) ):
-# 		for i in range( len( handles ) ):
-# 			print 'haha1: ', precompute_W_i( handles, i, original_controls, M, s[k], s[k+1], 100 )
-# 			print 'haha2: ', precompute_W_i( handles, i, Cset[k*4:k*4+4], M, 0., 1., 100 )
-	
-	if constraint_level == 0:		
- 		result = compute_control_points_chain_without_constraint( Cset, handles, transforms, partition )
-
-	elif constraint_level == 1:		
-		result = compute_control_points_chain_with_C0_continuity( Cset, handles, transforms, partition )
-	
-	elif constraint_level == 2:	
-		result = compute_control_points_chain_with_C1_continuity( Cset, handles, transforms, partition )
-	
-	elif constraint_level == 3:			
-#  		debugger()
-		## precompute the Right part for G1 fixing directions
-		right_fixing_dirs = precompute_rightside_for_fixing_directions( Cset, handles, transforms )
-		
-		right_fixing_mags = precompute_rightside_for_fixing_magnitudes( Cset, handles, transforms )
-		
-		result = compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partition )
-
-	return result
-'''
 
 def approximate_beziers(W_matrices, Cset, handles, transforms, constraint_level):
-		
+	
 	partition = asarray([length_of_cubic_bezier_curve(P) for P in Cset])
 	partition = partition/sum(partition)
 	
 	if constraint_level == 0:		
- 		result = compute_control_points_chain_without_constraint(W_matrices,  Cset, 
+ 		result = approximate_bezier_chain_without_constraint(W_matrices,  Cset, 
  				handles, transforms, partition )
 
 	elif constraint_level == 1:	
-		result = compute_control_points_chain_with_C0_continuity(W_matrices, Cset, 
+		result = approximate_bezier_chain_with_C0_continuity(W_matrices, Cset, 
 				handles, transforms, partition )
 	
 	elif constraint_level == 2:
-		result = compute_control_points_chain_with_C1_continuity(W_matrices, Cset, 
+		result = approximate_bezier_chain_with_C1_continuity(W_matrices, Cset, 
 				handles, transforms, partition )
 	
 	elif constraint_level == 3:			
 #  		debugger()
 		## precompute the Right part for G1 fixing directions
-		right_fixing_dirs = precompute_rightside_for_fixing_directions(Cset, handles, transforms )
+		right_fixing_dirs = precompute_rightside_for_fixing_directions(W_matrices, Cset, handles, transforms )
 		
 		right_fixing_mags = precompute_rightside_for_fixing_magnitudes(W_matrices, Cset, handles, transforms )
 		
-		result = compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partition )
+		result = approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partition )
 
-	return result	
-	
-	
+	return result		
 
 ## Optimize the approximation without any constraint on joints and return the control points of each optimized split bezier in a list	
-def compute_control_points_chain_without_constraint(W_matrices, controls, handles, transforms, partitions ): 
+def approximate_bezier_chain_without_constraint(W_matrices, controls, handles, transforms, partitions ): 
 
 	result = []
 	num = len( partitions )
 	
-	inv_A = linalg.inv( precompute_A( M, 0., 1., 50 ) )					
+	## A is computed using Sage, integral of (tbar.T * tbar) with respect to t.
+	A = asarray( [[  1./7,  1./6,  1./5, 1./4], [ 1./6,  1./5, 1./4,  1./3], 
+		[ 1./5, 1./4,  1./3,  1./2], [1./4,  1./3,  1./2,   1.]] )
+
+	inv_MA = linalg.inv( dot( M, A) )
+						
 	for k in range( num ):
 		
 		P_prime = zeros((dim,4))
@@ -138,7 +53,7 @@ def compute_control_points_chain_without_constraint(W_matrices, controls, handle
 			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
 			W_i = W_matrices[k,i]
 			
-			P_prime = P_prime + T_i * (controls[k].T) * M * mat(W_i) * inv_A	
+			P_prime = P_prime + T_i * (controls[k].T) * M * mat(W_i) * inv_MA
 
 		result.append( asarray(P_prime.T) )
 	
@@ -151,7 +66,7 @@ def compute_control_points_chain_without_constraint(W_matrices, controls, handle
 ## 		lambda2 * ( P42' - Q12' ) = 0
 ## 		lambda3 * ( P43' - Q13' ) = 0
 	
-def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handles, transforms, partitions ):
+def approximate_bezier_chain_with_C0_continuity(W_matrices, controls, handles, transforms, partitions ):
 
 	temps = []
 	result = []
@@ -159,10 +74,9 @@ def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handle
 	num = len( partitions ) # num is the number of splited curves
 	base = dim * 4
 	
-	## AA is computed using Sage.
+	## AA is computed using Sage. AA = M * A * M
 	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
 		[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
-	assert AA.shape == (4,4)
 	
 	for k in range( num ):
 
@@ -234,7 +148,7 @@ def compute_control_points_chain_with_C0_continuity(W_matrices, controls, handle
 ## 		lambda5 * ( P42' - P32' + Q12' - Q22') = 0
 ## 		lambda6 * ( P43' - P33' + Q13' - Q23') = 0
 		
-def compute_control_points_chain_with_C1_continuity(W_matrices, controls, handles, transforms, partitions ):
+def approximate_bezier_chain_with_C1_continuity(W_matrices, controls, handles, transforms, partitions ):
 	
 	num = len( partitions )
 	## mags is the magnitudes of the derivatives of each curve at endpoints. 
@@ -247,7 +161,7 @@ def compute_control_points_chain_with_C1_continuity(W_matrices, controls, handle
 	
 	
 	right = precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms, closed )	
-	result = compute_control_points_chain_with_derivative_continuity_with_weight( right, partitions, mags, closed )
+	result = approximate_bezier_chain_with_G1_magnitude_fixed( right, partitions, mags, closed )
 
 	return result
 
@@ -257,7 +171,7 @@ def compute_control_points_chain_with_C1_continuity(W_matrices, controls, handle
 ##	and the directions of derivatives at joints are collinear.
 ##	then return the control points of each optimized split bezier in a list.
 
-def compute_control_points_chain_with_derivative_continuity_with_weight(right, partitions, mags, closed = True ):
+def approximate_bezier_chain_with_G1_magnitude_fixed(right, partitions, mags, closed = True ):
 
 	result = []
 	
@@ -268,9 +182,8 @@ def compute_control_points_chain_with_derivative_continuity_with_weight(right, p
 	rank = len( Right )
 	
 	## AA is computed using Sage.
-	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
-	
-	assert AA.shape == (4,4)
+	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
+		[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 	
 	Left =  zeros( (rank, rank) )		
 	for i in range( num * dim ):
@@ -315,89 +228,12 @@ def compute_control_points_chain_with_derivative_continuity_with_weight(right, p
 	
 	return result
 
-
-## 	Optimize the approximation with all splits connected and the directions of derivatives at joints collinear. 
-##	then return the control points of each optimized split bezier in a list.
-	
-def compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = None, mags = None, dirs = None, index = 0):
-	
-	assert mags is None or dirs is None
-	
-	if index >= 20:
-		print 'stop at index: ', index
- 		return old_solution
-#		return [old_solution, index]
-		
-	rs = []
-	num = len( partitions ) # num is the number of splited curves		
-	
-	if mags is not None:
-		
-		assert mags.shape == (num, 2)
- 		dirs = ones( (num, 2, dim-1) )
-			
-		solution = compute_control_points_chain_with_derivative_continuity_with_weight( right_fixing_mags, partitions, mags )
-		## check if the new solution is close enough to previous solution
-		## if not, update the direction vector for each split
-# 		error = 0.0
-# 		for k in range( len( solution ) ):
-# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k], M )*partitions[k]
-# 	 	print 'mags error: ', error
-	 	
-		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
-			print 'stop at index: ', index
-#			return [solution, index]
- 			return solution
-		else:
-			for i in range( num ):
-				dirs[i][0] = dir_allow_zero( (solution[i][1]-solution[i][0])[:2] ) 
-				dirs[i][1] = dir_allow_zero( (solution[i][2]-solution[i][3])[:2] ) 
-	
-#		return [solution, index+1]
- 		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = solution, dirs = dirs, index = index+1 )
-		
-	elif dirs is not None:	
-	
-		assert dirs.shape == (num, 2, dim-1 )
-		mags = ones( (num, 2) )		
-# 		debugger()
- 		solution = compute_control_points_chain_fixing_directions( right_fixing_dirs, partitions, dirs[:, 0, :], dirs[:, 1, :])
-		
-		## get result of the iteration, and check if the result is stable
-		
-# 		error = 0.0	
-# 		for k in range( len( solution ) ):
-# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k], M )*partitions[k]
-# 	 	print 'dirs error: ', error
-		
-		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
-			print 'stop at index: ', index
-#			return [solution, index]
-  			return solution
-			
-		else:
-			for i in range( num ):
-				mags[i][0] = mag( (solution[i][1]-solution[i][0])[:2] )  
-				mags[i][1] = mag( (solution[i][2]-solution[i][3])[:2] ) 
-
-#		return [solution, index+1]
- 		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, old_solution = solution, mags = mags, index = index+1 )
-
-	else:	
-	
-		mags = ones( (num, 2) )
-		for i in range( num ):
-			mags[i] *= partitions[i]
-			
- 		return compute_control_points_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partitions, mags = mags )
- 		
-
 ## 	Optimize the approximation with contraints that all splits connected,
 ## 	A given magnitude proportion of derivatives at joints,
 ##	and the directions of derivatives at joints are collinear. 
 ##	then return the control points of each optimized split bezier in a list.
 	
-def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1, dir2): 
+def approximate_chain_with_G1_direction_fixed( raw_rights, partitions, dir1, dir2): 
 
 	dir1 = append( dir1, zeros((len( dir1 ),1)), axis = 1 )
 	dir2 = append( dir2, zeros((len( dir2 ),1)), axis = 1 )
@@ -467,10 +303,92 @@ def compute_control_points_chain_fixing_directions( raw_rights, partitions, dir1
 		
 		result.append(asarray([P1, P2, P3, P4]))
 		
-	return result	
+	return result
+
+## 	Optimize the approximation with all splits connected and the directions of derivatives at joints collinear. 
+##	then return the control points of each optimized split bezier in a list.
+	
+def approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, 
+	partitions, old_solution = None, mags = None, dirs = None, index = 0):
+	
+	assert mags is None or dirs is None
+	
+	if index >= 20:
+		print 'stop at index: ', index
+ 		return old_solution
+#		return [old_solution, index]
+		
+	rs = []
+	num = len( partitions ) # num is the number of splited curves		
+	
+	if mags is not None:
+		
+		assert mags.shape == (num, 2)
+ 		dirs = ones( (num, 2, dim-1) )
+			
+		solution = approximate_bezier_chain_with_G1_magnitude_fixed( 
+					right_fixing_mags, partitions, mags )
+		## check if the new solution is close enough to previous solution
+		## if not, update the direction vector for each split
+# 		error = 0.0
+# 		for k in range( len( solution ) ):
+# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k], M )*partitions[k]
+# 	 	print 'mags error: ', error
+	 	
+		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
+			print 'stop at index: ', index
+#			return [solution, index]
+ 			return solution
+		else:
+			for i in range( num ):
+				dirs[i][0] = dir_allow_zero( (solution[i][1]-solution[i][0])[:2] ) 
+				dirs[i][1] = dir_allow_zero( (solution[i][2]-solution[i][3])[:2] ) 
+	
+#		return [solution, index+1]
+ 		return approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, 
+ 		right_fixing_mags, partitions, old_solution = solution, dirs = dirs, index = index+1 )
+		
+	elif dirs is not None:	
+	
+		assert dirs.shape == (num, 2, dim-1 )
+		mags = ones( (num, 2) )		
+# 		debugger()
+ 		solution = approximate_chain_with_G1_direction_fixed( right_fixing_dirs, 
+ 					partitions, dirs[:, 0, :], dirs[:, 1, :])
+		
+		## get result of the iteration, and check if the result is stable
+		
+# 		error = 0.0	
+# 		for k in range( len( solution ) ):
+# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k], M )*partitions[k]
+# 	 	print 'dirs error: ', error
+		
+		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
+			print 'stop at index: ', index
+#			return [solution, index]
+  			return solution
+			
+		else:
+			for i in range( num ):
+				mags[i][0] = mag( (solution[i][1]-solution[i][0])[:2] )  
+				mags[i][1] = mag( (solution[i][2]-solution[i][3])[:2] ) 
+
+#		return [solution, index+1]
+ 		return approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, 
+ 		right_fixing_mags, partitions, old_solution = solution, mags = mags, index = index+1 )
+
+	else:	
+	
+		mags = ones( (num, 2) )
+		for i in range( num ):
+			mags[i] *= partitions[i]
+			
+ 		return approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, 
+ 				right_fixing_mags, partitions, mags = mags )
+ 			
 
 ## Precompute the right side for the G1 continuity for fixing directions		
-def precompute_rightside_for_fixing_directions(controls, handles, transforms ):
+def precompute_rightside_for_fixing_directions(W_matrices, controls, handles, transforms ):
 	
 	num = len( controls )
 	result = []
@@ -480,7 +398,7 @@ def precompute_rightside_for_fixing_directions(controls, handles, transforms ):
 		for i in range( len( handles ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim, dim) )
- 			partOfR = precompute_partOfR( handles, i, controls[k], M, 0., 1., 100 )		
+ 			partOfR = precompute_partOfR( W_matrices, i, controls[k], M, 100 )		
 			
 			temp = temp + T_i * (controls[k].T) * M * mat(partOfR) 
 		

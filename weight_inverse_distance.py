@@ -257,53 +257,68 @@ def default_w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def precompute_A( M, a, b, num_samples = 100 ):
-
-	M = asarray( M )
-	assert M.shape == (4,4)
-	a = float(a)
-	b = float(b)
+def precompute_partOfR( vs, weights, i, sampling, ts, dts = None):
 	'''
-	t_prime = (1-t)*a + t*b
+	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
+	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
+	an index 'i' specifying which handle,
+	an M-by-k numpy.array 'sampling' containing sampled positions,
+	a length-M numpy.array of t values corresponding to each sample in 'sampling',
+	an optional length-M numpy.array of dt values corresponding to each sample in 'sampling',
+	returns W, a 4-by-4 numpy.array defined as:
+		\int weights_i( sample ) \overbar{t}^T \overbar{t}^T dt
+	where sample is drawn from 'sampling', t is drawn from 'ts', and dt is drawn from 'dts'.
+	
+	If 'dts' is not given, it defaults to 1/len(sampling).
 	'''
-	a_prime = (1-a)*a + a*b
-	b_prime = (1-b)*a + b*b
 	
-	A = zeros( (4, 4) )
-	tbar = ones( 4 )
-	dt = (1.0 - 0.)/num_samples
-	#for t in linspace( a, b, num_samples ):
-	for ti in xrange( num_samples ):
+	if dts is None: dts = ones( len( sampling ) ) * (1./len(sampling))
 	
-		t = ( ti + 0.5 ) * dt
-		
-		tbar[0] = t**3
-		tbar[1] = t**2
-		tbar[2] = t
-		tbar = tbar.reshape( (4,1) )
+	### Asserts
+	## Ensure our inputs are numpy.arrays:
+	weights = asarray( weights )
+	vs = asarray( vs )
+	sampling = asarray( sampling )
+	ts = asarray( ts )
+	dts = asarray( dts )
+	
+	assert len( weights.shape ) == 2
+	assert len( vs.shape ) == 2
+	assert len( sampling.shape ) == 2
+	assert len( ts.shape ) == 1
+	assert len( dts.shape ) == 1
 
-		A = A + dot( dt * tbar, tbar.T )
+	## Vertices and sampling must have the same dimension for each point.
+	sampling = sampling[:,:-1]
+	assert vs.shape[1] == sampling.shape[1]
 	
-	A = A*(b-a)
+	## The index 'i' must be valid.
+	assert i >= 0 and i < weights.shape[1]
 	
-	return dot(M, A)
-
-def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
 	### Compute the integral.
+	W_i = zeros( ( 4,4 ) )
+	tbar = ones( 4 )
+	
+	def weight_function( p ):
+		## Find the closest vertex in 'vs' to 'p'
+		vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
+		assert allclose( vs[vi], p, 1e-5 )
+		return weights[ vi, i ]
+	
+	return precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
+
+def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
+	## Compute the integral.
 	R = zeros( ( 4, 4 ) )
 	tbar = ones( 4 )
-
-	dt = (b-a)/num_samples
-	#for t in linspace( a, b, num_samples ):
-	for ti in xrange( num_samples ):
-		t = a + ( ti + .5 ) * dt
-			
+	
+	for sample, t, dt in zip( sampling, ts, dts ):
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
 		tbar = tbar.reshape( (4,1) )
 		
-		w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
+		w = weight_function( sample )
 		
 		C_P = dot( M, tbar )
 		
@@ -313,6 +328,33 @@ def precompute_partOfR( handle_positions, i, P, M ,a, b, num_samples = 100 ):
 		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
 	
 	return R
+
+# def precompute_partOfR( W_matrices, i, P, M , num_samples = 100 ):
+# 	### Compute the integral.
+# 	R = zeros( ( 4, 4 ) )
+# 	tbar = ones( 4 )
+# 	
+# 	debugger()
+# 	dt = 1.0/num_samples
+# 	#for t in linspace( 0, 1., num_samples ):
+# 	for ti in xrange( num_samples ):
+# 		t = a + ( ti + .5 ) * dt
+# 			
+# 		tbar[0] = t**3
+# 		tbar[1] = t**2
+# 		tbar[2] = t
+# 		tbar = tbar.reshape( (4,1) )
+# 		
+# 		w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
+# 		
+# 		C_P = dot( M, tbar )
+# 		
+# 		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
+# 		R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
+# 		R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
+# 		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
+# 	
+# 	return R
 
 ## Compute error computed by numerical approach
 def compute_error_metric( transforms, handle_positions, P_primes, P, M, num_samples = 100, dim = 3 ):

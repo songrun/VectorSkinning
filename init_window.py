@@ -1,9 +1,10 @@
 #!/opt/local/bin/python
-from Tkinter import *  
+import Tkinter, Tkconstants, tkFileDialog 
 import ttk as ttk
 import tkMessageBox
 from weight_inverse_distance import *
 from bezier_chain_constraints import *
+from svg_parser import *
 
 
 colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 
@@ -15,22 +16,27 @@ colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue',
 	
 class Window:
 	canvas = None
+	popup = None
 	mode = None #indicator of one of the three modes.
 	constraint = None #indicator of which constraint is being used.
+	
 	root = None
-	selected = None
-	popup = None
+	selected = None 
 	traceT, traceR, traceS = [], [], []
 	transforms = {}
 	all_vertices = None
-	faces = None
+	facets = None
 	all_weights = None
 	boundaries = None
 	W_matrices = None
 	
+	'''
+	Construct UI
+	'''
 	def __init__(self, parent):
 	
 		self.root = parent
+		self.root.title('Bezier Deformation')
 		mainWindow = ttk.Frame(parent)	
 		self.init_UI(mainWindow)	
 		mainWindow.grid()
@@ -38,11 +44,11 @@ class Window:
 		
 	def init_UI(self, parent):
 	
-		menubar = ttk.Frame(parent, relief=GROOVE, borderwidth=1, width=800, height=28)
+		menubar = ttk.Frame(parent, relief=Tkinter.GROOVE, borderwidth=1, width=800, height=28)
 		self.init_menubar(menubar)
 		
-		self.canvas = Canvas(parent, width=800, height=600, bd=2, cursor='pencil', 
-						relief=SUNKEN)
+		self.canvas = Tkinter.Canvas(parent, width=800, height=600, bd=2, cursor='pencil', 
+						relief=Tkinter.SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
 		self.canvas.bind("<Control-B1-Motion>", self.on_control_mouse_handler)
@@ -51,6 +57,212 @@ class Window:
 		self.canvas.bind("<ButtonRelease-1>", self.onrelease_handler)
 		self.canvas.grid()
 		return	
+	
+	def init_menubar(self, menubar):
+	
+		menubar.grid_propagate(0)
+		menubar.grid()
+		
+		#A menu in Tk is a combination of a Menubutton (the title of the
+		#menu) and the Menu (what drops down when the Menubutton is pressed)
+			
+		mb_file = ttk.Menubutton(menubar, text='file')
+		mb_file.grid(column=0, row=0, ipadx=20)
+		mb_file.menu = Tkinter.Menu(mb_file)
+		mb_file.menu.add_command(label='import', command=self.askopenfilename)
+		mb_file.menu.add_command(label='save', command=self.askopenfilename)
+		mb_file.menu.add_separator()	
+		mb_file.menu.add_command(label='triangle', command=self.draw_mesh)
+		mb_file.menu.add_separator()	
+		mb_file.menu.add_command(label='close', command=self.exit)
+		
+		##################
+		mb_edit = ttk.Menubutton(menubar, text='edit')
+		mb_edit.grid(column=1, row=0, ipadx=20 )
+		mb_edit.menu = Tkinter.Menu(mb_edit)
+		
+		def change_mode():
+			mode = self.mode.get()	
+			if mode == 0:
+				self.canvas.config(cursor = 'pencil')
+			elif mode == 1: 
+				self.canvas.config(cursor = 'target')
+			elif mode == 2:
+				self.canvas.config(cursor = 'hand1')		
+		self.mode = Tkinter.IntVar()	
+		mb_edit.menu.add_radiobutton(label='add control point', variable=self.mode, 
+									value=0, command=change_mode)
+		mb_edit.menu.add_radiobutton(label='add handle', variable=self.mode, value=1, 
+									command=change_mode)
+		mb_edit.menu.add_radiobutton(label='edit handle', variable=self.mode, value=2, 
+									command=change_mode)
+												
+		mb_edit.menu.add_separator()
+		self.if_closed = Tkinter.BooleanVar()
+		mb_edit.menu.add_checkbutton(label='Path closed', onvalue=True, offvalue=False, 
+									variable=self.if_closed)
+		self.if_closed.set(True)
+		
+# 		self.if_show_mesh = Tkinter.BooleanVar()
+# 		self.if_show_mesh.set(False)
+# 		def show_mesh():
+# 			debugger()
+# 			print 'What is wrong?'
+# 			if self.all_vertices is None: return
+# 			if self.if_show_mesh == True:
+# 				vs = self.all_vertices
+# 				for face in self.facets:
+# 					self.canvas.create_line([vs[x] for x in face]+vs[face[0]], 
+# 											tags='original_mesh')
+# # 				self.redraw_handle_affected_mesh()
+# 			else: 
+# 				self.canvas.delete('original_mesh')
+# 		mb_edit.menu.add_checkbutton(label='show mesh', onvalue=True, offvalue=False, 
+# 									variable=self.if_show_mesh, command=show_mesh)
+											
+		mb_edit.menu.add_separator()
+		def clear_canvas():
+			self.canvas.delete('all')
+			self.transforms.clear()		
+		mb_edit.menu.add_command(label='clear canvas', command=clear_canvas)
+		
+		
+		######### menu dealing with constrains 
+		mb_cons = ttk.Menubutton(menubar, text='constrains')
+		mb_cons.grid(column=2, row=0)
+		mb_cons.menu = Tkinter.Menu(mb_cons)
+		self.constraint = Tkinter.IntVar()
+		
+		def change_constrain():	
+			if ( len( self.canvas.find_withtag( 'approximated_curve' ) ) != 0 ):
+				self.redraw_approximated_bezier_curve()
+		mb_cons.menu.add_radiobutton(label='No constrains', variable=self.constraint, 
+									value=0, command=change_constrain)		
+		mb_cons.menu.add_radiobutton(label='C^0', variable=self.constraint, value=1, 
+									command=change_constrain)
+		mb_cons.menu.add_radiobutton(label='C^1', variable=self.constraint, value=2, 
+									command=change_constrain)
+		mb_cons.menu.add_radiobutton(label='G^1', variable=self.constraint, value=3, 
+									command=change_constrain)
+		
+		mb_help = ttk.Menubutton(menubar,text='help')
+		mb_help.grid(column=3, row=0, padx=300, sticky=Tkinter.E)
+		
+		mb_file['menu'] = mb_file.menu
+		mb_edit['menu'] = mb_edit.menu
+		mb_cons['menu'] = mb_cons.menu
+#		mb_help['menu'] = mb_help.menu
+		return 
+		
+		
+	def askopenfilename(self):
+
+		'''
+		Returns an opened file in read mode.
+		This time the dialog just returns a filename and the file is opened by your own code.
+		'''
+		# define options for opening or saving a file
+		self.file_opt = options = {}
+		options['defaultextension'] = '.svg'
+		options['filetypes'] = [('all files', '.*'), ('svg files', '.svg')]
+		options['initialdir'] = os.getcwd()
+		options['initialfile'] = 'test0.svg'
+		options['parent'] = self.root
+		options['title'] = 'This is a title'
+		
+		# get filename
+		filename = tkFileDialog.askopenfilename(**self.file_opt)
+	
+		sizes, pts = parse_svgfile(filename)
+		
+		self.canvas.config(width=sizes[0], height=sizes[1])
+
+	def exit(self):
+		sys.exit(0)
+		
+		
+	def popup_handle_editor(self, handle_id):
+	
+		self.canvas.delete('popup') 
+		self.selected = handle_id
+		
+		coord = self.canvas.bbox(handle_id)
+		data = self.transforms[handle_id]
+		values = []
+		for i in range(0, 9):
+			values.append(Tkinter.StringVar())
+			values[i].set(data[i])
+		
+		frame = Tkinter.Frame(self.root, borderwidth=1, relief=Tkinter.RIDGE)
+		labelFrame = Tkinter.LabelFrame(frame, text='Transform', relief=Tkinter.GROOVE, 
+					borderwidth=1)
+		labelFrame.grid()
+		w11 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[0])
+		w11.grid(row=0, column=0)
+		w12 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[1])
+		w12.grid(row=0, column=1)
+		w13 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[2])
+		w13.grid(row=0, column=2)
+		w21 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[3])
+		w21.grid(row=1, column=0)
+		w22 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[4])
+		w22.grid(row=1, column=1)
+		w23 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[5])
+		w23.grid(row=1, column=2)
+		w31 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[6])
+		w31.grid(row=2, column=0)
+		w32 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[7])
+		w32.grid(row=2, column=1)
+		w33 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
+					textvariable=values[8])
+		w33.grid(row=2, column=2)
+		
+		popup = self.canvas.create_window((coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 
+				anchor=Tkinter.NW, width=204, height=140, window=frame, tags='popup')	
+		
+		def remove_popup(popup):	
+			self.canvas.delete(popup)
+		btn3 = Tkinter.Button(frame, text='Cancel', command=lambda popup=popup : 
+				remove_popup(popup), width=4)
+		btn3.grid(row=3, column=0, sticky=Tkinter.SE)
+				
+		def save_transforms(id, vals, popup):		
+			for i in range(0, 9):
+				self.transforms[id][i] = vals[i].get()
+			remove_popup(popup)
+		
+			if len( self.canvas.find_withtag('controls') ) >= 4:
+				self.redraw_handle_affected_curve()
+				self.redraw_approximated_bezier_curve()	
+			
+		btn1 = Tkinter.Button(frame, text='Save', command=lambda id=handle_id, vals=values, 
+				popup=popup : save_transforms(id, vals, popup), width=4)
+		btn1.grid(row=3, column=0, sticky=Tkinter.SW)
+		
+		def delete_handle(id, popup):	
+			self.canvas.delete(id)
+			remove_popup(popup)
+		
+			if len( self.canvas.find_withtag('controls') ) >= 4:
+				self.redraw_handle_affected_curve()
+				self.redraw_approximated_bezier_curve()	
+		btn2 = Tkinter.Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
+				delete_handle(id, popup), width=4)
+		btn2.grid(row=3, column=0, sticky=Tkinter.S)
+	
+		self.popup = popup
+		
+	'''
+	Construct UI ended
+	'''
 	'''
 	A series of actions a user can do
 	'''		
@@ -63,7 +275,6 @@ class Window:
 			self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', 
 									tags='controls')
 					
-
 		elif mode == 1:
 			r = 3
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
@@ -107,9 +318,9 @@ class Window:
 			
 			ori_x, ori_y = self.transforms[h][2], self.transforms[h][5]
 			new_x, new_y = trans_x+ori_x, trans_y+ori_y
-			entry_transX.delete(0,END)
+			entry_transX.delete(0,Tkinter.END)
 			entry_transX.insert(0,new_x)
-			entry_transY.delete(0,END)
+			entry_transY.delete(0,Tkinter.END)
 			entry_transY.insert(0,new_y)
 			self.transforms[h][2], self.transforms[h][5] = new_x, new_y
 			
@@ -160,17 +371,17 @@ class Window:
 			newM = dot((dot( dot(linalg.inv(T), R), T )), self.transforms[h].reshape(3, -1))
 			self.transforms[h] = newM.reshape(-1)			
 							
-			entry_1.delete(0,END)
+			entry_1.delete(0,Tkinter.END)
 			entry_1.insert(0,newM[0][0])
-			entry_2.delete(0,END)
+			entry_2.delete(0,Tkinter.END)
 			entry_2.insert(0,newM[0][1])
-			entry_3.delete(0,END)
+			entry_3.delete(0,Tkinter.END)
 			entry_3.insert(0,newM[1][0])
-			entry_4.delete(0,END)
+			entry_4.delete(0,Tkinter.END)
 			entry_4.insert(0,newM[1][1])
-			entry_5.delete(0,END)
+			entry_5.delete(0,Tkinter.END)
 			entry_5.insert(0,newM[0][2])
-			entry_6.delete(0,END)
+			entry_6.delete(0,Tkinter.END)
 			entry_6.insert(0,newM[1][2])
 			
 			if len( self.canvas.find_withtag('affected_curve') ) > 0:
@@ -215,17 +426,17 @@ class Window:
 			
 			entry_5 = labelFrame.winfo_children()[2]
 			entry_6 = labelFrame.winfo_children()[5]
-			entry_1.delete(0,END)
+			entry_1.delete(0,Tkinter.END)
 			entry_1.insert(0,newM[0][0])
-			entry_2.delete(0,END)
+			entry_2.delete(0,Tkinter.END)
 			entry_2.insert(0,newM[0][1])
-			entry_3.delete(0,END)
+			entry_3.delete(0,Tkinter.END)
 			entry_3.insert(0,newM[1][0])
-			entry_4.delete(0,END)
+			entry_4.delete(0,Tkinter.END)
 			entry_4.insert(0,newM[1][1])
-			entry_5.delete(0,END)
+			entry_5.delete(0,Tkinter.END)
 			entry_5.insert(0,newM[0][2])
-			entry_6.delete(0,END)
+			entry_6.delete(0,Tkinter.END)
 			entry_6.insert(0,newM[1][2])
 			
 			if len( self.canvas.find_withtag('affected_curve') ) > 0:
@@ -270,71 +481,13 @@ class Window:
 		self.draw_bezier_curve( cps )
 		
 	# draw curve affected by the handles' weight
-	def redraw_handle_affected_curve_default(self):
-
-		MAX = 1e7
-		
-		self.canvas.delete( 'affected_curve' )
-		tags = self.canvas.find_withtag( 'original_bezier' )
-		all_pts = [self.canvas.coords( x ) for x in tags]
-		
-		for pts in all_pts:
-			tps = []
-			for i in range(0, len(pts)/2):
-				p = asarray([pts[i*2], pts[i*2+1], 1.])
-				m = zeros(9)
-				w = {}
-				for h in self.canvas.find_withtag('handles'):
-				# coefficient decided by square of distance
-					pos = self.canvas.coords(h)
-					dist = ( (pos[0]/2+pos[2]/2-p[0])**2 + (pos[1]/2+pos[3]/2-p[1])**2 )
-					if dist != 0: w[h] = 1 / dist
-					else: w[h] = MAX
-				
-				for h in self.canvas.find_withtag('handles'):
-					m = m + self.transforms[h]*( w[h] / sum(w.values()) )
-			
-				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-				tps = tps + [p[0], p[1]]
-
-			self.canvas.create_line(tps, width=2, fill='magenta', tags='affected_curve')
-	
-	def redraw_handle_affected_mesh_default(self):
-		
-		MAX = 1e7
-		
-		self.canvas.delete( 'affected_mesh' )	
-		tags_mesh = self.canvas.find_withtag( 'original_mesh' )
-		all_pts = [self.canvas.coords( x ) for x in tags_mesh]
-		
-		for pts in all_pts:
-			tps = []
-			for i in range(0, len(pts)/2):
-				p = asarray([pts[i*2], pts[i*2+1], 1.])
-				m = zeros(9)
-				w = {}
-				for h in self.canvas.find_withtag('handles'):
-				# coefficient decided by square of distance
-					pos = self.canvas.coords(h)
-					dist = ( (pos[0]/2+pos[2]/2-p[0])**2 + (pos[1]/2+pos[3]/2-p[1])**2 )
-					if dist != 0: w[h] = 1 / dist
-					else: w[h] = MAX
-			
-				for h in self.canvas.find_withtag('handles'):
-					m = m + self.transforms[h]*( w[h] / sum(w.values()) )
-		
-				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-				tps = tps + [p[0], p[1]]
-
-			self.canvas.create_line(tps, fill='magenta', tags='affected_mesh')
-			
 	def redraw_handle_affected_curve(self):
 		
+		if self.boundaries == None: return
 		self.canvas.delete( 'affected_curve' )
 		all_indices = self.boundaries
 		w = self.all_weights
 		vs = self.all_vertices
-# 		debugger()
 		
 		for indices in all_indices:
 			tps = []	
@@ -349,26 +502,26 @@ class Window:
 
 			self.canvas.create_line(tps, width=2, fill='magenta', tags='affected_curve')
 			
-	def redraw_handle_affected_mesh(self):
-				
-		self.canvas.delete( 'affected_mesh' )	
-		all_pts = self.all_vertices
-		
-		tps = []
-		w = self.all_weights
-		for i, pts in enumerate(all_pts):
-			p = asarray(pts + [1.])
-			m = zeros(9)
-			
-			for j, h in enumerate(self.canvas.find_withtag('handles')):
-				m = m + self.transforms[h]*w[i][j]
-			
-			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-			tps.append([p[0], p[1]])
-
-		for face in self.faces:
-			self.canvas.create_line([tps[x] for x in face]+tps[face[0]], fill='magenta', 
-									tags='affected_mesh')
+# 	def redraw_handle_affected_mesh(self):
+# 				
+# 		self.canvas.delete( 'affected_mesh' )	
+# 		all_pts = self.all_vertices
+# 		
+# 		tps = []
+# 		w = self.all_weights
+# 		for i, pts in enumerate(all_pts):
+# 			p = asarray(pts + [1.])
+# 			m = zeros(9)
+# 			
+# 			for j, h in enumerate(self.canvas.find_withtag('handles')):
+# 				m = m + self.transforms[h]*w[i][j]
+# 			
+# 			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
+# 			tps.append([p[0], p[1]])
+# 
+# 		for face in self.facets:
+# 			self.canvas.create_line([tps[x] for x in face]+tps[face[0]], fill='magenta', 
+# 									tags='affected_mesh')
 			
 				
 	def redraw_approximated_bezier_curve(self):
@@ -381,7 +534,8 @@ class Window:
 		trans = [item[1] for item in sorted(self.transforms.items())]
 		
 		cps = self.get_controls()
-		Cset = make_control_points_chain( cps )
+		Cset = make_control_points_chain( cps, self.if_closed.get() )
+		if Cset is None: return
 		'''
 		global gOnce
 		
@@ -436,192 +590,7 @@ class Window:
 	'''
 		Drawing End
 	''' 
-	def init_menubar(self, menubar):
-	
-		menubar.grid_propagate(0)
-		menubar.grid()
 		
-		#A menu in Tk is a combination of a Menubutton (the title of the
-		#menu) and the Menu (what drops down when the Menubutton is pressed)
-			
-		mb_file = ttk.Menubutton(menubar, text='file')
-		mb_file.grid(column=0, row=0, ipadx=20)
-		mb_file.menu = Menu(mb_file)
-		
-		#Once we've specified the menubutton and the menu, we can add
-		#different commands to the menu
-		
-		mb_file.menu.add_command(label='open')
-		mb_file.menu.add_command(label='triangle', command=self.draw_mesh)
-		mb_file.menu.add_command(label='close')
-		
-		mb_edit = ttk.Menubutton(menubar, text='edit')
-		mb_edit.grid(column=1, row=0, ipadx=20 )
-		mb_edit.menu = Menu(mb_edit)
-		
-		self.mode = IntVar()
-		mb_edit.menu.add_radiobutton(label='add control point', variable=self.mode, 
-									value=0, command=self.change_mode)
-		mb_edit.menu.add_radiobutton(label='add handle', variable=self.mode, value=1, 
-									command=self.change_mode)
-		mb_edit.menu.add_radiobutton(label='edit handle', variable=self.mode, value=2, 
-									command=self.change_mode)
-		mb_edit.menu.add_separator()
-		mb_edit.menu.add_command(label='delete controls', command=self.del_controls)
-		mb_edit.menu.add_command(label='delete handles', command=self.del_handles)
-		mb_edit.menu.add_command(label='clear canvas', command=self.clear_canvas)
-		
-		
-		## menu dealing with constrains 
-		mb_cons = ttk.Menubutton(menubar, text='constrains')
-		mb_cons.grid(column=2, row=0)
-		mb_cons.menu = Menu(mb_cons)
-		self.constraint = IntVar()
-		mb_cons.menu.add_radiobutton(label='No constrains', variable=self.constraint, 
-									value=0, command=self.change_constrain)		
-		mb_cons.menu.add_radiobutton(label='C^0', variable=self.constraint, value=1, 
-									command=self.change_constrain)
-		mb_cons.menu.add_radiobutton(label='C^1', variable=self.constraint, value=2, 
-									command=self.change_constrain)
-		mb_cons.menu.add_radiobutton(label='G^1', variable=self.constraint, value=3, 
-									command=self.change_constrain)
-		
-		mb_help = ttk.Menubutton(menubar,text='help')
-		mb_help.grid(column=3, row=0, padx=300, sticky=E)
-		
-		mb_file['menu'] = mb_file.menu
-		mb_edit['menu'] = mb_edit.menu
-		mb_cons['menu'] = mb_cons.menu
-#		mb_help['menu'] = mb_help.menu
-		return 
-		
-	def popup_handle_editor(self, handle_id):
-	
-		self.canvas.delete('popup') 
-		self.selected = handle_id
-		
-		coord = self.canvas.bbox(handle_id)
-		data = self.transforms[handle_id]
-		values = []
-		for i in range(0, 9):
-			values.append(StringVar())
-			values[i].set(data[i])
-		
-		frame = Frame(self.root, borderwidth=1, relief=RIDGE)
-		labelFrame = LabelFrame(frame, text='Transform', relief=GROOVE, borderwidth=1)
-		labelFrame.grid()
-		w11 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[0])
-		w11.grid(row=0, column=0)
-		w12 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[1])
-		w12.grid(row=0, column=1)
-		w13 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[2])
-		w13.grid(row=0, column=2)
-		w21 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[3])
-		w21.grid(row=1, column=0)
-		w22 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[4])
-		w22.grid(row=1, column=1)
-		w23 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[5])
-		w23.grid(row=1, column=2)
-		w31 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[6])
-		w31.grid(row=2, column=0)
-		w32 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[7])
-		w32.grid(row=2, column=1)
-		w33 = Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
-					textvariable=values[8])
-		w33.grid(row=2, column=2)
-		
-		popup = self.canvas.create_window((coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 
-				anchor=NW, width=204, height=140, window=frame, tags='popup')	
-		
-		btn1 = Button(frame, text='Save', command=lambda id=handle_id, vals=values, 
-				popup=popup : self.save_transforms(id, vals, popup), width=4)
-		btn1.grid(row=3, column=0, sticky=SW)
-		btn2 = Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
-				self.delete_handle(id, popup), width=4)
-		btn2.grid(row=3, column=0, sticky=S)
-		btn3 = Button(frame, text='Cancel', command=lambda popup=popup : 
-				self.remove_popup(popup), width=4)
-		btn3.grid(row=3, column=0, sticky=SE)
-	
-		self.popup = popup
-#		return popup
-
-
-
-	def onExit(self):
-	
-		self.quit()
-
-
-	def change_mode(self):
-	
-		mode = self.mode.get()
-		
-		if mode == 0:
-			self.canvas.config(cursor = 'pencil')
-		elif mode == 1: 
-			self.canvas.config(cursor = 'target')
-		elif mode == 2:
-			self.canvas.config(cursor = 'hand1')
-			
-	def change_constrain(self):
-		
-		if ( len( self.canvas.find_withtag( 'approximated_curve' ) ) != 0 ):
-			self.redraw_approximated_bezier_curve()
-
-	def del_controls(self):
-	
-		self.canvas.delete('controls')
-		self.canvas.delete('original_bezier')
-		self.canvas.delete('affected_curve')
-		self.canvas.delete('approximated_curve')
-		
-	
-	def del_handles(self):
-	
-		self.canvas.delete('handles')
-		self.canvas.delete('affected_curve')
-		self.canvas.delete('approximated_curve')
-		self.transforms.clear()
-
-	def clear_canvas(self):
-	
-		self.canvas.delete('all')
-		self.transforms.clear()
-	
-	def save_transforms(self, id, vals, popup):
-		
-		for i in range(0, 9):
-			self.transforms[id][i] = vals[i].get()
-		self.remove_popup(popup)
-		
-		if len( self.canvas.find_withtag('controls') ) >= 4:
-			self.redraw_handle_affected_curve()
-			self.redraw_handle_affected_mesh()
-			self.redraw_approximated_bezier_curve()	
-		return
-		
-	def delete_handle(self, id, popup):
-	
-		self.canvas.delete(id)
-		self.remove_popup(popup)
-		
-		if len( self.canvas.find_withtag('controls') ) >= 4:
-			self.redraw_handle_affected_curve()
-			self.redraw_approximated_bezier_curve()	
-		return	
-		
-	def remove_popup(self, popup):
-	
-		self.canvas.delete(popup)
 	
 	## calculate the handles points on the canvas	 
 	def get_handles(self):
@@ -651,15 +620,15 @@ class Window:
 		
 		curves = self.canvas.find_withtag('original_bezier')
 		cps = self.get_controls()
-		Cset = make_control_points_chain( cps )
+		Cset = make_control_points_chain( cps, self.if_closed.get() )
 		if (Cset == None): return
 
 		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
-		all_pts = sample_cubic_bezier_curve_chain( cps )
+		all_pts = sample_cubic_bezier_curve_chain( Cset )
 		from itertools import chain
 		loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
 
-		self.all_vertices, self.faces, self.all_weights = (triangulate_and_compute_weights
+		self.all_vertices, self.facets, self.all_weights = (triangulate_and_compute_weights
 														(loop, skeleton_handle_vertices))
 														
 		## draw boundary bezier curves
@@ -681,21 +650,13 @@ class Window:
 			for i in xrange(len( skeleton_handle_vertices )):
 				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
 										self.all_weights, i, all_pts[k][0], all_pts[k][1])
-		
-		## draw meshes
-		vs = self.all_vertices
-		for face in self.faces:
-			self.canvas.create_line([vs[x] for x in face]+vs[face[0]], tags='original_mesh')
 			
-		self.redraw_handle_affected_curve()
- 		self.redraw_handle_affected_mesh()
-		
+		self.redraw_handle_affected_curve()	
  		self.redraw_approximated_bezier_curve()		
 		
 def main():
   
-	root = Tk()
-#	root.geometry("600x400+20+20")
+	root = Tkinter.Tk()
 	app = Window(root)
 	root.mainloop()	 
 
