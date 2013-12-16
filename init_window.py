@@ -6,7 +6,6 @@ from weight_inverse_distance import *
 from bezier_chain_constraints import *
 from svg_parser import *
 
-
 colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 
 	'lawn green', 'medium spring green', 'green yellow', 'lime green', 'yellow green',
 	'forest green', 'olive drab', 'dark khaki', 'khaki', 'pale goldenrod', 
@@ -18,7 +17,7 @@ class Window:
 	canvas = None
 	popup = None
 	mode = None #indicator of one of the three modes.
-	constraint = None #indicator of which constraint is being used.
+	constraints = {} #indicator of which constraint is being used.
 	
 	root = None
 	selected = None 
@@ -29,6 +28,8 @@ class Window:
 	all_weights = None
 	boundaries = None
 	W_matrices = None
+	if_closed = None
+	
 	## temporarily use
 	curves = None
 	
@@ -49,9 +50,10 @@ class Window:
 		menubar = ttk.Frame(parent, relief=Tkinter.GROOVE, borderwidth=1, width=800, height=28)
 		self.init_menubar(menubar)
 		
-		self.canvas = Tkinter.Canvas(parent, width=800, height=600, bd=2, cursor='pencil', 
+		self.canvas = Tkinter.Canvas(parent, width=800, height=600, bd=2, cursor='dot', 
 						relief=Tkinter.SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
+		self.canvas.bind("<Button-2>", self.on_right_click_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
 		self.canvas.bind("<Control-B1-Motion>", self.on_control_mouse_handler)
 #		self.canvas.bind("<Double-Button-1>", self.on_double_click_handler)
@@ -86,9 +88,9 @@ class Window:
 		def change_mode():
 			mode = self.mode.get()	
 			if mode == 0:
-				self.canvas.config(cursor = 'pencil')
+				self.canvas.config(cursor = 'dot')
 			elif mode == 1: 
-				self.canvas.config(cursor = 'target')
+				self.canvas.config(cursor = 'dotbox')
 			elif mode == 2:
 				self.canvas.config(cursor = 'hand1')		
 		self.mode = Tkinter.IntVar()	
@@ -96,7 +98,7 @@ class Window:
 									value=0, command=change_mode)
 		mb_edit.menu.add_radiobutton(label='add handle', variable=self.mode, value=1, 
 									command=change_mode)
-		mb_edit.menu.add_radiobutton(label='edit handle', variable=self.mode, value=2, 
+		mb_edit.menu.add_radiobutton(label='select', variable=self.mode, value=2, 
 									command=change_mode)
 												
 		mb_edit.menu.add_separator()
@@ -133,19 +135,20 @@ class Window:
 		mb_cons = ttk.Menubutton(menubar, text='constrains')
 		mb_cons.grid(column=2, row=0)
 		mb_cons.menu = Tkinter.Menu(mb_cons)
-		self.constraint = Tkinter.IntVar()
+		constraint = Tkinter.IntVar()
+		constraint.set(-1)
 		
-		def change_constrain():	
+		def change_constraint():	
 			if ( len( self.canvas.find_withtag( 'approximated_curve' ) ) != 0 ):
 				self.redraw_approximated_bezier_curve()
-		mb_cons.menu.add_radiobutton(label='No constrains', variable=self.constraint, 
-									value=0, command=change_constrain)		
-		mb_cons.menu.add_radiobutton(label='C^0', variable=self.constraint, value=1, 
-									command=change_constrain)
-		mb_cons.menu.add_radiobutton(label='C^1', variable=self.constraint, value=2, 
-									command=change_constrain)
-		mb_cons.menu.add_radiobutton(label='G^1', variable=self.constraint, value=3, 
-									command=change_constrain)
+		mb_cons.menu.add_radiobutton(label='No constrains', variable=constraint, 
+									value=0, command=change_constraint)		
+		mb_cons.menu.add_radiobutton(label='C^0', variable=constraint, value=1, 
+									command=change_constraint)
+		mb_cons.menu.add_radiobutton(label='C^1', variable=constraint, value=2, 
+									command=change_constraint)
+		mb_cons.menu.add_radiobutton(label='G^1', variable=constraint, value=3, 
+									command=change_constraint)
 		
 		mb_help = ttk.Menubutton(menubar,text='help')
 		mb_help.grid(column=3, row=0, padx=300, sticky=Tkinter.E)
@@ -209,8 +212,8 @@ class Window:
 			values.append(Tkinter.StringVar())
 			values[i].set(data[i])
 		
-		frame = Tkinter.Frame(self.root, borderwidth=1, relief=Tkinter.RIDGE)
-		labelFrame = Tkinter.LabelFrame(frame, text='Transform', relief=Tkinter.GROOVE, 
+		frame = ttk.Frame(self.root, borderwidth=1)
+		labelFrame = Tkinter.LabelFrame(frame, text='Transform',  
 					borderwidth=1)
 		labelFrame.grid()
 		w11 = Tkinter.Entry(labelFrame, cursor='xterm', highlightcolor='cyan', width=6, 
@@ -283,21 +286,24 @@ class Window:
 	A series of actions a user can do
 	'''		
 	def onclick_handler(self, event):
-		
 		mode = self.mode.get()
 		if mode == 0:
 			r= 3		 
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
-			self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', 
-									tags='controls')
+			control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', 
+						tags='controls')
+						
+			## the first element 0~3, indicating which type of contraint is applied
+			## the second element 0 or 1, indicating whether fixed 
+			self.constraints[control] = zeros(2)
 					
 		elif mode == 1:
 			r = 3
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
 			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', 
-					tags='handles')
+						tags='handles')
 			self.transforms[handle] = identity(3).reshape(-1)
-			self.popup_handle_editor( handle )
+# 			self.popup_handle_editor( handle )
 			if len( self.canvas.find_withtag('original_curve') ) > 0:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier_curve()
@@ -311,8 +317,54 @@ class Window:
 			sels = set(overlaps) & set(self.canvas.find_withtag('handles')) 
 			if len(sels) > 0:
 				self.selected = sels.pop()
+# 				self.canvas.focus(self.selected)
 				self.popup_handle_editor(self.selected)
+	
+	def on_right_click_handler(self, event):
+		
+		mode = self.mode.get()
+		if mode != 2: return
+		overlaps = self.canvas.find_overlapping(event.x-3, event.y-3, event.x+3, event.y+3)		
+		sels = set(overlaps) & set(self.canvas.find_withtag('controls')) 	
+		if len(sels) == 0: return
+		
+		self.selected = sels.pop()
+		self.popup_quick_menu(self.selected)
+	
+	def popup_quick_menu(self, control_id):
+		self.canvas.delete('popup') 
+		self.selected = control_id		
+		
+		coord = self.canvas.bbox(control_id)
+		menu = Tkinter.Menu(self.canvas, tearoff=0)
+		
+		constraint = Tkinter.IntVar()
+		if_fixed = Tkinter.IntVar()
+		constraint.set(int(self.constraints[control_id][0]))
+		if_fixed.set(int(self.constraints[control_id][1]))	
+		
+		def change_constraint():
+			self.constraints[control_id][0] = constraint.get()
+			self.constraints[control_id][1] = if_fixed.get()
+			print self.constraints	
+		
+		## make the menu	
+		menu.add_checkbutton(label='fixed', variable=if_fixed, onvalue=1, command=change_constraint)
+		menu.add_separator()
+		menu.add_radiobutton(label='No constraints', variable=constraint, value=0, 
+									command=change_constraint)
+		menu.add_radiobutton(label='C^0', variable=constraint, value=1, 
+									command=change_constraint)
+		menu.add_radiobutton(label='fixed angle', variable=constraint, value=2, 
+									command=change_constraint)
+		menu.add_radiobutton(label='C^1', variable=constraint, value=3, 
+									command=change_constraint)
+		menu.add_radiobutton(label='G^1', variable=constraint, value=4, 
+									command=change_constraint)
 
+		menu.post((coord[0]+coord[2])/2, (coord[1]+coord[3])/2)
+
+	
 	# for translation ---- press and drag
 	def on_motion_handler(self, event):
 	
@@ -416,7 +468,7 @@ class Window:
 				
 			coord = self.canvas.coords( h )
 			origin = [(coord[0]+coord[2])/2, (coord[1]+coord[3])/2]
-
+			
 			box = self.canvas.bbox('original_bezier')
 			width, height = box[2]-box[0], box[3]-box[1]
 			scaleX, scaleY = power(2., float(event.x-self.traceS[0])/width), power(2., 
@@ -542,7 +594,6 @@ class Window:
 				
 	def redraw_approximated_bezier_curve(self):
 		
-		level = self.constraint.get()
 		self.canvas.delete( 'approximated_curve' )
 		self.canvas.delete( 'new_controls' )
 		
@@ -579,8 +630,9 @@ class Window:
 			
 		P_primes = approximate_bezier_partitions( partition, cps, handles, trans, level)
 		'''
-		
-		P_primes = approximate_beziers(self.W_matrices, Cset, handles, trans, level )
+		if_closed = self.if_closed.get()
+		P_primes = approximate_beziers(self.W_matrices, Cset, handles, trans, 
+										self.constraints, if_closed )
 
 		# new control points
 		for i in range( len( P_primes ) ):
@@ -666,9 +718,7 @@ class Window:
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				self.W_matrices[k,i,0] = precompute_W_i_bbw( self.all_vertices, 
-										self.all_weights, i, all_pts[k][0], all_pts[k][1])
-				self.W_matrices[k,i,1] = precompute_W_i_part_of_R( self.all_vertices, 
+				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
 										self.all_weights, i, all_pts[k][0], all_pts[k][1])
 			
 		self.redraw_handle_affected_curve()	

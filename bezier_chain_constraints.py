@@ -4,60 +4,116 @@ from bezier_utility import *
 
 ## The dimensions of a point represented in the homogeneous coordinates
 dim = 3
-
-def approximate_beziers(W_matrices, Cset, handles, transforms, constraint_level):
 	
+def approximate_beziers(W_matrices, Cset, handles, transforms, constraints, if_closed):
+	
+	Left = []
+	Right = []
+	## compute the weight of each segment according to its length
+	num = len(Cset)
 	partition = asarray([length_of_cubic_bezier_curve(P) for P in Cset])
 	partition = partition/sum(partition)
 	
-	if constraint_level == 0:		
- 		result = approximate_bezier_chain_without_constraint(W_matrices,  Cset, 
- 				handles, transforms, partition )
-
-	elif constraint_level == 1:	
-		result = approximate_bezier_chain_with_C0_continuity(W_matrices, Cset, 
-				handles, transforms, partition )
+	## select the joint points' constraints
+	constraints = [constraints[key] for key in sorted(constraints.iterkeys())[: :3]]
+	base = dim * 4
+	rank = base * num
 	
-	elif constraint_level == 2:
-		result = approximate_bezier_chain_with_C1_continuity(W_matrices, Cset, 
-				handles, transforms, partition )
+	for i in range(num):
+		Left = construct_coefficients_for_general_constraint(Left)
+		Right = construct_solution_for_general_constraint(Right, W_matrices, i, Cset[i], 
+				handles, transforms, scale=1.0)
 	
-	elif constraint_level == 3:			
-#  		debugger()
-		## precompute the Right part for G1 fixing directions
-		right_fixing_dirs = precompute_rightside_for_fixing_directions(W_matrices, Cset, handles, transforms )
-		
-		right_fixing_mags = precompute_rightside_for_fixing_magnitudes(W_matrices, Cset, handles, transforms )
-		
-		result = approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right_fixing_mags, partition )
+# 	elif constraint_level == 3:			
+# 		## precompute the Right part for G1 fixing directions
+# 		right_fixing_dirs = precompute_rightside_for_fixing_directions(W_matrices, Cset, handles, transforms )	
+# 		
+# 		result = approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right, partition )
 
+	X = linalg.solve(Left, Right)	
+	X = array( X[:rank] ).reshape(-1,4).T
+	
+	result = []
+	for i in range(num):
+		result.append( X[:, i*dim:(i+1)*dim ] )		
+		
 	return result		
 
-## Optimize the approximation without any constraint on joints and return the control points of each optimized split bezier in a list	
-def approximate_bezier_chain_without_constraint(W_matrices, controls, handles, transforms, partitions ): 
-
-	result = []
-	num = len( partitions )
-	
+## Construct the coefficient matrix for one plain curve
+def construct_coefficients_for_general_constraint(Left, scale=1.0):
+	'''
 	## A is computed using Sage, integral of (tbar.T * tbar) with respect to t.
-	A = asarray( [[  1./7,  1./6,  1./5, 1./4], [ 1./6,  1./5, 1./4,  1./3], 
-		[ 1./5, 1./4,  1./3,  1./2], [1./4,  1./3,  1./2,   1.]] )
-
-	inv_MA = linalg.inv( dot( M, A) )
-						
-	for k in range( num ):
+	# 	A = asarray( [[  1./7,  1./6,  1./5, 1./4], [ 1./6,  1./5, 1./4,  1./3], 
+	# 		[ 1./5, 1./4,  1./3,  1./2], [1./4,  1./3,  1./2,   1.]] )
+	## MAM is computed using Sage. MAM = M * A * M
+	'''
+	MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
+		[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 		
-		P_prime = zeros((dim,4))
-		for i in range( len( handles ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = W_matrices[k,i,0]
-			
-			P_prime = P_prime + T_i * (controls[k].T) * M * mat(W_i) * inv_MA
-
-		result.append( asarray(P_prime.T) )
+	Left = asarray(Left)
+	if len(Left) != 0:
+		assert len(Left.shape) == 2
+		assert Left.shape[0] == Left.shape[1]
+	old_rank = Left.shape[0]
 	
-	return result
+	rank = old_rank + 4*dim
+	result = zeros((rank, rank))
+	result[:old_rank, :old_rank] = Left[:]
+	
+	for i in range(dim):		
+		result[ old_rank+i*4:old_rank+(i+1)*4, old_rank+i*4:old_rank+(i+1)*4 ] = MAM[:,:]*scale
+		
+	return result	
+
+## construct the solution for the general case including G1 continuity for fixing magnitudes
+def construct_solution_for_general_constraint(Right, W_matrices, k, controls, handles, 
+											transforms, scale=1.0):	
+	Right = asarray(Right)
+	assert len(Right.shape) == 1
+	old_rank = Right.shape[0]
+	
+	rank = old_rank + 4*dim
+	result = zeros(rank)
+	result[:old_rank] = Right[:]
+	
+	P = zeros( (dim, 4) )
+	for i in range( len( handles ) ):
+
+		T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
+		W_i = W_matrices[k,i,0]	
+
+		P = P + T_i * (controls.T) * M * mat( W_i ) * M
+	
+	result[old_rank:] = asarray(P).reshape(-1)*scale	
+	
+	return result	
+
+
+# 	for P in temps:
+# 		Right = Right + (P.T.reshape(-1)).tolist()	
+# 	if(	closed ): 
+# 		Right = array( Right + zeros( 2 * dim * num ).tolist() )
+# 	else:
+# 		Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
+
+## Optimize the approximation without any constraint on joints and return the control points of each optimized split bezier in a list	
+def approximate_bezier_chain_without_constraint(left, right): 
+	'''
+	left is a square matrix of existed equation coefficients n-by-n
+	right is the solutions of a linear system with rank n
+	'''
+	old_rank = len( right )
+	rank = old_rank + 4*dim + dim 
+	## make a new coefficient matrix and a solution array and copy the existed values.
+	Left =  zeros((rank, rank))
+	Right = zeros(rank)
+	Left[:old_rank, :old_rank] = left[:]
+	Right[:old_rank] = right[:]
+	
+	for i in range(dim):		
+		result[ old_rank+i*4:old_rank+(i+1)*4, old_rank+i*4:old_rank+(i+1)*4 ] = MAM[:,:]
+	
+	return Left, Right
 
 
 ##	Optimize the approximation with all splits connected and return the control points of each optimized split bezier in a list.
@@ -66,74 +122,39 @@ def approximate_bezier_chain_without_constraint(W_matrices, controls, handles, t
 ## 		lambda2 * ( P42' - Q12' ) = 0
 ## 		lambda3 * ( P43' - Q13' ) = 0
 	
-def approximate_bezier_chain_with_C0_continuity(W_matrices, controls, handles, transforms, partitions ):
-
-	temps = []
-	result = []
-
-	num = len( partitions ) # num is the number of splited curves
+def approximate_bezier_chain_with_C0_continuity(left, right, portion ):
+	'''
+	left is a square matrix of existed equation coefficients n-by-n
+	right is the solutions of a linear system with rank n
+	'''
+	old_rank = len( right )
+	rank = old_rank + 4*dim + dim 
 	base = dim * 4
+	## make a new coefficient matrix and a solution array and copy the existed values.
+	Left =  zeros((rank, rank))
+	Right = zeros(rank)
+	Left[:old_rank, :old_rank] = left[:]
+	Right[:old_rank] = right[:]
 	
-	## AA is computed using Sage. AA = M * A * M
-	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
-		[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+	for i in range(dim):		
+		result[ old_rank+i*4:old_rank+(i+1)*4, old_rank+i*4:old_rank+(i+1)*4 ] = MAM[:,:]*scale
 	
-	for k in range( num ):
-
-		C = zeros( (dim, 4) )
-		for i in range( len( handles ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = W_matrices[k,i,0]	
-	
-			C = C + T_i * (controls[k].T) * M * mat(W_i) * M
-	
-		temps.append( asarray(C.T) )
-	
-	Right = []
-
-	for R in temps:
-		Right = Right + (R.T.reshape(-1)).tolist()
-	if(	array_equal(controls[0][0], controls[-1][-1]) ): # test if it's close loop
-		Right = array( Right + zeros( dim * num ).tolist() )
-	else:
-		Right = array( Right + zeros( dim * (num-1) ).tolist() )
-	
-	rank = len( Right )
-
-	
-	Left =  zeros( (rank, rank) )		
-	for i in range( num * dim ):
-		Left[ i*4:i*4+4, i*4:i*4+4 ] = AA[:,:]
-	
+	## add lambdas
 	R = zeros( ( 2*base, dim ) )
 	for i in range( dim ):
 		R[i*4+3, i] = 1
-		R[base + i*4, i] = -1
-		
-	for i in range( num-1 ): 
-		Left[ base*i:(i+2)*base, num*base+dim*i:num*base+dim*(i+1) ] = R
-		Left[ num*base+dim*i:num*base+dim*(i+1), base*i:(i+2)*base ] = R.T
+		R[base + i*4, i] = -1		 
+	Left[ -dim-2*base:-dim, -dim: ] = R
+	Left[ -dim:, -dim-2*base:-dim ] = R.T
 	
-	## For close loop
-	if(	array_equal(controls[0][0], controls[-1][-1]) ):
-		Left[ :base, -dim:] = R[base:]
-		Left[ (num-1)*base:num*base, -dim: ] = R[:base]
-		Left[ -dim:, :base ] = R[base:].T
-		Left[ -dim:, (num-1)*base:num*base ] = R[:base].T
-	
-	## add weights proportional to length of each curve
-	for i in range( num ):
-		Left[base*i:base*(i+1), base*i:base*(i+1)] *= partitions[i]
-		Right[base*i:base*(i+1)] *= partitions[i]
+# 	## For close loop
+# 	if(	array_equal(controls[0][0], controls[-1][-1]) ):
+# 		Left[ :base, -dim:] = R[base:]
+# 		Left[ (num-1)*base:num*base, -dim: ] = R[:base]
+# 		Left[ -dim:, :base ] = R[base:].T
+# 		Left[ -dim:, (num-1)*base:num*base ] = R[:base].T
 		
-	X = linalg.solve(Left, Right)	
-	X = array( X[:num*base] ).reshape(-1,4).T
-	
-	for i in range(num):
-		result.append( X[:, i*dim:(i+1)*dim ] )		
-		
-	return result
+	return Left, Right
 
 
 ## 	Optimize the approximation with constraints that all splits connected, 
@@ -160,7 +181,7 @@ def approximate_bezier_chain_with_C1_continuity(W_matrices, controls, handles, t
 	if(	array_equal(controls[0][0], controls[-1][-1]) ): closed = True
 	
 	
-	right = precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms, closed )	
+	right = compute_rightside_for_general(W_matrices, controls, handles, transforms, closed )	
 	result = approximate_bezier_chain_with_G1_magnitude_fixed( right, partitions, mags, closed )
 
 	return result
@@ -181,13 +202,9 @@ def approximate_bezier_chain_with_G1_magnitude_fixed(right, partitions, mags, cl
 	Right = deepcopy( right )
 	rank = len( Right )
 	
-	## AA is computed using Sage.
-	AA = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
-		[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
-	
 	Left =  zeros( (rank, rank) )		
 	for i in range( num * dim ):
-		Left[ i*4:i*4+4, i*4:i*4+4 ] = AA[:,:]
+		Left[ i*4:i*4+4, i*4:i*4+4 ] = MAM[:,:]
 	
 	## Apply Langrange Multiplier to add constraints.
 	R = zeros( ( 2*base, 2*dim ) )
@@ -330,10 +347,6 @@ def approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right_fixing
 					right_fixing_mags, partitions, mags )
 		## check if the new solution is close enough to previous solution
 		## if not, update the direction vector for each split
-# 		error = 0.0
-# 		for k in range( len( solution ) ):
-# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k], M )*partitions[k]
-# 	 	print 'mags error: ', error
 	 	
 		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
 			print 'stop at index: ', index
@@ -357,11 +370,6 @@ def approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right_fixing
  					partitions, dirs[:, 0, :], dirs[:, 1, :])
 		
 		## get result of the iteration, and check if the result is stable
-		
-# 		error = 0.0	
-# 		for k in range( len( solution ) ):
-# 	 		error += compute_error_metric(transforms, handles, solution[k], controls[k], M )*partitions[k]
-# 	 	print 'dirs error: ', error
 		
 		if old_solution is not None and allclose( old_solution, solution, atol = 0.1 ):
 			print 'stop at index: ', index
@@ -408,31 +416,3 @@ def precompute_rightside_for_fixing_directions(W_matrices, controls, handles, tr
 		
 	return result
 
-## Precompute the left side for the G1 continuity for fixing magnitudes
-def precompute_rightside_for_fixing_magnitudes(W_matrices, controls, handles, transforms, closed = True ):	
-		
-	temps = []
-	num = len( controls )
-	for k in range( num ):
-
-		C = zeros( (dim, 4) )
-		for i in range( len( handles ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
- 			W_i = W_matrices[k,i,0]	
-	
-			C = C + T_i * (controls[k].T) * M * mat( W_i ) * M
-	
-		temps.append( asarray(C.T) )
-	
-	Right = []
-		
-	for R in temps:
-		Right = Right + (R.T.reshape(-1)).tolist()
-		
-	if(	closed ): 
-		Right = array( Right + zeros( 2 * dim * num ).tolist() )
-	else:
-		Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
-	
-	return Right	

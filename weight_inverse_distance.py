@@ -56,6 +56,8 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	assert len( ts.shape ) == 1
 	assert len( dts.shape ) == 1
 
+	result = zeros((2,4,4 ))
+
 	## Vertices and sampling must have the same dimension for each point.
 	sampling = sampling[:,:-1]
 	assert vs.shape[1] == sampling.shape[1]
@@ -69,7 +71,12 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 		assert allclose( vs[vi], p, 1e-5 )
 		return weights[ vi, i ]
 	
-	return precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
+	result[0] = precompute_W_i_with_weight_function_and_sampling( weight_function, 
+				sampling, ts, dts )
+	result[1] = precompute_partOfR_with_weight_function_and_sampling( weight_function, 
+				sampling, ts, dts )
+				
+	return result
 
 def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 	'''
@@ -116,26 +123,34 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	
 	return W_i
 
-def external_w_i( weights, vs, i, p ):
+def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 	'''
-	Given  a table of all the weights for each sample vertex,
-	an index 'i' specifying which handle,
-	and a k-dimensional position 'p',
-	returns the i-th handle's weight function evaluated at p.
+	compute integral of w * tbar * (M * tbar11)
+			integral of w * tbar * (M * tbar21)
+			integral of w * tbar * (M * tbar31)
+			integral of w * tbar * (M * tbar41)
 	'''
+	## Compute the integral.	
+	R = zeros( ( 4, 4 ) )
+	tbar = ones( 4 )
 	
-	## 'vi' is the index of p in the vertices that triangle gave us.
-#	  vi = vs.index( p )
-
-	vi = -1
-	for j in xrange(len(vs)):
-		if( allclose(vs[j], p,	rtol=1e-01) ): 
-			vi = j
-			break
-					
-# 	assert vi != -1
-			
-	return weights[ vi, i ] 
+	for sample, t, dt in zip( sampling, ts, dts ):
+		tbar[0] = t**3
+		tbar[1] = t**2
+		tbar[2] = t
+		tbar = tbar.reshape( (4,1) )
+		
+		w = weight_function( sample )
+		
+		## M * tbar
+		C_P = dot( M, tbar )
+		
+		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
+		R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
+		R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
+		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
+	
+	return R
 
 def ts_and_dts_for_num_samples( a, b, num_samples ):
 	'''
@@ -253,109 +268,6 @@ def default_w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def precompute_W_i_part_of_R( vs, weights, i, sampling, ts, dts = None):
-	'''
-	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
-	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
-	an index 'i' specifying which handle,
-	an M-by-k numpy.array 'sampling' containing sampled positions,
-	a length-M numpy.array of t values corresponding to each sample in 'sampling',
-	an optional length-M numpy.array of dt values corresponding to each sample in 'sampling',
-	returns W, a 4-by-4 numpy.array defined as:
-		\int weights_i( sample ) \overbar{t}^T \overbar{t}^T dt
-	where sample is drawn from 'sampling', t is drawn from 'ts', and dt is drawn from 'dts'.
-	
-	If 'dts' is not given, it defaults to 1/len(sampling).
-	'''
-	
-	if dts is None: dts = ones( len( sampling ) ) * (1./len(sampling))
-	
-	### Asserts
-	## Ensure our inputs are numpy.arrays:
-	weights = asarray( weights )
-	vs = asarray( vs )
-	sampling = asarray( sampling )
-	ts = asarray( ts )
-	dts = asarray( dts )
-	
-	assert len( weights.shape ) == 2
-	assert len( vs.shape ) == 2
-	assert len( sampling.shape ) == 2
-	assert len( ts.shape ) == 1
-	assert len( dts.shape ) == 1
-
-	## Vertices and sampling must have the same dimension for each point.
-	sampling = sampling[:,:-1]
-	assert vs.shape[1] == sampling.shape[1]
-	
-	## The index 'i' must be valid.
-	assert i >= 0 and i < weights.shape[1]
-	
-	def weight_function( p ):
-		## Find the closest vertex in 'vs' to 'p'
-		vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
-		assert allclose( vs[vi], p, 1e-5 )
-		return weights[ vi, i ]
-	
-	return precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
-
-def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
-	'''
-	compute integral of w * tbar * (M * tbar11)
-			integral of w * tbar * (M * tbar21)
-			integral of w * tbar * (M * tbar31)
-			integral of w * tbar * (M * tbar41)
-	'''
-	## Compute the integral.	
-	R = zeros( ( 4, 4 ) )
-	tbar = ones( 4 )
-	
-	for sample, t, dt in zip( sampling, ts, dts ):
-		tbar[0] = t**3
-		tbar[1] = t**2
-		tbar[2] = t
-		tbar = tbar.reshape( (4,1) )
-		
-		w = weight_function( sample )
-		
-		## M * tbar
-		C_P = dot( M, tbar )
-		
-		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
-		R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
-		R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
-		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
-	
-	return R
-
-# def precompute_partOfR( W_matrices, i, P, M , num_samples = 100 ):
-# 	### Compute the integral.
-# 	R = zeros( ( 4, 4 ) )
-# 	tbar = ones( 4 )
-# 	
-# 	debugger()
-# 	dt = 1.0/num_samples
-# 	#for t in linspace( 0, 1., num_samples ):
-# 	for ti in xrange( num_samples ):
-# 		t = a + ( ti + .5 ) * dt
-# 			
-# 		tbar[0] = t**3
-# 		tbar[1] = t**2
-# 		tbar[2] = t
-# 		tbar = tbar.reshape( (4,1) )
-# 		
-# 		w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
-# 		
-# 		C_P = dot( M, tbar )
-# 		
-# 		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
-# 		R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
-# 		R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
-# 		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
-# 	
-# 	return R
-
-## Compute error computed by numerical approach
 def compute_error_metric( transforms, handle_positions, P_primes, P, M, num_samples = 100, dim = 3 ):
 	
 	P_primes = asarray( P_primes )
