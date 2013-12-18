@@ -1,43 +1,62 @@
 from weight_inverse_distance import *
 from copy import copy, deepcopy
 from bezier_utility import *
+from bezier_constraint_odd_solver import *
+from bezier_constraint_even_solver import *
 
 ## The dimensions of a point represented in the homogeneous coordinates
-dim = 3
+dim = 2
 	
-def approximate_beziers(W_matrices, Cset, handles, transforms, constraints, if_closed):
+def approximate_beziers(W_matrices, Cset, transforms, constraints, if_closed):
 	
-	Left = []
-	Right = []
-	## compute the weight of each segment according to its length
-	num = len(Cset)
-	partition = asarray([length_of_cubic_bezier_curve(P) for P in Cset])
-	partition = partition/sum(partition)
+	solution = None
 	
 	## select the joint points' constraints
-	constraints = [constraints[key] for key in sorted(constraints.iterkeys())[: :3]]
-	base = dim * 4
-	rank = base * num
-	
-	for i in range(num):
-		Left = construct_coefficients_for_general_constraint(Left)
-		Right = construct_solution_for_general_constraint(Right, W_matrices, i, Cset[i], 
-				handles, transforms, scale=1.0)
-	
-# 	elif constraint_level == 3:			
-# 		## precompute the Right part for G1 fixing directions
-# 		right_fixing_dirs = precompute_rightside_for_fixing_directions(W_matrices, Cset, handles, transforms )	
-# 		
-# 		result = approximate_bezier_chain_with_G1_continuity( right_fixing_dirs, right, partition )
+	joint_constraints = [constraints[key] for key in sorted(constraints.iterkeys())[: :3]]
+	joint_constraints = asarray(joint_constraints)
 
-	X = linalg.solve(Left, Right)	
-	X = array( X[:rank] ).reshape(-1,4).T
+	odd = BezierConstraintSolverOdd(W_matrices, Cset, joint_constraints, transforms, if_closed)
+	solution = odd.solve()
 	
-	result = []
-	for i in range(num):
-		result.append( X[:, i*dim:(i+1)*dim ] )		
-		
-	return result		
+	if 2 not in joint_constraints[:,0] and 4 not in joint_constraints[:,0]: 
+		return solution
+	
+	else: 
+		even = BezierConstraintSolverEven(Cset, joint_constraints, if_closed)	
+		even.update_rhs_for_handles( transforms )
+	
+		for iter in xrange( 10 ):
+			even.update_system_with_result_of_previous_iteration( solution )
+			solution = even.solve()
+
+			## Check if error is low enough and terminate
+			odd.update_system_with_result_of_previous_iteration( solution )
+			solution = odd.solve()
+    
+    	return solution
+	
+# 	base = dim * 4
+# 	rank = base * num
+	
+	## construct the linear equations without any constraints.
+# 	for i in range(num):
+# 		scale = partition[i]
+# 		Left = construct_coefficients_for_general_constraint(Left, scale)
+# 		Right = construct_solution_for_general_constraint(Right, W_matrices, i, Cset[i], 
+# 				handles, transforms, scale)
+# 	
+# 	## add constraints to the linear system.
+# 	for i in range(num):
+# 		Left, Right = construct_linear_system_with_constraints(Left, Right, constraints[i])
+# 
+# 	X = linalg.solve(Left, Right)	
+# 	X = array( X[:rank] ).reshape(-1,4).T
+# 	
+# 	result = []
+# 	for i in range(num):
+# 		result.append( X[:, i*dim:(i+1)*dim ] )		
+# 		
+# 	return result		
 
 ## Construct the coefficient matrix for one plain curve
 def construct_coefficients_for_general_constraint(Left, scale=1.0):
@@ -68,6 +87,10 @@ def construct_coefficients_for_general_constraint(Left, scale=1.0):
 ## construct the solution for the general case including G1 continuity for fixing magnitudes
 def construct_solution_for_general_constraint(Right, W_matrices, k, controls, handles, 
 											transforms, scale=1.0):	
+	'''
+	The solution is computed according to the formula:
+		solution = sum(Ti * P.T * M.T * W_i * M)
+	'''
 	Right = asarray(Right)
 	assert len(Right.shape) == 1
 	old_rank = Right.shape[0]
@@ -88,103 +111,124 @@ def construct_solution_for_general_constraint(Right, W_matrices, k, controls, ha
 	
 	return result	
 
-
+def construct_linear_system_with_constraints(oldLeft, oldRight, constraint, closed=False):
+	'''
+	Parameter constraint has two elements. constraint[0] indicate which type (free, C0, C1,
+	fixed angle, G1) it is, constraint[1] indicate whether it is fixed.
+	'''	
+	constraint = asarray(constraint)
+	assert constraint.shape[0] == 2
+	if constraint[0] == 0 and constraint[1] == 0: return oldLeft, oldRight
+	
+	oldLeft = asarray(oldLeft)
+	oldRight = asarray(oldRight)	
+	assert len(oldLeft.shape) == 2
+	assert len(oldRight.shape) == 1
+	assert oldLeft.shape[0] == oldLeft.shape[1] == oldRight.shape[0]
+	
+	base = dim * 4
+	old_rank = oldRight.shape[0]
+	new_rank = 0
+	Lambdas = None
+	
+	if constraint[0] == 1: ## C0
+		new_rank = dim
+	elif constraint[0] == 2: ## fixed_angle
+		'''
+		need implementation
+		'''
+		pass
+	elif constraint[0] == 3: ## C1
+		new_rank = 2*dim
+		
+	elif constraint[0] == 4:
+		'''
+		need implementation
+		'''
+		pass
+		
+	if constraint[1] == 1:
+		new_rank += 3
+		
+	Left = zeros((old_rank+new_rank, old_rank+new_rank))
+	Right = zeros(old_rank+new_rank)
+	Left[:old_rank, :old_rank] = oldRight[:]
+	Right[:old_rank] = oldRight[:]
+	
+	
+	return Left, Right
 # 	for P in temps:
 # 		Right = Right + (P.T.reshape(-1)).tolist()	
 # 	if(	closed ): 
 # 		Right = array( Right + zeros( 2 * dim * num ).tolist() )
 # 	else:
 # 		Right = array( Right + zeros( 2 * dim * (num-1) ).tolist() )
-
-## Optimize the approximation without any constraint on joints and return the control points of each optimized split bezier in a list	
-def approximate_bezier_chain_without_constraint(left, right): 
-	'''
-	left is a square matrix of existed equation coefficients n-by-n
-	right is the solutions of a linear system with rank n
-	'''
-	old_rank = len( right )
-	rank = old_rank + 4*dim + dim 
-	## make a new coefficient matrix and a solution array and copy the existed values.
-	Left =  zeros((rank, rank))
-	Right = zeros(rank)
-	Left[:old_rank, :old_rank] = left[:]
-	Right[:old_rank] = right[:]
 	
-	for i in range(dim):		
-		result[ old_rank+i*4:old_rank+(i+1)*4, old_rank+i*4:old_rank+(i+1)*4 ] = MAM[:,:]
-	
-	return Left, Right
-
-
-##	Optimize the approximation with all splits connected and return the control points of each optimized split bezier in a list.
-##	Boundary Conditions are as follows:
-## 		lambda1 * ( P41' - Q11' ) = 0
-## 		lambda2 * ( P42' - Q12' ) = 0
-## 		lambda3 * ( P43' - Q13' ) = 0
-	
-def approximate_bezier_chain_with_C0_continuity(left, right, portion ):
-	'''
-	left is a square matrix of existed equation coefficients n-by-n
-	right is the solutions of a linear system with rank n
-	'''
-	old_rank = len( right )
-	rank = old_rank + 4*dim + dim 
-	base = dim * 4
-	## make a new coefficient matrix and a solution array and copy the existed values.
-	Left =  zeros((rank, rank))
-	Right = zeros(rank)
-	Left[:old_rank, :old_rank] = left[:]
-	Right[:old_rank] = right[:]
-	
-	for i in range(dim):		
-		result[ old_rank+i*4:old_rank+(i+1)*4, old_rank+i*4:old_rank+(i+1)*4 ] = MAM[:,:]*scale
-	
-	## add lambdas
-	R = zeros( ( 2*base, dim ) )
-	for i in range( dim ):
-		R[i*4+3, i] = 1
-		R[base + i*4, i] = -1		 
-	Left[ -dim-2*base:-dim, -dim: ] = R
-	Left[ -dim:, -dim-2*base:-dim ] = R.T
-	
-# 	## For close loop
+	# 	## For close loop
 # 	if(	array_equal(controls[0][0], controls[-1][-1]) ):
 # 		Left[ :base, -dim:] = R[base:]
 # 		Left[ (num-1)*base:num*base, -dim: ] = R[:base]
 # 		Left[ -dim:, :base ] = R[base:].T
 # 		Left[ -dim:, (num-1)*base:num*base ] = R[:base].T
+	
+def constraint_with_C0_continuity():
+	'''
+	construct the matrix for lambdas
+	Boundary Conditions are as follows:
+	lambda1 * ( P41' - Q11' ) = 0
+ 	lambda2 * ( P42' - Q12' ) = 0
+ 	lambda3 * ( P43' - Q13' ) = 0
+	'''
+	base = dim * 4
+	R = zeros( ( 2*base, dim ) )
+	for i in range( dim ):
+		R[i*4+3, i] = 1
+		R[base + i*4, i] = -1		 
 		
-	return Left, Right
-
-
-## 	Optimize the approximation with constraints that all splits connected, 
-##	the magnitudes of derivatives at joints are identical with the corresponding fraction, 
-##	and the directions of derivatives at joints are collinear.
-##	Then return the control points of each optimized split bezier in a list.
-## 	Boundary Conditions are as follows:
-## 		lambda1 * ( P41' - Q11' ) = 0
-## 		lambda2 * ( P42' - Q12' ) = 0
-## 		lambda3 * ( P43' - Q13' ) = 0
-## 		lambda4 * ( P41' - P31' + Q11' - Q21') = 0
-## 		lambda5 * ( P42' - P32' + Q12' - Q22') = 0
-## 		lambda6 * ( P43' - P33' + Q13' - Q23') = 0
+	return R
 		
-def approximate_bezier_chain_with_C1_continuity(W_matrices, controls, handles, transforms, partitions ):
-	
-	num = len( partitions )
-	## mags is the magnitudes of the derivatives of each curve at endpoints. 
-	## The mags are proportional to the lengths of each curve for C1 continuity.
-	mags = ones( (num, 2) )
-	for i in range( len( partitions ) ):
-		mags[i] *= partitions[i]
-	closed = False
-	if(	array_equal(controls[0][0], controls[-1][-1]) ): closed = True
-	
-	
-	right = compute_rightside_for_general(W_matrices, controls, handles, transforms, closed )	
-	result = approximate_bezier_chain_with_G1_magnitude_fixed( right, partitions, mags, closed )
+def constraint_with_C1_continuity(scales):
+	'''
+	Boundary Conditions are as follows:
+	lambda1 * ( P41' - Q11' ) = 0
+	lambda2 * ( P42' - Q12' ) = 0
+	lambda3 * ( P43' - Q13' ) = 0
+	lambda4 * ( P41' - P31' + Q11' - Q21') = 0
+	lambda5 * ( P42' - P32' + Q12' - Q22') = 0
+	lambda6 * ( P43' - P33' + Q13' - Q23') = 0
+	'''
+	base = dim * 4
+	R = zeros( ( 2*base, 2*dim ) )
+	for i in range( dim ):
+		R[i*4+3, i] = R[i*4+3, i+dim] = 1
+		R[i*4+2, i+dim] = -1
+		R[base+i*4, i] = R[base+i*4+1, i+dim] = -1
+		R[base+i*4, i+dim] = 1
+		
+	## add weights to lambda	 
+	R[ :base, dim: ] *= scalse[1]
+	R[ base:, dim: ] *= scales[0]
+# 	Left[ base*i:(i+2)*base, num*base+2*dim*i:num*base+2*dim*(i+1) ] = R_copy
+# 	Left[ num*base+2*dim*i:num*base+2*dim*(i+1), base*i:(i+2)*base ] = R_copy.T
 
-	return result
+	return R
+	
+	
+	
+# 	num = len( partitions )
+# 	## mags is the magnitudes of the derivatives of each curve at endpoints. 
+# 	## The mags are proportional to the lengths of each curve for C1 continuity.
+# 	mags = ones( (num, 2) )
+# 	for i in range( len( partitions ) ):
+# 		mags[i] *= partitions[i]
+# 	closed = False
+# 	if(	array_equal(controls[0][0], controls[-1][-1]) ): closed = True
+# 	
+# 	
+# 	right = compute_rightside_for_general(W_matrices, controls, handles, transforms, closed )	
+# 	result = approximate_bezier_chain_with_G1_magnitude_fixed( right, partitions, mags, closed )
+# 
+# 	return result
 
 
 ## 	Optimize the approximation with constraints that all splits connected, 
@@ -207,21 +251,7 @@ def approximate_bezier_chain_with_G1_magnitude_fixed(right, partitions, mags, cl
 		Left[ i*4:i*4+4, i*4:i*4+4 ] = MAM[:,:]
 	
 	## Apply Langrange Multiplier to add constraints.
-	R = zeros( ( 2*base, 2*dim ) )
-	for i in range( dim ):
-		R[i*4+3, i] = R[i*4+3, i+dim] = 1
-		R[i*4+2, i+dim] = -1
-		R[base+i*4, i] = R[base+i*4+1, i+dim] = -1
-		R[base+i*4, i+dim] = 1
-		
-	## add weights to lambda
-	assert len(partitions) == num	
-	for i in range( num-1 ): 
-		R_copy = deepcopy( R )
-		R_copy[ :base, dim: ] *= mags[i+1][0]
-		R_copy[ base:, dim: ] *= mags[i][1]
-		Left[ base*i:(i+2)*base, num*base+2*dim*i:num*base+2*dim*(i+1) ] = R_copy
-		Left[ num*base+2*dim*i:num*base+2*dim*(i+1), base*i:(i+2)*base ] = R_copy.T
+
 		
 	## For close loop
 	if(	closed ):

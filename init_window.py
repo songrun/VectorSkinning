@@ -141,8 +141,7 @@ class Window:
 		def change_constraint():	
 			if ( len( self.canvas.find_withtag( 'approximated_curve' ) ) != 0 ):
 				self.redraw_approximated_bezier_curve()
-		mb_cons.menu.add_radiobutton(label='No constrains', variable=constraint, 
-									value=0, command=change_constraint)		
+	
 		mb_cons.menu.add_radiobutton(label='C^0', variable=constraint, value=1, 
 									command=change_constraint)
 		mb_cons.menu.add_radiobutton(label='C^1', variable=constraint, value=2, 
@@ -295,7 +294,7 @@ class Window:
 						
 			## the first element 0~3, indicating which type of contraint is applied
 			## the second element 0 or 1, indicating whether fixed 
-			self.constraints[control] = zeros(2)
+			self.constraints[control] = asarray([1.0, 0.0])
 					
 		elif mode == 1:
 			r = 3
@@ -351,8 +350,6 @@ class Window:
 		## make the menu	
 		menu.add_checkbutton(label='fixed', variable=if_fixed, onvalue=1, command=change_constraint)
 		menu.add_separator()
-		menu.add_radiobutton(label='No constraints', variable=constraint, value=0, 
-									command=change_constraint)
 		menu.add_radiobutton(label='C^0', variable=constraint, value=1, 
 									command=change_constraint)
 		menu.add_radiobutton(label='fixed angle', variable=constraint, value=2, 
@@ -597,9 +594,8 @@ class Window:
 		self.canvas.delete( 'approximated_curve' )
 		self.canvas.delete( 'new_controls' )
 		
-		handles = [item[1] for item in sorted(self.get_handles().items())]
+# 		handles = [item[1] for item in sorted(self.get_handles().items())]
 		trans = [item[1] for item in sorted(self.transforms.items())]
-		
 		cps = self.get_controls()
 		Cset = make_control_points_chain( cps, self.if_closed.get() )
 		if Cset is None: return
@@ -631,13 +627,13 @@ class Window:
 		P_primes = approximate_bezier_partitions( partition, cps, handles, trans, level)
 		'''
 		if_closed = self.if_closed.get()
-		P_primes = approximate_beziers(self.W_matrices, Cset, handles, trans, 
+		P_primes = approximate_beziers(self.W_matrices, Cset, trans, 
 										self.constraints, if_closed )
 
 		# new control points
 		for i in range( len( P_primes ) ):
 			for pp in P_primes[i]:
-				pp = asarray( pp ).reshape(3)
+				pp = asarray( pp ).reshape(-1)
 				r= 3
 				x0, x1, y0, y1 = pp[0]-r, pp[0]+r, pp[1]-r, pp[1]+r
 				self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', 
