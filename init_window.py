@@ -76,7 +76,7 @@ class Window:
 		mb_file.menu.add_command(label='import', command=self.askopenfilename)
 		mb_file.menu.add_command(label='save', command=self.askopenfilename)
 		mb_file.menu.add_separator()	
-		mb_file.menu.add_command(label='triangle', command=self.draw_mesh)
+		mb_file.menu.add_command(label='triangle', command=self.triangulate_and_construct_weights)
 		mb_file.menu.add_separator()	
 		mb_file.menu.add_command(label='close', command=self.exit)
 		
@@ -294,7 +294,7 @@ class Window:
 						
 			## the first element 0~3, indicating which type of contraint is applied
 			## the second element 0 or 1, indicating whether fixed 
-			self.constraints[control] = asarray([1.0, 0.0])
+			self.constraints[control] = [1.0, 0.0]
 					
 		elif mode == 1:
 			r = 3
@@ -335,20 +335,24 @@ class Window:
 		self.selected = control_id		
 		
 		coord = self.canvas.bbox(control_id)
+		p = asarray([(coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 1.0])
 		menu = Tkinter.Menu(self.canvas, tearoff=0)
 		
 		constraint = Tkinter.IntVar()
-		if_fixed = Tkinter.IntVar()
+		is_fixed = Tkinter.IntVar()
 		constraint.set(int(self.constraints[control_id][0]))
-		if_fixed.set(int(self.constraints[control_id][1]))	
+		if self.constraints[control_id][1] == 0:
+			is_fixed.set(0)
+		else:
+			is_fixed.set(1)		
 		
 		def change_constraint():
 			self.constraints[control_id][0] = constraint.get()
-			self.constraints[control_id][1] = if_fixed.get()
-			print self.constraints	
+			self.constraints[control_id][1] = is_fixed.get()
+	
 		
 		## make the menu	
-		menu.add_checkbutton(label='fixed', variable=if_fixed, onvalue=1, command=change_constraint)
+		menu.add_checkbutton(label='fixed', variable=is_fixed, onvalue=1, command=change_constraint)
 		menu.add_separator()
 		menu.add_radiobutton(label='C^0', variable=constraint, value=1, 
 									command=change_constraint)
@@ -359,7 +363,7 @@ class Window:
 		menu.add_radiobutton(label='G^1', variable=constraint, value=4, 
 									command=change_constraint)
 
-		menu.post((coord[0]+coord[2])/2, (coord[1]+coord[3])/2)
+		menu.post(int(p[0]), int(p[1]))
 
 	
 	# for translation ---- press and drag
@@ -560,7 +564,7 @@ class Window:
 				m = zeros(9)
 				p = asarray(vs[i] + [1.0])
 				for j, h in enumerate(self.canvas.find_withtag('handles')):
-					m = m + self.transforms[h]*w[i][j]
+					m = m + self.transforms[h]*w[i,j]
 			
 				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
 				tps = tps + [p[0], p[1]]
@@ -680,7 +684,7 @@ class Window:
 		
 	## sample all the original bezier curves on canvas, 
 	## and tessellate with these sampled points.
-	def draw_mesh(self):
+	def triangulate_and_construct_weights(self):
 		
 		curves = self.canvas.find_withtag('original_bezier')
 		cps = self.get_controls()
@@ -716,7 +720,32 @@ class Window:
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
 				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
 										self.all_weights, i, all_pts[k][0], all_pts[k][1])
+		
+		def compute_fixed_positions():
+			### compute the wanted position of this control point
+			for i, key in enumerate(sorted(self.constraints.keys())):
+				controls = self.get_controls()
+				p = controls[i]
+				
+				
 			
+# 				if self.constraints[key][1] != 0:
+# 					w = self.all_weights
+# 					vs = asarray(self.all_vertices)
+# 				
+# 					vi = argmin( ( ( vs - p[:2] )**2 ).sum( axis = 1 ) )
+# 					assert allclose( vs[vi], p[:2], 1e-5 )
+# 					
+# 					m = zeros(9)
+# 					for j, h in enumerate(self.canvas.find_withtag('handles')):
+# 						m = m + self.transforms[h]*w[vi,j]
+# 					pos = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
+# 				
+# 					self.constraints[key][1] = (pos[0], pos[1])
+		
+		
+				
+# 		compute_fixed_positions()	
 		self.redraw_handle_affected_curve()	
  		self.redraw_approximated_bezier_curve()		
 		

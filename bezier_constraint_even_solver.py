@@ -42,7 +42,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 	def constraint_number_per_joint(self, constraint ):	   
 		assert len(constraint) == 2
 		smoothness = constraint[0]	
-		is_fixed = constraint[1]	
+		fixed = constraint[1]	
 		
 		num = 0
 		if smoothness == 1: num = 2			## C0
@@ -50,7 +50,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		elif smoothness == 3: num = 4		## C1
 		elif smoothness == 4: num = 2		## G1
 		
-		if is_fixed == 1:
+		if fixed != 0:
 			num += 2
 			
 		return num		

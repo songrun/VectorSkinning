@@ -27,12 +27,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		return result	
     
     def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
-		'''
-		construct the matrix for lambdas
-		Boundary Conditions are as follows:
-		lambda1 * ( P4x' - Q1x' ) = 0
-		lambda2 * ( P4y' - Q1y' ) = 0
-		'''
+
 		weight0, weight1 = bundle0.weight, bundle1.weight
 		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
@@ -43,6 +38,11 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		smoothness = bundle0.constraints[1,0]
 		if smoothness == 1:         ## C0
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - Q1x' ) = 0
+			lambda2 * ( P4y' - Q1y' ) = 0
+			'''
 			R = zeros( ( dofs, dim ) )
 			for i in range( dim ):
 				R[i*4+3, i] = 1
@@ -51,6 +51,13 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		elif smoothness == 2:        ## fixed angle
 			pass
 		elif smoothness == 3:        ## C1
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - Q1x' ) = 0
+			lambda2 * ( P4y' - Q1y' ) = 0
+			lambda4 * ( P4x' - P3x' + Q1x' - Q2x') = 0
+			lambda5 * ( P4y' - P3y' + Q1y' - Q2y') = 0
+			'''
 			R = zeros( ( dofs, 2*dim ) )
 			for i in range( dim ):
 				R[i*4+3, i] = R[i*4+3, i+dim] = 1
@@ -64,10 +71,25 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 
 		elif smoothness == 4:        ## G1
 			pass
-
+		
 		rhs = zeros(R.shape[1])
+		
+		fixed = bundle0.control_points[-1][:2]
+		if bundle0.constraints[1, 1] != 0:
 
-
+			fixed = asarray(fixed)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			R2 = zeros( ( dofs, dim ) )
+			for i in range( dim ):
+				R2[i*4+3, i] = 1
+		
+			R = concatenate((R, R2), axis=1)
+			rhs = concatenate((rhs, fixed))
+	
 		return R.T, rhs
         
     def system_for_curve( self, bundle ):
@@ -110,7 +132,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
     
         assert len(constraint) == 2
         smoothness = constraint[0]  
-        is_fixed = constraint[1]    
+        fixed = constraint[1]    
         
         num = 0
         if smoothness == 1: num = 2         ## C0
@@ -118,7 +140,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
         elif smoothness == 3: num = 4       ## C1
         elif smoothness == 4: num = 4       ## G1
         
-        if is_fixed == 1:
+        if fixed != 0:
             num += 2
             
         return num
