@@ -40,7 +40,7 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	If 'dts' is not given, it defaults to 1/len(sampling).
 	'''
 	
-	if dts is None: dts = ones( len( sampling ) ) * (1./len(sampling))
+	if dts is None: dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) )
 	
 	### Asserts
 	## Ensure our inputs are numpy.arrays:
@@ -95,7 +95,7 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	### Asserts
 	## Ensure our inputs are the same lengths:
 	assert len( sampling ) == len( ts )
-	assert len( sampling ) == len( dts )
+	assert len( sampling ) == len( dts ) + 1
 	
 	## Ensure our inputs are numpy.arrays:
 	sampling = asarray( sampling )
@@ -111,13 +111,16 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	W_i = zeros( ( 4,4 ) )
 	tbar = ones( 4 )
 	
-	for sample, t, dt in zip( sampling, ts, dts ):
+	for i in range(len(dts)):
+		t = (ts[i] + ts[i+1])/2
+		dt = dts[i]
+		
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
 		tbar = tbar.reshape( (4,1) )
 		
-		w = weight_function( sample )
+		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
 		
 		W_i += dot( dt * w * tbar, tbar.T )
 	
@@ -164,59 +167,6 @@ def ts_and_dts_for_num_samples( a, b, num_samples ):
 	dts = ( float(b-a)/num_samples ) * ones( len( num_samples ) )
 	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
 	return ts, dts
-
-def precompute_W_i_default( handle_positions, i, P, M, a, b, num_samples = 100 ):
-	'''
-	Given a sequence of k-dimensional handle positions,
-	an index 'i' specifying which handle,
-	a 4-by-k numpy.array P containing the positions of the control points as the rows,
-	a 4-by-4 numpy.array M containing the Bezier curve weights,
-	and the interval to integrate from 'a' to 'b',
-	returns W, a 4-by-4 numpy.array defined as:
-		\int_a^b w_i( P^T M^T \overbar{t}^T ) \overbar{t}^T \overbar{t}^T dt
-	
-	The optional parameter 'num_samples' determines how many samples to use to compute
-	the integral.
-	'''
-	
-	### Asserts
-	## Ensure our inputs are numpy.arrays:
-	handle_positions = asarray( handle_positions )
-	P = asarray( P )
-	M = asarray( M )
-	
-	## We must have at least one handle position.
-	assert len( handle_positions ) > 0
-	## The index 'i' must be valid.
-	assert i >= 0 and i < len( handle_positions )
-	## 'handle_positions' must be a num-handles-by-k array.
-	assert len( handle_positions.shape ) == 2
-	assert handle_positions.shape[1] == P.shape[1]
-	
-	## P must be 4-by-k.
-	assert len( P.shape ) == 2
-	assert P.shape[0] == 4
-	
-	## M must be 4-by-4.
-	assert M.shape == (4,4)
-	
-	## Use a default number of samples of 100.
-	assert num_samples > 0
-	
-	ts_and_dts_for_num_samples( a, b, num_samples )
-	samplings = []
-	for t, dt in zip( ts, dts ):
-		tbar[0] = t**3
-		tbar[1] = t**2
-		tbar[2] = t
-		tbar = tbar.reshape( (4,1) )
-		
-		samplings.append( dot( P.T, dot( M.T, tbar ) ) )
-	
-	def weight_function( p ):
-		return default_w_i( handle_positions, i, p )
-	
-	return precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )
 
 def default_w_i( handle_positions, i, p ):	  
 	'''

@@ -16,6 +16,7 @@ def approximate_beziers(W_matrices, Cset, transforms, constraints, if_closed):
 	joint_constraints = asarray(joint_constraints)
 
 	odd = BezierConstraintSolverOdd(W_matrices, Cset, joint_constraints, transforms, if_closed)
+# 	debugger()
 	solution = odd.solve()
 	
 	if 2 not in joint_constraints[:,0] and 4 not in joint_constraints[:,0]: 
@@ -34,29 +35,57 @@ def approximate_beziers(W_matrices, Cset, transforms, constraints, if_closed):
 			solution = odd.solve()
     
     	return solution
+    	
+def main():
+	cps = array([[100, 300,   1],
+	   [200, 400,   1],
+	   [300, 400,   1],
+	   [400, 300,   1],
+	   [300, 200,   1],
+	   [200, 200,   1]])
+	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
+	trans = [array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.]), array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.])]	  
+# 	skeleton_handle_vertices = [[200.0, 300.0, 1.0]] 
+# 	trans = [array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.])]
+#   	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0], [250.0, 250.0, 1.0]]
+#  	trans = [array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.]), array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.]), array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.])]	 
+ 	
+	Cset = make_control_points_chain( cps, True )  
+
+	all_pts = sample_cubic_bezier_curve_chain( Cset, 100 )
+	from itertools import chain
+	loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
+
+	all_vertices, facets, all_weights = (triangulate_and_compute_weights
+													(loop, skeleton_handle_vertices))
+													
+# 	debugger()
+	## boundaries is a table of all the indices of the points on the boundary 
+	## in all_vertices
+	boundaries = [range(len(pts)) for pts, ts in all_pts]
+	last = 0
+	for i in range(len(boundaries)):
+		boundaries[i] = asarray(boundaries[i])+last
+		last = boundaries[i][-1]
+	boundaries[-1][-1] = boundaries[0][0]	
 	
-# 	base = dim * 4
-# 	rank = base * num
+	W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 2, 4, 4 ) )
+	for k in xrange(len( Cset )):	
+		for i in xrange(len( skeleton_handle_vertices )):
+			## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
+			## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
+			W_matrices[k,i] = precompute_W_i_bbw( all_vertices, 
+									all_weights, i, all_pts[k][0], all_pts[k][1])
 	
-	## construct the linear equations without any constraints.
-# 	for i in range(num):
-# 		scale = partition[i]
-# 		Left = construct_coefficients_for_general_constraint(Left, scale)
-# 		Right = construct_solution_for_general_constraint(Right, W_matrices, i, Cset[i], 
-# 				handles, transforms, scale)
-# 	
-# 	## add constraints to the linear system.
-# 	for i in range(num):
-# 		Left, Right = construct_linear_system_with_constraints(Left, Right, constraints[i])
-# 
-# 	X = linalg.solve(Left, Right)	
-# 	X = array( X[:rank] ).reshape(-1,4).T
-# 	
-# 	result = []
-# 	for i in range(num):
-# 		result.append( X[:, i*dim:(i+1)*dim ] )		
-# 		
-# 	return result		
+							       
+	constraints = {1: [1.0, 0.0], 2: [1.0, 0.0], 3: [1.0, 0.0], 4: [1.0, 0.0], 5: [1.0, 0.0], 6: [1.0, 0.0]}
+	
+	P_primes = approximate_beziers(W_matrices, Cset, trans, constraints, True )
+	
+	print 'HAHA ~ '
+	print P_primes
+	
+if __name__ == '__main__': main()		
 
 ## Construct the coefficient matrix for one plain curve
 def construct_coefficients_for_general_constraint(Left, scale=1.0):

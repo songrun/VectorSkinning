@@ -35,19 +35,19 @@ class BezierConstraintSolver( object ):
         ### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
-		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], 
-						constraints[(i+1)%len(control_points)]], weights[i] ) 
-						for i in xrange(len( control_points )) ]
+		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], weights[i] ) for i in xrange(len( control_points )) ]
 						
-		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) 
-						for bundle in self.bundles ]
+		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
-		self.lambdas_per_joint = [ self.constraint_number_per_joint( constraint ) 
-						for constraint in constraints]
+		self.lambdas_per_joint = [ self.constraint_number_per_joint( constraint ) for constraint in constraints]
 						
 		### 2
 		self.total_dofs = sum( self.dofs_per_bundle ) 
 		self.system_size = self.total_dofs + sum( self.lambdas_per_joint )
+		'''
+		test
+		'''
+		self.system_size = self.total_dofs
 		self.system = zeros( ( self.system_size, self.system_size ) )
 		self.rhs = zeros( self.system_size )
 
@@ -78,7 +78,7 @@ class BezierConstraintSolver( object ):
 
 		assert dof_offset == total_dofs
         
-
+		'''
 		### 5
 		dof_offset = 0
 		constraint_equation_offset = total_dofs
@@ -113,7 +113,7 @@ class BezierConstraintSolver( object ):
 
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
-
+		'''
 
 	def update_rhs_for_handles( self, transforms ):
 		dof_offset = 0

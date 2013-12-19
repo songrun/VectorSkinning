@@ -2,7 +2,6 @@
 import Tkinter, Tkconstants, tkFileDialog 
 import ttk as ttk
 import tkMessageBox
-from weight_inverse_distance import *
 from bezier_chain_constraints import *
 from svg_parser import *
 
@@ -491,8 +490,7 @@ class Window:
 			entry_1 = labelFrame.winfo_children()[0]
 			entry_2 = labelFrame.winfo_children()[1]
 			entry_3 = labelFrame.winfo_children()[3]
-			entry_4 = labelFrame.winfo_children()[4]
-			
+			entry_4 = labelFrame.winfo_children()[4]		
 			entry_5 = labelFrame.winfo_children()[2]
 			entry_6 = labelFrame.winfo_children()[5]
 			entry_1.delete(0,Tkinter.END)
@@ -692,6 +690,7 @@ class Window:
 		if (Cset == None): return
 
 		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
+	
 		all_pts = sample_cubic_bezier_curve_chain( Cset )
 		from itertools import chain
 		loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
@@ -725,9 +724,7 @@ class Window:
 			### compute the wanted position of this control point
 			for i, key in enumerate(sorted(self.constraints.keys())):
 				controls = self.get_controls()
-				p = controls[i]
-				
-				
+				p = controls[i]	
 			
 # 				if self.constraints[key][1] != 0:
 # 					w = self.all_weights
