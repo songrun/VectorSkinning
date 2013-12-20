@@ -47,7 +47,6 @@ class BezierConstraintSolver( object ):
 		'''
 		test
 		'''
-		self.system_size = self.total_dofs
 		self.system = zeros( ( self.system_size, self.system_size ) )
 		self.rhs = zeros( self.system_size )
 
@@ -78,7 +77,7 @@ class BezierConstraintSolver( object ):
 
 		assert dof_offset == total_dofs
         
-		'''
+		
 		### 5
 		dof_offset = 0
 		constraint_equation_offset = total_dofs
@@ -113,7 +112,7 @@ class BezierConstraintSolver( object ):
 
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
-		'''
+		
 
 	def update_rhs_for_handles( self, transforms ):
 		dof_offset = 0

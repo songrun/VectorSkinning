@@ -114,7 +114,9 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	for i in range(len(dts)):
 		t = (ts[i] + ts[i+1])/2
 		dt = dts[i]
-		
+		## For arc-length parameterization:
+		# dt = magnitude( sampling[i] - sampling[i+1] )
+				
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t

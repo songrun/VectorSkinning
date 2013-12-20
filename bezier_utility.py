@@ -52,14 +52,13 @@ def sample_cubic_bezier_curve( P, num_samples = 100 ):
 	
 	result = []
 	ts = []
-	tbar = ones( 4 )
+	tbar = ones( (4,1) )
 	for t in linspace( 0, 1, num_samples ):
 		ts.append( t )
 		
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
- 		tbar = tbar.reshape( (4,1) )
  		
  		point = dot( P.T, dot( M.T, tbar ) )
  		result.append( asarray(point).squeeze() )

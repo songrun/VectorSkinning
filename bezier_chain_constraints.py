@@ -78,7 +78,7 @@ def main():
 									all_weights, i, all_pts[k][0], all_pts[k][1])
 	
 							       
-	constraints = {1: [1.0, 0.0], 2: [1.0, 0.0], 3: [1.0, 0.0], 4: [1.0, 0.0], 5: [1.0, 0.0], 6: [1.0, 0.0]}
+	constraints = {1: [1.0, 1.0], 2: [1.0, 0.0], 3: [1.0, 0.0], 4: [1.0, 0.0], 5: [1.0, 0.0], 6: [1.0, 0.0]}
 	
 	P_primes = approximate_beziers(W_matrices, Cset, trans, constraints, True )
 	

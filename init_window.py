@@ -5,12 +5,25 @@ import tkMessageBox
 from bezier_chain_constraints import *
 from svg_parser import *
 
-colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 
-	'lawn green', 'medium spring green', 'green yellow', 'lime green', 'yellow green',
-	'forest green', 'olive drab', 'dark khaki', 'khaki', 'pale goldenrod', 
-	'light yellow', 'yellow', 'gold', 'light goldenrod', 'goldenrod', 'dark goldenrod', 
-	'indian red', 'saddle brown', 'sandy brown',
-	'dark salmon', 'salmon']
+class Drawing_constants:
+	canvas_width = 800
+	canvas_height = 600
+	canvas_border = 2
+	menubar_width = 800
+	menubar_height = 28
+	menubar_border = 1
+	popup_width = 204
+	popup_height = 140
+	mb_ipad = 20
+	small_radius = 2
+	radius = 3
+	big_radius = 4
+	curve_width = 2
+	sampling_number = 100
+	initial_constraint = [1, 0]
+	colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 
+		'lawn green', 'medium spring green', 'green yellow', 'lime green', 'yellow green',
+		'dark salmon', 'salmon']
 	
 class Window:
 	canvas = None
@@ -39,18 +52,19 @@ class Window:
 	
 		self.root = parent
 		self.root.title('Bezier Deformation')
-		mainWindow = ttk.Frame(parent)	
+		mainWindow = ttk.Frame(parent)
 		self.init_UI(mainWindow)	
 		mainWindow.grid()
 		return
 		
 	def init_UI(self, parent):
-	
-		menubar = ttk.Frame(parent, relief=Tkinter.GROOVE, borderwidth=1, width=800, height=28)
+		self.constants = Drawing_constants()
+		constants = self.constants
+		
+		menubar = ttk.Frame(parent, relief=Tkinter.GROOVE, borderwidth=constants.menubar_border, width=constants.menubar_width, height=constants.menubar_height)
 		self.init_menubar(menubar)
 		
-		self.canvas = Tkinter.Canvas(parent, width=800, height=600, bd=2, cursor='dot', 
-						relief=Tkinter.SUNKEN)
+		self.canvas = Tkinter.Canvas(parent, width=constants.canvas_width, height=constants.canvas_height, bd=constants.canvas_border, cursor='dot', relief=Tkinter.SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
 		self.canvas.bind("<Button-2>", self.on_right_click_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
@@ -62,7 +76,8 @@ class Window:
 		return	
 	
 	def init_menubar(self, menubar):
-	
+		constants = self.constants
+			
 		menubar.grid_propagate(0)
 		menubar.grid()
 		
@@ -70,7 +85,7 @@ class Window:
 		#menu) and the Menu (what drops down when the Menubutton is pressed)
 			
 		mb_file = ttk.Menubutton(menubar, text='file')
-		mb_file.grid(column=0, row=0, ipadx=20)
+		mb_file.grid(column=0, row=0, ipadx=constants.mb_ipad)
 		mb_file.menu = Tkinter.Menu(mb_file)
 		mb_file.menu.add_command(label='import', command=self.askopenfilename)
 		mb_file.menu.add_command(label='save', command=self.askopenfilename)
@@ -81,7 +96,7 @@ class Window:
 		
 		##################
 		mb_edit = ttk.Menubutton(menubar, text='edit')
-		mb_edit.grid(column=1, row=0, ipadx=20 )
+		mb_edit.grid(column=1, row=0, ipadx=constants.mb_ipad )
 		mb_edit.menu = Tkinter.Menu(mb_edit)
 		
 		def change_mode():
@@ -105,55 +120,21 @@ class Window:
 		mb_edit.menu.add_checkbutton(label='Path closed', onvalue=True, offvalue=False, 
 									variable=self.if_closed)
 		self.if_closed.set(True)
-		
-# 		self.if_show_mesh = Tkinter.BooleanVar()
-# 		self.if_show_mesh.set(False)
-# 		def show_mesh():
-# 			debugger()
-# 			print 'What is wrong?'
-# 			if self.all_vertices is None: return
-# 			if self.if_show_mesh == True:
-# 				vs = self.all_vertices
-# 				for face in self.facets:
-# 					self.canvas.create_line([vs[x] for x in face]+vs[face[0]], 
-# 											tags='original_mesh')
-# # 				self.redraw_handle_affected_mesh()
-# 			else: 
-# 				self.canvas.delete('original_mesh')
-# 		mb_edit.menu.add_checkbutton(label='show mesh', onvalue=True, offvalue=False, 
-# 									variable=self.if_show_mesh, command=show_mesh)
-											
+													
 		mb_edit.menu.add_separator()
 		def clear_canvas():
 			self.canvas.delete('all')
-			self.transforms.clear()		
+			self.transforms.clear()
+			self.constraints.clear()		
 		mb_edit.menu.add_command(label='clear canvas', command=clear_canvas)
 		
-		
-		######### menu dealing with constrains 
-		mb_cons = ttk.Menubutton(menubar, text='constrains')
-		mb_cons.grid(column=2, row=0)
-		mb_cons.menu = Tkinter.Menu(mb_cons)
-		constraint = Tkinter.IntVar()
-		constraint.set(-1)
-		
-		def change_constraint():	
-			if ( len( self.canvas.find_withtag( 'approximated_curve' ) ) != 0 ):
-				self.redraw_approximated_bezier_curve()
-	
-		mb_cons.menu.add_radiobutton(label='C^0', variable=constraint, value=1, 
-									command=change_constraint)
-		mb_cons.menu.add_radiobutton(label='C^1', variable=constraint, value=2, 
-									command=change_constraint)
-		mb_cons.menu.add_radiobutton(label='G^1', variable=constraint, value=3, 
-									command=change_constraint)
 		
 		mb_help = ttk.Menubutton(menubar,text='help')
 		mb_help.grid(column=3, row=0, padx=300, sticky=Tkinter.E)
 		
 		mb_file['menu'] = mb_file.menu
 		mb_edit['menu'] = mb_edit.menu
-		mb_cons['menu'] = mb_cons.menu
+# 		mb_cons['menu'] = mb_cons.menu
 #		mb_help['menu'] = mb_help.menu
 		return 
 		
@@ -199,7 +180,8 @@ class Window:
 		
 		
 	def popup_handle_editor(self, handle_id):
-	
+		constants = self.constants
+		
 		self.canvas.delete('popup') 
 		self.selected = handle_id
 		
@@ -243,7 +225,7 @@ class Window:
 		w33.grid(row=2, column=2)
 		
 		popup = self.canvas.create_window((coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 
-				anchor=Tkinter.NW, width=204, height=140, window=frame, tags='popup')	
+				anchor=Tkinter.NW, width=constants.popup_width, height=constants.popup_height, window=frame, tags='popup')	
 		
 		def remove_popup(popup):	
 			self.canvas.delete(popup)
@@ -284,54 +266,59 @@ class Window:
 	A series of actions a user can do
 	'''		
 	def onclick_handler(self, event):
+		constants = self.constants
+		
 		mode = self.mode.get()
 		if mode == 0:
-			r= 3		 
-			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
-			control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', 
-						tags='controls')
-						
+			sr, br= constants.small_radius, constants.big_radius		 
+			
+			if len(self.get_controls()) % 3 == 0:
+				x0, x1, y0, y1 = event.x-br, event.x+br, event.y-br, event.y+br
+				control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
+				self.constraints[control] = constants.initial_constraint[:]
+			else:
+				x0, x1, y0, y1 = event.x-sr, event.x+sr, event.y-sr, event.y+sr
+				control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
+				self.constraints[control] = constants.initial_constraint[:]		
 			## the first element 0~3, indicating which type of contraint is applied
 			## the second element 0 or 1, indicating whether fixed 
-			self.constraints[control] = [1.0, 0.0]
+
 					
 		elif mode == 1:
-			r = 3
+			r = constants.radius
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
-			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', 
-						tags='handles')
+			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', tags='handles')
 			self.transforms[handle] = identity(3).reshape(-1)
-# 			self.popup_handle_editor( handle )
 			if len( self.canvas.find_withtag('original_curve') ) > 0:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier_curve()
 				
-#				cps = self.get_controls()
-#				handles = self.get_handle_pos()
-#				update_precomputation_of_controls_or_handles(cps, handles)
-
 		elif mode == 2:
-			overlaps = self.canvas.find_overlapping(event.x-3, event.y-3, event.x+3, event.y+3)
+			r = constants.radius
+			overlaps = self.canvas.find_overlapping(event.x-r, event.y-r, event.x+r, event.y+r)
 			sels = set(overlaps) & set(self.canvas.find_withtag('handles')) 
 			if len(sels) > 0:
 				self.selected = sels.pop()
-# 				self.canvas.focus(self.selected)
 				self.popup_handle_editor(self.selected)
 	
 	def on_right_click_handler(self, event):
 		
 		mode = self.mode.get()
 		if mode != 2: return
-		overlaps = self.canvas.find_overlapping(event.x-3, event.y-3, event.x+3, event.y+3)		
-		sels = set(overlaps) & set(self.canvas.find_withtag('controls')) 	
+		
+		constants = self.constants
+		r = constants.radius
+		overlaps = self.canvas.find_overlapping(event.x-r, event.y-r, event.x+r, event.y+r)		
+		sels = set(overlaps) & set(self.canvas.find_withtag('controls')[ : :3 ]) 
 		if len(sels) == 0: return
 		
 		self.selected = sels.pop()
-		self.popup_quick_menu(self.selected)
+		self.popup_quick_menu(self.selected, event)
 	
-	def popup_quick_menu(self, control_id):
+	def popup_quick_menu(self, control_id, event):
 		self.canvas.delete('popup') 
 		self.selected = control_id		
+# 		debugger()
 		
 		coord = self.canvas.bbox(control_id)
 		p = asarray([(coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 1.0])
@@ -348,6 +335,7 @@ class Window:
 		def change_constraint():
 			self.constraints[control_id][0] = constraint.get()
 			self.constraints[control_id][1] = is_fixed.get()
+			self.redraw_approximated_bezier_curve()
 	
 		
 		## make the menu	
@@ -362,7 +350,7 @@ class Window:
 		menu.add_radiobutton(label='G^1', variable=constraint, value=4, 
 									command=change_constraint)
 
-		menu.post(int(p[0]), int(p[1]))
+		menu.post(event.x_root, event.y_root)
 
 	
 	# for translation ---- press and drag
@@ -531,16 +519,23 @@ class Window:
 	'''	   
 	# draw cubic bezier curve
 	def draw_bezier_curve(self, cps):
+		constants = self.constants
 		
 		assert cps.shape == (4,3)
 		known = asarray( M*cps ).reshape(4, -1)
 		
 		ps = [] 
-		for t in range(0, 101):
-			p = dot( asarray( [(float(t)/100)**3, (float(t)/100)**2, float(t)/100, 1] ), 
-				known )
+		num_samples = constants.sampling_number
+		tbar = ones( 4 )
+		for t in linspace( 0, 1, num_samples ):
+		
+			tbar[0] = t**3
+			tbar[1] = t**2
+			tbar[2] = t
+
+			p = dot( tbar, asarray( M*cps ).reshape(4, -1))
 			ps = ps + [p[0], p[1]]	
-		self.canvas.create_line(ps, width=2, tags='original_bezier')
+		self.canvas.create_line(ps, width=constants.curve_width, smooth=True, tags='original_bezier')
 	 
 	def redraw_bezier_curve(self, cps):
 	
@@ -549,8 +544,9 @@ class Window:
 		
 	# draw curve affected by the handles' weight
 	def redraw_handle_affected_curve(self):
-		
 		if self.boundaries == None: return
+		
+		constants = self.constants
 		self.canvas.delete( 'affected_curve' )
 		all_indices = self.boundaries
 		w = self.all_weights
@@ -567,31 +563,11 @@ class Window:
 				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
 				tps = tps + [p[0], p[1]]
 
-			self.canvas.create_line(tps, width=2, fill='magenta', tags='affected_curve')
-			
-# 	def redraw_handle_affected_mesh(self):
-# 				
-# 		self.canvas.delete( 'affected_mesh' )	
-# 		all_pts = self.all_vertices
-# 		
-# 		tps = []
-# 		w = self.all_weights
-# 		for i, pts in enumerate(all_pts):
-# 			p = asarray(pts + [1.])
-# 			m = zeros(9)
-# 			
-# 			for j, h in enumerate(self.canvas.find_withtag('handles')):
-# 				m = m + self.transforms[h]*w[i][j]
-# 			
-# 			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-# 			tps.append([p[0], p[1]])
-# 
-# 		for face in self.facets:
-# 			self.canvas.create_line([tps[x] for x in face]+tps[face[0]], fill='magenta', 
-# 									tags='affected_mesh')
+			self.canvas.create_line(tps, width=constants.curve_width, smooth=True, fill='magenta', tags='affected_curve')
 			
 				
 	def redraw_approximated_bezier_curve(self):
+		constants = self.constants
 		
 		self.canvas.delete( 'approximated_curve' )
 		self.canvas.delete( 'new_controls' )
@@ -634,24 +610,27 @@ class Window:
 
 		# new control points
 		for i in range( len( P_primes ) ):
-			for pp in P_primes[i]:
+			for j, pp in enumerate( P_primes[i] ):
 				pp = asarray( pp ).reshape(-1)
-				r= 3
-				x0, x1, y0, y1 = pp[0]-r, pp[0]+r, pp[1]-r, pp[1]+r
-				self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', 
-										tags='new_controls')
+				sr, br= constants.small_radius, constants.big_radius		 
+			
+				if j == 0 or j == 3:
+					x0, x1, y0, y1 = pp[0]-br, pp[0]+br, pp[1]-br, pp[1]+br
+					control = self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', tags='new_controls')
+				else:
+					x0, x1, y0, y1 = pp[0]-sr, pp[0]+sr, pp[1]-sr, pp[1]+sr
+					control = self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', tags='new_controls')
 
-		num_sample = 100
+		num_samples = constants.sampling_number
 		for i in range( len( P_primes ) ):
 			known = asarray( M * P_primes[i] ).reshape(4, -1)	
 			ps = [] 
-			samples = array( range( num_sample ) ) / float(num_sample - 1)
+			samples = array( range( num_samples ) ) / float(num_samples - 1)
 			
 			for t in samples:
 				p = dot( asarray( [t**3, t**2, t, 1] ), known )
 				ps = ps + [p[0], p[1]]	
-			self.canvas.create_line(ps, smooth=True, width=2, fill='green', 
-									tags='approximated_curve')
+			self.canvas.create_line(ps, width=constants.curve_width, smooth=True, fill='green', tags='approximated_curve')
 
 	'''
 		Drawing End
@@ -724,25 +703,9 @@ class Window:
 			### compute the wanted position of this control point
 			for i, key in enumerate(sorted(self.constraints.keys())):
 				controls = self.get_controls()
-				p = controls[i]	
-			
-# 				if self.constraints[key][1] != 0:
-# 					w = self.all_weights
-# 					vs = asarray(self.all_vertices)
-# 				
-# 					vi = argmin( ( ( vs - p[:2] )**2 ).sum( axis = 1 ) )
-# 					assert allclose( vs[vi], p[:2], 1e-5 )
-# 					
-# 					m = zeros(9)
-# 					for j, h in enumerate(self.canvas.find_withtag('handles')):
-# 						m = m + self.transforms[h]*w[vi,j]
-# 					pos = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-# 				
-# 					self.constraints[key][1] = (pos[0], pos[1])
-		
-		
+				p = controls[i]		
 				
-# 		compute_fixed_positions()	
+					
 		self.redraw_handle_affected_curve()	
  		self.redraw_approximated_bezier_curve()		
 		
@@ -753,3 +716,4 @@ def main():
 	root.mainloop()	 
 
 if __name__ == '__main__': main()
+

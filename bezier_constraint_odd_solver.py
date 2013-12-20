@@ -49,7 +49,17 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[sum(dofs0) + i*4, i] = -1
 
 		elif smoothness == 2:        ## fixed angle
-			pass
+			R = zeros( ( dofs, 2*dim ) )
+			for i in range( dim ):
+				R[i*4+3, i] = R[i*4+3, i+dim] = 1
+				R[i*4+2, i+dim] = -1
+				R[sum(dofs0)+i*4, i] = R[sum(dofs0)+i*4+1, i+dim] = -1
+				R[sum(dofs0)+i*4, i+dim] = 1
+
+			## add weights to lambda	 
+			R[ :sum(dofs0), dim: ] *= weight1
+			R[ sum(dofs0):, dim: ] *= weight0
+			
 		elif smoothness == 3:        ## C1
 			'''
 			Boundary Conditions are as follows:
@@ -70,11 +80,21 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			R[ sum(dofs0):, dim: ] *= weight0
 
 		elif smoothness == 4:        ## G1
-			pass
+			R = zeros( ( dofs, 2*dim ) )
+			for i in range( dim ):
+				R[i*4+3, i] = R[i*4+3, i+dim] = 1
+				R[i*4+2, i+dim] = -1
+				R[sum(dofs0)+i*4, i] = R[sum(dofs0)+i*4+1, i+dim] = -1
+				R[sum(dofs0)+i*4, i+dim] = 1
+
+			## add weights to lambda	 
+			R[ :sum(dofs0), dim: ] *= weight1
+			R[ sum(dofs0):, dim: ] *= weight0
 		
 		rhs = zeros(R.shape[1])
 		
 		fixed = bundle0.control_points[-1][:2]
+		
 		if bundle0.constraints[1, 1] != 0:
 
 			fixed = asarray(fixed)
