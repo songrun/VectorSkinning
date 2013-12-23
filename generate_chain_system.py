@@ -2,37 +2,47 @@ from bezier_utility import *
 from weight_inverse_distance import *
 
 class Bundle( object ):
-	def __init__( self, Ws, control_points, constraints, weight ):
-		self.Ws = Ws
+	def __init__( self, W_matrices, control_points, constraints, weight, mags = None, dirs = None ):
+		self.W_matrices = W_matrices
 		self.control_points = control_points
 		self.constraints = asarray( constraints )
 		self.weight = weight
+		if mags is None:
+			self.magnitudes = [self.weight, self.weight]
+		else:
+			self.magnitudes = mags
+		
+		controls = asarray(self.control_points)
+		if dirs is None:
+			self.directions = [ (controls[1] - controls[0])[:2], (controls[2] - controls[3])[:2] ]
+		else:
+			self.directions = dirs
 
 # class Constraint( object ):
-#     def __init__( self, smoothness, position_is_fixed ):
-#         '''
-#         The parameter 'smoothness' must be one of 'C0', 'C1', 'G1', or 'A'.
-#         The parameter 'position_is_fixed' is a boolean.
-#         '''
-#         self.smoothness = smoothness
-#         self.position_is_fixed = position_is_fixed
+#	  def __init__( self, smoothness, position_is_fixed ):
+#		  '''
+#		  The parameter 'smoothness' must be one of 'C0', 'C1', 'G1', or 'A'.
+#		  The parameter 'position_is_fixed' is a boolean.
+#		  '''
+#		  self.smoothness = smoothness
+#		  self.position_is_fixed = position_is_fixed
 
 class BezierConstraintSolver( object ):
 	def __init__( self, W_matrices, control_points, constraints, transforms, is_closed ):
-    	## compute the weight of each segment according to its length
+		## compute the weight of each segment according to its length
 		num = len(control_points)
 		weights = asarray([length_of_cubic_bezier_curve(P) for P in control_points])
 		weights = weights/sum(weights)
 		self.build_system( W_matrices, control_points, constraints, transforms, is_closed, weights )
 
 	def build_system( self, W_matrices, control_points, constraints, transforms, is_closed, weights ):
-        
-        ### 1 Bundle all data for each bezier curve together
-        ### 2 Allocate space for the system matrix
-        ### 3 Gather the pieces of the system for each curve
-        ### 4 Insert them into the system matrix and right-hand-side
-        ### 5 Gather the lagrange equations between adjacent curves
-        ### 6 Insert them into the system matrix and right-hand-side
+		
+		### 1 Bundle all data for each bezier curve together
+		### 2 Allocate space for the system matrix
+		### 3 Gather the pieces of the system for each curve
+		### 4 Insert them into the system matrix and right-hand-side
+		### 5 Gather the lagrange equations between adjacent curves
+		### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
 		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], weights[i] ) for i in xrange(len( control_points )) ]
@@ -49,7 +59,13 @@ class BezierConstraintSolver( object ):
 		'''
 		self.system = zeros( ( self.system_size, self.system_size ) )
 		self.rhs = zeros( self.system_size )
+		self.transforms = transforms
+		self.is_closed = is_closed
+		
+		self.update_bundles()
 
+
+	def update_bundles( self ):
 		## For convenience, set local variables from instance variables.
 		## WARNING: If you re-assign one of these, the instance variable will not be updated!
 		bundles = self.bundles
@@ -59,7 +75,8 @@ class BezierConstraintSolver( object ):
 		system_size = self.system_size
 		system = self.system
 		rhs = self.rhs
-
+		transforms = self.transforms
+		is_closed = self.is_closed
 
 		### 3
 		dof_offset = 0
@@ -76,8 +93,8 @@ class BezierConstraintSolver( object ):
 			dof_offset += dofs
 
 		assert dof_offset == total_dofs
-        
 		
+			
 		### 5
 		dof_offset = 0
 		constraint_equation_offset = total_dofs
@@ -113,12 +130,12 @@ class BezierConstraintSolver( object ):
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
 		
-
+	
 	def update_rhs_for_handles( self, transforms ):
 		dof_offset = 0
-		for i in range(len( bundles )):
+		for i in range(len( self.bundles )):
 			bundle = self.bundles[i]
-			dofs = self.dofs_per_bundle[i]
+			dofs = sum(self.dofs_per_bundle[i])
 	
 			small_rhs = self.rhs_for_curve( bundle, transforms )
 			### 4
@@ -127,6 +144,7 @@ class BezierConstraintSolver( object ):
 			dof_offset += dofs
 
 		assert dof_offset == self.total_dofs
+
 
 	### For subclasses to implement:
 	def update_system_with_result_of_previous_iteration( self, previous_solution ):

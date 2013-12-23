@@ -8,8 +8,16 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
     def update_system_with_result_of_previous_iteration( self, solution ):
         ### Iterate only over the parts of the matrix that will change,
         ### such as the lagrange multipliers across G1 or A edges and the right-hand-side.
+        solution = asarray(solution)
+        num = len(self.bundles)
+        assert solution.shape == (num, 4, 2)
+        magnitudes = asarray( [[mag( solution[i][1]-solution[i][0] ), mag( solution[i][2]-solution[i][3] )] for i in range(num) ] )
         
-        raise NotImplementedError
+        for i in range(num):
+	        self.bundles[i].magnitudes = magnitudes[i]
+		
+		self.update_bundles()
+		
     
     def solve( self ):
 		dim = 2
@@ -28,7 +36,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
     
     def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
 
-		weight0, weight1 = bundle0.weight, bundle1.weight
+		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
 		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
 		dofs1 = self.compute_dofs_per_curve(bundle1)
@@ -57,8 +65,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[sum(dofs0)+i*4, i+dim] = 1
 
 			## add weights to lambda	 
-			R[ :sum(dofs0), dim: ] *= weight1
-			R[ sum(dofs0):, dim: ] *= weight0
+			R[ :sum(dofs0), dim: ] *= mag1
+			R[ sum(dofs0):, dim: ] *= mag0
 			
 		elif smoothness == 3:        ## C1
 			'''
@@ -76,8 +84,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[sum(dofs0)+i*4, i+dim] = 1
 
 			## add weights to lambda	 
-			R[ :sum(dofs0), dim: ] *= weight1
-			R[ sum(dofs0):, dim: ] *= weight0
+			R[ :sum(dofs0), dim: ] *= mag1
+			R[ sum(dofs0):, dim: ] *= mag0
 
 		elif smoothness == 4:        ## G1
 			R = zeros( ( dofs, 2*dim ) )
@@ -88,13 +96,12 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[sum(dofs0)+i*4, i+dim] = 1
 
 			## add weights to lambda	 
-			R[ :sum(dofs0), dim: ] *= weight1
-			R[ sum(dofs0):, dim: ] *= weight0
+			R[ :sum(dofs0), dim: ] *= mag1
+			R[ sum(dofs0):, dim: ] *= mag0
 		
 		rhs = zeros(R.shape[1])
 		
 		fixed = bundle0.control_points[-1][:2]
-		
 		if bundle0.constraints[1, 1] != 0:
 
 			fixed = asarray(fixed)
@@ -111,6 +118,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			rhs = concatenate((rhs, fixed))
 	
 		return R.T, rhs
+		
         
     def system_for_curve( self, bundle ):
 		'''
@@ -119,8 +127,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		# 		[ 1./5, 1./4,  1./3,  1./2], [1./4,  1./3,  1./2,   1.]] )
 		## MAM is computed using Sage. MAM = M * A * M
 		'''
-		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], 
-			[ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 		dim = 2
 		weight = bundle.weight
 
@@ -165,13 +172,14 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
             
         return num
         
+        
     def rhs_for_curve( self, bundle, transforms ):
 		'''
 		The rhs is computed according to the formula:
 			rhs = sum(Ti * P.T * M.T * W_i * M)
 		'''
 		dim = 3
-		Ws = bundle.Ws
+		W_matrices = bundle.W_matrices
 		controls = bundle.control_points
 		weight = bundle.weight
 
@@ -179,7 +187,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range( len( transforms ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
-			W_i = Ws[i,0]	
+			W_i = W_matrices[i,0]	
 
 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
 

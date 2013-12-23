@@ -279,7 +279,7 @@ class Window:
 			else:
 				x0, x1, y0, y1 = event.x-sr, event.x+sr, event.y-sr, event.y+sr
 				control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
-				self.constraints[control] = constants.initial_constraint[:]		
+						
 			## the first element 0~3, indicating which type of contraint is applied
 			## the second element 0 or 1, indicating whether fixed 
 
@@ -309,7 +309,7 @@ class Window:
 		constants = self.constants
 		r = constants.radius
 		overlaps = self.canvas.find_overlapping(event.x-r, event.y-r, event.x+r, event.y+r)		
-		sels = set(overlaps) & set(self.canvas.find_withtag('controls')[ : :3 ]) 
+		sels = set(overlaps) & set(self.canvas.find_withtag('controls')) 
 		if len(sels) == 0: return
 		
 		self.selected = sels.pop()

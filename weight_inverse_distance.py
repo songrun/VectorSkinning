@@ -130,6 +130,7 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 
 def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 	'''
+	R = sum( T_i * P.T * partofR ) 
 	compute integral of w * tbar * (M * tbar11)
 			integral of w * tbar * (M * tbar21)
 			integral of w * tbar * (M * tbar31)
