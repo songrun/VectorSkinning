@@ -1,0 +1,7 @@
+.DS_Store
+*~
+*.pyo
+*.pyc
+*.o
+*.dSYM
+/plane251x51.obj
