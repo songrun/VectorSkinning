@@ -2,7 +2,7 @@
 import Tkinter, Tkconstants, tkFileDialog 
 import ttk as ttk
 import tkMessageBox
-from bezier_chain_constraints import *
+from chain_computer import *
 from svg_parser import *
 
 class Drawing_constants:
@@ -21,9 +21,7 @@ class Drawing_constants:
 	curve_width = 2
 	sampling_number = 100
 	initial_constraint = [1, 0]
-	colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 
-		'lawn green', 'medium spring green', 'green yellow', 'lime green', 'yellow green',
-		'dark salmon', 'salmon']
+	colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 'lawn green', 'green yellow', 'lime green', 'dark salmon', 'salmon']
 	
 class Window:
 	canvas = None
@@ -66,7 +64,7 @@ class Window:
 		
 		self.canvas = Tkinter.Canvas(parent, width=constants.canvas_width, height=constants.canvas_height, bd=constants.canvas_border, cursor='dot', relief=Tkinter.SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
-		self.canvas.bind("<Button-2>", self.on_right_click_handler)
+		self.canvas.bind("<Double-Button-1>", self.on_right_click_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
 		self.canvas.bind("<Control-B1-Motion>", self.on_control_mouse_handler)
 #		self.canvas.bind("<Double-Button-1>", self.on_double_click_handler)
@@ -302,14 +300,14 @@ class Window:
 				self.popup_handle_editor(self.selected)
 	
 	def on_right_click_handler(self, event):
-		
 		mode = self.mode.get()
 		if mode != 2: return
 		
 		constants = self.constants
-		r = constants.radius
-		overlaps = self.canvas.find_overlapping(event.x-r, event.y-r, event.x+r, event.y+r)		
-		sels = set(overlaps) & set(self.canvas.find_withtag('controls')) 
+		r = constants.big_radius
+		overlaps = self.canvas.find_overlapping(event.x-r, event.y-r, event.x+r, event.y+r)
+			
+		sels = set(overlaps) & set(self.canvas.find_withtag('controls')[::3]) 
 		if len(sels) == 0: return
 		
 		self.selected = sels.pop()
@@ -448,7 +446,7 @@ class Window:
 	# for scaling ---- Control + press and drag
 	def on_control_mouse_handler(self, event):
 	
-		if self.selected != None and self.popup != None:
+		if self.selected not in self.get_handles() and self.popup != None:
 			h = self.selected 
 			if len(self.traceS) != 2:
 				self.traceS = [event.x, event.y]

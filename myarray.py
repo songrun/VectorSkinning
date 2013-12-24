@@ -12,25 +12,28 @@ from numpy import *
 kFloatType = float64
 
 def arrayf( arg ):
-    return array( arg, kFloatType )
+	return array( arg, kFloatType )
 def asarrayf( arg ):
-    return asarray( arg, kFloatType )
+	return asarray( arg, kFloatType )
 def zerosf( arg ):
-    return zeros( arg, kFloatType )
+	return zeros( arg, kFloatType )
 def onesf( arg ):
-    return ones( arg, kFloatType )
+	return ones( arg, kFloatType )
 def identityf( arg ):
-    return identity( arg, kFloatType )
+	return identity( arg, kFloatType )
 def emptyf( arg ):
-    return empty( arg, kFloatType )
+	return empty( arg, kFloatType )
 
 def mag2( vec ):
-    return dot(vec,vec)
+	vec = asarray(vec)
+	return dot(vec,vec)
 def mag( vec ):
-    return sqrt(mag2(vec))
+	return sqrt(mag2(vec))
 def dir( vec ):
-    return vec * 1./mag(vec)
+	vec = asarray(vec)
+	return vec * 1./mag(vec)
 def dir_allow_zero( vec ):
+	vec = asarray(vec)
 	if mag(vec) == 0:
 		return vec
 	else:

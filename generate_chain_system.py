@@ -7,12 +7,13 @@ class Bundle( object ):
 		self.control_points = control_points
 		self.constraints = asarray( constraints )
 		self.weight = weight
+		
+		controls = asarray(self.control_points)
 		if mags is None:
-			self.magnitudes = [self.weight, self.weight]
+			self.magnitudes = [mag(controls[1] - controls[0]), mag(controls[2] - controls[3])]
 		else:
 			self.magnitudes = mags
 		
-		controls = asarray(self.control_points)
 		if dirs is None:
 			self.directions = [ (controls[1] - controls[0])[:2], (controls[2] - controls[3])[:2] ]
 		else:
@@ -33,6 +34,7 @@ class BezierConstraintSolver( object ):
 		num = len(control_points)
 		weights = asarray([length_of_cubic_bezier_curve(P) for P in control_points])
 		weights = weights/sum(weights)
+		control_points = asarray(control_points)
 		self.build_system( W_matrices, control_points, constraints, transforms, is_closed, weights )
 
 	def build_system( self, W_matrices, control_points, constraints, transforms, is_closed, weights ):

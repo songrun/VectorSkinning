@@ -56,7 +56,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		return result	
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
-		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
+		w0, w1 = bundle0.weight, bundle1.weight
 		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
 		dofs1 = self.compute_dofs_per_curve(bundle1)
@@ -87,8 +87,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
 			lambda2 * ( P4y' - Q1y' ) = 0
-			lambda4 * ( w_q(P4x' - P3x') + w_p(Q1x' - Q2x')) = 0
-			lambda5 * ( w_q(P4y' - P3y') + w_p(Q1y' - Q2y')) = 0
+			lambda3 * ( w_q(P4x' - P3x') + w_p(Q1x' - Q2x')) = 0
+			lambda4 * ( w_q(P4y' - P3y') + w_p(Q1y' - Q2y')) = 0
 			'''
 			R = zeros( ( dofs, 2*dim ) )
 			R[sum(dofs0)-dim : sum(dofs0), :dim] = identity(dim)
@@ -106,6 +106,10 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				R[sum(dofs0)+dim : sum(dofs0)+2*dim, -dim:] = identity(dim) * -1
 			elif dofs1[1] == 3:
 				R[sum(dofs0)+dofs1[0], -dim:] = -dirs1[0]
+				
+			## multiply by w_q and w_p
+			R[ :sum(dofs0), dim: ] *= w1
+			R[ sum(dofs0):, dim: ] *= w0
 				
 		elif smoothness == 4:        ## G1
 			R = zeros( ( dofs, dim ) )
