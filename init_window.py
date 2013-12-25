@@ -64,10 +64,9 @@ class Window:
 		
 		self.canvas = Tkinter.Canvas(parent, width=constants.canvas_width, height=constants.canvas_height, bd=constants.canvas_border, cursor='dot', relief=Tkinter.SUNKEN)
 		self.canvas.bind("<Button-1>", self.onclick_handler)
-		self.canvas.bind("<Double-Button-1>", self.on_right_click_handler)
+		self.canvas.bind("<Double-Button-1>", self.on_double_click_handler)
 		self.canvas.bind("<Shift-B1-Motion>", self.on_shift_mouse_handler)
 		self.canvas.bind("<Control-B1-Motion>", self.on_control_mouse_handler)
-#		self.canvas.bind("<Double-Button-1>", self.on_double_click_handler)
 		self.canvas.bind("<B1-Motion>", self.on_motion_handler)
 		self.canvas.bind("<ButtonRelease-1>", self.onrelease_handler)
 		self.canvas.grid()
@@ -300,7 +299,7 @@ class Window:
 				self.selected = sels.pop()
 				self.popup_handle_editor(self.selected)
 	
-	def on_right_click_handler(self, event):
+	def on_double_click_handler(self, event):
 		mode = self.mode.get()
 		if mode != 2: return
 		
@@ -446,8 +445,8 @@ class Window:
 	
 	# for scaling ---- Control + press and drag
 	def on_control_mouse_handler(self, event):
-	
-		if self.selected not in self.get_handles() and self.popup != None:
+		
+		if self.selected != None and self.popup != None:
 			h = self.selected 
 			if len(self.traceS) != 2:
 				self.traceS = [event.x, event.y]
