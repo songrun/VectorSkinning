@@ -1,4 +1,4 @@
-from weights_computer import *
+from weight_inverse_distance import *
 from copy import copy, deepcopy
 from bezier_utility import *
 from bezier_constraint_odd_solver import *
@@ -10,7 +10,6 @@ dim = 2
 def approximate_beziers(W_matrices, Cset, transforms, constraints, if_closed):
 	
 	solution = None
-	
 	## select the joint points' constraints
 	joint_constraints = [constraints[key] for key in sorted(constraints.iterkeys())]
 	joint_constraints = asarray(joint_constraints)
@@ -22,42 +21,42 @@ def approximate_beziers(W_matrices, Cset, transforms, constraints, if_closed):
 	if 2 not in joint_constraints[:,0] and 4 not in joint_constraints[:,0]: 
 		return solution
 	
-	else: 
-		even = BezierConstraintSolverEven(W_matrices, Cset, joint_constraints, transforms, if_closed)	
+	even = BezierConstraintSolverEven(W_matrices, Cset, joint_constraints, transforms, if_closed)	
 # 		even.update_rhs_for_handles( transforms )
-	
-		for iter in range( 10 ):
-			even.update_system_with_result_of_previous_iteration( solution )
-			last_solution = solution
-			solution = even.solve()
-			
-			if allclose(last_solution, solution, atol=1):
-				print 'odd even iter num: ', iter
-				return solution
-				
-			## Check if error is low enough and terminate
-			odd.update_system_with_result_of_previous_iteration( solution )
-			last_solution = solution
-			solution = odd.solve()
-			
-			if allclose(last_solution, solution, atol=1):
-				print 'even odd iter num: ', iter
-				return solution
-				
-    	print 'exceed: ', iter
-    	return solution
+
+	for iter in xrange( 1 ):
+		even.update_system_with_result_of_previous_iteration( solution )
+		last_solution = solution
+		solution = even.solve()
+		
+# 		debugger()
+		if allclose(last_solution, solution, atol=1.0, rtol=1e-03):
+			return solution
+		
+		## Check if error is low enough and terminate
+		odd.update_system_with_result_of_previous_iteration( solution )
+		last_solution = solution
+		solution = odd.solve()
+		
+		if allclose(last_solution, solution, atol=0.5, rtol=1e-03):
+			return solution
+
+	return solution
     	
 def main():
-	cps = array([[100, 300,   1],
-	   [200, 400,   1],
-	   [300, 400,   1],
-	   [400, 300,   1],
-	   [300, 200,   1],
-	   [200, 200,   1]])
+	Cset = array([[[100, 300,   1],
+        [200, 400,   1],
+        [300, 400,   1],
+        [400, 300,   1]],
+
+       [[400, 300,   1],
+        [300, 200,   1],
+        [200, 200,   1],
+        [100, 300,   1]]])
+        
+
 	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
 	trans = [array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.]), array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.])]	  
-	
-	Cset = make_control_points_chain( cps, True )  
 
 	all_pts = sample_cubic_bezier_curve_chain( Cset, 100 )
 	from itertools import chain
@@ -85,7 +84,7 @@ def main():
 									all_weights, i, all_pts[k][0], all_pts[k][1])
 	
 							       
-	constraints = {1: [4.0, 1.0], 4: [4.0, 0.0]}
+	constraints = {1: [1.0, 0.0], 4: [2.0, 0.0]}
 	
 	P_primes = approximate_beziers(W_matrices, Cset, trans, constraints, True )
 	
@@ -93,4 +92,3 @@ def main():
 	print P_primes
 	
 if __name__ == '__main__': main()		
-

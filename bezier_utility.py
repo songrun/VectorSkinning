@@ -16,7 +16,7 @@ except ImportError:
    def debugger():
        pdb.set_trace()
 
-## The bezier curve's coefficient matrix
+## The bezier curve's coefficient matrix, P(t) = tbar*M*P
 M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.') 
 
 def sample_cubic_bezier_curve_chain( Cset, num_samples = 100 ):

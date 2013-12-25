@@ -130,23 +130,36 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 
 def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 	'''
-	R = sum( T_i * P.T * partofR ) 
-	compute integral of w * tbar * (M * tbar11)
-			integral of w * tbar * (M * tbar21)
-			integral of w * tbar * (M * tbar31)
-			integral of w * tbar * (M * tbar41)
+	R = sum( T_i * P.T * M * partofR ) 
+	compute integral of w * tbar * (M * tbar1)
+			integral of w * tbar * (M * tbar2)
+			integral of w * tbar * (M * tbar3)
+			integral of w * tbar * (M * tbar4)
 	'''
+	### Asserts
+	## Ensure our inputs are the same lengths:
+	assert len( sampling ) == len( ts )
+	assert len( sampling ) == len( dts ) + 1
+	
+	## Ensure our inputs are numpy.arrays:
+	sampling = asarray( sampling )
+	ts = asarray( ts )
+	dts = asarray( dts )
+	
 	## Compute the integral.	
 	R = zeros( ( 4, 4 ) )
 	tbar = ones( 4 )
 	
-	for sample, t, dt in zip( sampling, ts, dts ):
+	for i in range(len(dts)):
+		t = (ts[i] + ts[i+1])/2
+		dt = dts[i]
+		
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
 		tbar = tbar.reshape( (4,1) )
 		
-		w = weight_function( sample )
+		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
 		
 		## M * tbar
 		C_P = dot( M, tbar )

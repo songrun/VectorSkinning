@@ -575,6 +575,16 @@ class Window:
 		cps = self.get_controls()
 		Cset = make_control_points_chain( cps, self.if_closed.get() )
 		if Cset is None: return
+		
+# 		Cset = array([[[100, 300,   1],
+# 			[200, 400,   1],
+# 			[300, 400,   1],
+# 			[400, 300,   1]],
+# 
+# 		   [[400, 300,   1],
+# 			[300, 200,   1],
+# 			[200, 200,   1],
+# 			[100, 300,   1]]])  
 		'''
 		global gOnce
 		
@@ -667,13 +677,14 @@ class Window:
 		if (Cset == None): return
 
 		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
-	
+		print 'haha ', skeleton_handle_vertices
+		
+		
 		all_pts = sample_cubic_bezier_curve_chain( Cset )
 		from itertools import chain
 		loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
 
-		self.all_vertices, self.facets, self.all_weights = (triangulate_and_compute_weights
-														(loop, skeleton_handle_vertices))
+		self.all_vertices, self.facets, self.all_weights = (triangulate_and_compute_weights(loop, skeleton_handle_vertices))
 														
 		## draw boundary bezier curves
 		for pts, ts in all_pts:
@@ -695,15 +706,8 @@ class Window:
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
 				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
-										self.all_weights, i, all_pts[k][0], all_pts[k][1])
-		
-		def compute_fixed_positions():
-			### compute the wanted position of this control point
-			for i, key in enumerate(sorted(self.constraints.keys())):
-				controls = self.get_controls()
-				p = controls[i]		
-				
-					
+										self.all_weights, i, all_pts[k][0], all_pts[k][1])	
+						
 		self.redraw_handle_affected_curve()	
  		self.redraw_approximated_bezier_curve()		
 		

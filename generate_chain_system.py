@@ -15,7 +15,7 @@ class Bundle( object ):
 			self.magnitudes = mags
 		
 		if dirs is None:
-			self.directions = [ (controls[1] - controls[0])[:2], (controls[2] - controls[3])[:2] ]
+			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
 		else:
 			self.directions = dirs
 
@@ -96,7 +96,7 @@ class BezierConstraintSolver( object ):
 
 		assert dof_offset == total_dofs
 		
-			
+				
 		### 5
 		dof_offset = 0
 		constraint_equation_offset = total_dofs

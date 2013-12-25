@@ -31,7 +31,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range(num):
 			P = x[:, i*dim:(i+1)*dim ]
 			result.append( P )		
-
+		
 		return result	
     
     def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
@@ -47,7 +47,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		dofs0 = self.compute_dofs_per_curve(bundle0)
 		dofs1 = self.compute_dofs_per_curve(bundle1)
 		dofs = sum(dofs0) + sum(dofs1)
-		
+
 		R = None
 		
 		smoothness = bundle0.constraints[1,0]
@@ -77,9 +77,14 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				
 				R[i*4+3, i+dim] = 1
 				R[i*4+2, i+dim] = -1
-				R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, -sin_theta], [cos_theta, sin_theta]])
-				R[-dim*2:-dim, dim:] = asarray([[sin_theta, -cos_theta], [-sin_theta, cos_theta]])
-
+				
+				## tell the angle from vec0 to vec1 is positive or negative.
+				if cross(vec0, vec1) >= 0:
+					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
+					R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
+				else:
+					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, -sin_theta], [cos_theta, sin_theta]])
+					R[-dim*2:-dim, dim:] = asarray([[sin_theta, -cos_theta], [-sin_theta, cos_theta]])
 			## add weights to lambda	 
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
@@ -149,15 +154,15 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		# 		[ 1./5, 1./4,  1./3,  1./2], [1./4,  1./3,  1./2,   1.]] )
 		## MAM is computed using Sage. MAM = M * A * M
 		'''
-		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+ 		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
 		dim = 2
-		weight = bundle.weight
 
 		Left = zeros((8, 8))
 
 		for i in range(dim):		
-			Left[ i*4:(i+1)*4, i*4:(i+1)*4 ] = MAM[:,:]*weight
-
+			Left[ i*4:(i+1)*4, i*4:(i+1)*4 ] = MAM[:,:]
+		
+		
 		return Left
 		
         
@@ -200,20 +205,34 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		The rhs is computed according to the formula:
 			rhs = sum(Ti * P.T * M.T * W_i * M)
 		'''
-		dim = 3
 		W_matrices = bundle.W_matrices
 		controls = bundle.control_points
-		weight = bundle.weight
 
-		Right = zeros( (dim, 4) )
+		Right = zeros( (3, 4) )
 		for i in range( len( transforms ) ):
 
-			T_i = mat( asarray(transforms[i]).reshape(dim,dim) )
+			T_i = mat( asarray(transforms[i]).reshape(3,3) )
 			W_i = W_matrices[i,0]	
 
 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
 
-		Right = asarray(Right).reshape(-1)*weight
+		Right = asarray(Right).reshape(-1)
 		Right = Right[:8]	
 
+# 		W_matrices = bundle.W_matrices
+# 		controls = bundle.control_points
+# 		
+# 		Right = zeros( 8 )
+# 		temp = zeros( (3, 4) )
+# 		for i in range( len( transforms ) ):
+# 		
+# 			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
+#  			partOfR = asarray(W_matrices[i,1])
+# 
+# 			temp = temp + dot(asarray(T_i*(controls.T)*M), partOfR)
+# 
+# 		R = temp[:2,:]
+# 		
+# 		Right[:] = concatenate((R[0, :], R[1, :]))
+		 	
 		return Right

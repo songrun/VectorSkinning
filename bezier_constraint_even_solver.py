@@ -16,7 +16,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 	
 		for i in range(num):
 			self.bundles[i].directions = directions[i]
-	
+		
 		self.update_bundles()
 		
 	
@@ -30,6 +30,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 	
 		### Return a nicely formatted chain of bezier curves.
 		result = []
+# 		debugger()
 		dofs_offset = 0
 		for dofs, dirs in zip(dofs_per_bundle, dirs_per_bundle):
 			solution = zeros( (4, 2) )
@@ -38,7 +39,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				
 			elif dofs[0] == 3:
 				solution[0] = x[dofs_offset : dofs_offset + 2]
-				solution[1] = asarray(dirs[0]) * x[dofs_offset + 2]
+				solution[1] = solution[0] + asarray(dirs[0]) * x[dofs_offset + 2]
 			
 			dofs_offset += dofs[0]
 			
@@ -46,13 +47,14 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				solution[ 2:4 ] = x[dofs_offset : dofs_offset + 4].reshape(2,2)
 				
 			elif dofs[1] == 3:
-				solution[2] = asarray(dirs[1]) * x[dofs_offset + 2]
 				solution[3] = x[dofs_offset : dofs_offset + 2]
+				solution[2] = solution[3] + asarray(dirs[1]) * x[dofs_offset + 2]
+				
 
 			dofs_offset += dofs[1]
 				
 			result.append(solution)
-			
+		
 		return result	
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
@@ -74,12 +76,18 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			lambda2 * ( P4y' - Q1y' ) = 0
 			'''
 			R = zeros( ( dofs, dim ) )
-			R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
+			if dofs0[1] == 3:
+				R[dofs0[0] : dofs0[0]+dim, :] = identity(dim)
+			else:
+				R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 			R[sum(dofs0) : sum(dofs0)+dim, :] = identity(dim) * -1
 
 		elif smoothness == 2:        ## fixed angle
 			R = zeros( ( dofs, dim ) )
-			R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
+			if dofs0[1] == 3:
+				R[dofs0[0] : dofs0[0]+dim, :] = identity(dim)
+			else:
+				R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 			R[sum(dofs0) : sum(dofs0)+dim, :] = identity(dim) * -1
 			
 		elif smoothness == 3:        ## C1
@@ -91,10 +99,14 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			lambda4 * ( w_q(P4y' - P3y') + w_p(Q1y' - Q2y')) = 0
 			'''
 			R = zeros( ( dofs, 2*dim ) )
-			R[sum(dofs0)-dim : sum(dofs0), :dim] = identity(dim)
+			if dofs0[1] == 3:
+				R[dofs0[0] : dofs0[0]+dim, :dim] = identity(dim)
+				R[dofs0[0] : dofs0[0]+dim, -dim:] = identity(dim)
+			else:
+				R[sum(dofs0)-dim : sum(dofs0), :dim] = identity(dim)
+				R[sum(dofs0)-dim : sum(dofs0), -dim:] = identity(dim)
+				
 			R[sum(dofs0) : sum(dofs0)+dim, :dim] = identity(dim) * -1
-			
-			R[sum(dofs0)-dim : sum(dofs0), -dim:] = identity(dim)
 			R[sum(dofs0) : sum(dofs0)+dim, -dim:] = identity(dim)
 			
 			if dofs0[0] == 4:
@@ -113,7 +125,10 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				
 		elif smoothness == 4:        ## G1
 			R = zeros( ( dofs, dim ) )
-			R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
+			if dofs0[1] == 3:
+				R[dofs0[0] : dofs0[0]+dim, :] = identity(dim)
+			else:
+				R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 			R[sum(dofs0) : sum(dofs0)+dim, :] = identity(dim) * -1
 		
 		rhs = zeros(R.shape[1])
@@ -143,49 +158,47 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		Left = zeros((sum(dofs), sum(dofs)))
 		dirs = asarray(bundle.directions)
 		weight = bundle.weight
-		'''
-		## AA1 and AA2 is computed using Sage.
-		integral((L*((M*tbar)[0]))[0]) = 1/35*r1*u + 1/14*s*v1 + 3/14*p1x + 1/28*p4x
-		integral((L*((M*tbar)[1]))[0]) = 9/140*r1*u + 3/35*s*v1 + 11/70*p1x + 13/140*p4x
-		integral((L*((M*tbar)[2]))[0]) = 3/35*r1*u + 9/140*s*v1 + 13/140*p1x + 11/70*p4x
-		integral((L*((M*tbar)[3]))[0]) = 1/14*r1*u + 1/35*s*v1 + 1/28*p1x + 3/14*p4x
-		'''
+
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
-			Left = [[1./7, 0., 1./14, 0., -1./14, 0., 1./140, 0.],
-					[0, 1./7, 0., 1./14, 0., -1./14, 0., 1./140],
-					[1./14, 0., 3./35, 0., -33./140, 0., 1./35, 0.],
-					[0., 1./14, 0., 3./35, 0., -33./140, 0., 1./35],
-					[-1./14, 0., -33./140, 0., 213./35, 0., -13./14, 0.],
-					[0., -1./14, 0., -33./140, 0., 213./35, 0., -13./14],
-					[1./140, 0., 1./35, 0., -13./14, 0, 1./7, 0.],
-					[0., 1./140, 0., 1./35, 0., -13./14, 0, 1./7]]
+			Left = [[1./7, 0., 1./14, 0., 1./35, 0., 1./140, 0.],
+					[0., 1./7, 0., 1./14, 0., 1./35, 0., 1./140],
+					[1./14, 0., 3./35, 0., 9./140, 0., 1./35, 0.],
+					[0., 1./14, 0., 3./35, 0., 9./140, 0., 1./35],
+					[1./35, 0., 9./140, 0., 3./35, 0., 1./14, 0.],
+					[0., 1./35, 0., 9./140, 0., 3./35, 0., 1./14],
+					[1./140, 0., 1./35, 0., 1./14, 0., 1./7, 0.],
+					[0., 1./140, 0., 1./35, 0., 1./14, 0., 1./7]]
+
 		## p1x, p1y, s, p3x, p3y, p4x, p4y
 		elif array_equal(dofs, (3,4)):
 			Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
 					[0., 13./35, 11./70*dirs[0,1], 0., 13./140, 0., 1./28],
-					[22./140*dirs[0,0], 22./140*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 4./140*dirs[0,0], 4./140*dirs[0,1]],
+					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 1./35*dirs[0,0], 1./35*dirs[0,1]],
 					[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
 					[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
 					[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
 					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]
+						
 		## p1x, p1y, p2x, p2y, p4x, p4y, u
 		elif array_equal(dofs, (4,3)):
 			Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
 					[0., 1./7, 0., 1./14, 0., 1./28, 1./35*dirs[1,1]],
 					[1./14, 0., 3./35, 0., 13./140, 0., 9./140*dirs[1,0]],
 					[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
-					[4./140*dirs[1,0], 4./140*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])],
 					[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
-					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]]]
+					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
+					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]
+					
 		## p1x, p1y, s, p4x, p4y, u
 		elif array_equal(dofs, (3,3)):
 			Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
 					[0., 13./35, 11./70*dirs[0,1], 0., 9./70, 13./140*dirs[1,1]],
-					[22./140*dirs[0,0], 22./140*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1])],
+					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
 					[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
 					[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
-					[13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]
+					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]
+					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 			
@@ -236,6 +249,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		controls = asarray(bundle.control_points)
 		dirs = asarray(bundle.directions)
 		temp = zeros( (3, 4) )
+		
 		for i in range( len( transforms ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
