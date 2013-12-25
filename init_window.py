@@ -232,8 +232,7 @@ class Window:
 		btn3.grid(row=3, column=0, sticky=Tkinter.SE)
 				
 		def save_transforms(id, vals, popup):		
-			for i in range(0, 9):
-				self.transforms[id][i] = vals[i].get()
+			self.transforms[id][:] = vals
 			remove_popup(popup)
 		
 			if len( self.canvas.find_withtag('controls') ) >= 4:
@@ -241,7 +240,7 @@ class Window:
 				self.redraw_approximated_bezier_curve()	
 			
 		btn1 = Tkinter.Button(frame, text='Save', command=lambda id=handle_id, vals=values, 
-				popup=popup : save_transforms(id, vals, popup), width=4)
+				popup=popup : save_transforms(id, [ val.get() for val in vals ], popup), width=4)
 		btn1.grid(row=3, column=0, sticky=Tkinter.SW)
 		
 		def delete_handle(id, popup):	
@@ -251,8 +250,10 @@ class Window:
 			if len( self.canvas.find_withtag('controls') ) >= 4:
 				self.redraw_handle_affected_curve()
 				self.redraw_approximated_bezier_curve()	
-		btn2 = Tkinter.Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
-				delete_handle(id, popup), width=4)
+		#btn2 = Tkinter.Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
+		#		delete_handle(id, popup), width=4)
+		btn2 = Tkinter.Button(frame, text='Identit', command=lambda id=handle_id, popup=popup : 
+				save_transforms(id, identity(3).reshape(-1), popup), width=4)
 		btn2.grid(row=3, column=0, sticky=Tkinter.S)
 	
 		self.popup = popup
