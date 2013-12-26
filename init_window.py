@@ -570,21 +570,11 @@ class Window:
 		self.canvas.delete( 'approximated_curve' )
 		self.canvas.delete( 'new_controls' )
 		
-# 		handles = [item[1] for item in sorted(self.get_handles().items())]
 		trans = [item[1] for item in sorted(self.transforms.items())]
 		cps = self.get_controls()
 		Cset = make_control_points_chain( cps, self.if_closed.get() )
 		if Cset is None: return
-		
-# 		Cset = array([[[100, 300,   1],
-# 			[200, 400,   1],
-# 			[300, 400,   1],
-# 			[400, 300,   1]],
-# 
-# 		   [[400, 300,   1],
-# 			[300, 200,   1],
-# 			[200, 200,   1],
-# 			[100, 300,   1]]])  
+	
 		'''
 		global gOnce
 		
@@ -700,7 +690,7 @@ class Window:
 			last = self.boundaries[i][-1]
 		self.boundaries[-1][-1] = self.boundaries[0][0]	
 		
-		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 2, 4, 4 ) )
+		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
 		for k in xrange(len( Cset )):	
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,

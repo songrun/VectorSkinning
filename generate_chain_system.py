@@ -1,5 +1,5 @@
 from bezier_utility import *
-from weight_inverse_distance import *
+from weights_computer import *
 
 class Bundle( object ):
 	def __init__( self, W_matrices, control_points, constraints, weight, mags = None, dirs = None ):

@@ -253,9 +253,9 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		for i in range( len( transforms ) ):
 
 			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
- 			partOfR = asarray(W_matrices[i,1])
+ 			W_i = asarray(W_matrices[i])
 			
-			temp = temp + dot(asarray(T_i*(controls.T)*M), partOfR)
+			temp = temp + dot(asarray(T_i*(controls.T)*M), W_i)
 		R = temp[:2,:]
 		
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y

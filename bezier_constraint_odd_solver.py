@@ -205,34 +205,34 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		The rhs is computed according to the formula:
 			rhs = sum(Ti * P.T * M.T * W_i * M)
 		'''
-		W_matrices = bundle.W_matrices
-		controls = bundle.control_points
-
-		Right = zeros( (3, 4) )
-		for i in range( len( transforms ) ):
-
-			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-			W_i = W_matrices[i,0]	
-
-			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
-
-		Right = asarray(Right).reshape(-1)
-		Right = Right[:8]	
-
 # 		W_matrices = bundle.W_matrices
 # 		controls = bundle.control_points
-# 		
-# 		Right = zeros( 8 )
-# 		temp = zeros( (3, 4) )
+# 
+# 		Right = zeros( (3, 4) )
 # 		for i in range( len( transforms ) ):
-# 		
-# 			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
-#  			partOfR = asarray(W_matrices[i,1])
 # 
-# 			temp = temp + dot(asarray(T_i*(controls.T)*M), partOfR)
+# 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
+# 			W_i = W_matrices[i,0]	
 # 
-# 		R = temp[:2,:]
-# 		
-# 		Right[:] = concatenate((R[0, :], R[1, :]))
+# 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
+# 
+# 		Right = asarray(Right).reshape(-1)
+# 		Right = Right[:8]	
+
+		W_matrices = bundle.W_matrices
+		controls = bundle.control_points
+		
+		Right = zeros( 8 )
+		temp = zeros( (3, 4) )
+		for i in range( len( transforms ) ):
+		
+			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
+ 			W_i = asarray(W_matrices[i])
+
+			temp = temp + dot(asarray(T_i*(controls.T)*M), W_i)
+
+		R = temp[:2,:]
+		
+		Right[:] = concatenate((R[0, :], R[1, :]))
 		 	
 		return Right

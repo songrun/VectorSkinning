@@ -1,6 +1,4 @@
-from weight_inverse_distance import *
 from copy import copy, deepcopy
-from bezier_utility import *
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
@@ -75,13 +73,12 @@ def main():
 		last = boundaries[i][-1]
 	boundaries[-1][-1] = boundaries[0][0]	
 	
-	W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 2, 4, 4 ) )
+	W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
 	for k in xrange(len( Cset )):	
 		for i in xrange(len( skeleton_handle_vertices )):
 			## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 			## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-			W_matrices[k,i] = precompute_W_i_bbw( all_vertices, 
-									all_weights, i, all_pts[k][0], all_pts[k][1])
+			W_matrices[k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_pts[k][0], all_pts[k][1])
 	
 							       
 	constraints = {1: [1.0, 0.0], 4: [2.0, 0.0]}

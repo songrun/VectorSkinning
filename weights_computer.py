@@ -56,7 +56,7 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	assert len( ts.shape ) == 1
 	assert len( dts.shape ) == 1
 
-	result = zeros((2,4,4 ))
+	result = zeros((4,4 ))
 
 	## Vertices and sampling must have the same dimension for each point.
 	sampling = sampling[:,:-1]
@@ -71,64 +71,65 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 		assert allclose( vs[vi], p, 1e-5 )
 		return weights[ vi, i ]
 	
-	result[0] = precompute_W_i_with_weight_function_and_sampling( weight_function, 
-				sampling, ts, dts )
-	result[1] = precompute_partOfR_with_weight_function_and_sampling( weight_function, 
-				sampling, ts, dts )
+# 	result[0] = precompute_W_i_with_weight_function_and_sampling( weight_function, 
+# 				sampling, ts, dts )
+# 	result[1] = precompute_partOfR_with_weight_function_and_sampling( weight_function, 
+# 				sampling, ts, dts )
+	result[:] = precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )		
 				
 	return result
 
-def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
-	'''
-	Given a function 'weight_function' that takes a point and returns its weight,
-	a N-by-k numpy.array 'sampling' containing the positions of the control points as the rows,
-	corresponding t values 'ts' for each point in 'sampling',
-	and an optional corresponding 'dt' for each point in sampling (default is 1/len(sampling)),
-	returns W, a 4-by-4 numpy.array defined as:
-		\int_i weight_function( sample ) \overbar{t}^T \overbar{t}^T dt
-	where sample, t, and dt are drawn from the corresponding input arrays.
-	
-	The optional parameter 'num_samples' determines how many samples to use to compute
-	the integral.
-	'''
-	
-	### Asserts
-	## Ensure our inputs are the same lengths:
-	assert len( sampling ) == len( ts )
-	assert len( sampling ) == len( dts ) + 1
-	
-	## Ensure our inputs are numpy.arrays:
-	sampling = asarray( sampling )
-	ts = asarray( ts )
-	dts = asarray( dts )
-	
-	## sampling must be N-by-k.
-	assert len( sampling.shape ) == 2
-	assert len( ts.shape ) == 1
-	assert len( dts.shape ) == 1
-	
-	### Compute the integral.
-	W_i = zeros( ( 4,4 ) )
-	tbar = ones( 4 )
-	
-	for i in range(len(dts)):
-		t = (ts[i] + ts[i+1])/2
-		dt = dts[i]
-		## For arc-length parameterization:
-		# dt = magnitude( sampling[i] - sampling[i+1] )
-				
-		tbar[0] = t**3
-		tbar[1] = t**2
-		tbar[2] = t
-		tbar = tbar.reshape( (4,1) )
-		
-		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
-		
-		W_i += dot( dt * w * tbar, tbar.T )
-	
-	return W_i
+# def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
+# 	'''
+# 	Given a function 'weight_function' that takes a point and returns its weight,
+# 	a N-by-k numpy.array 'sampling' containing the positions of the control points as the rows,
+# 	corresponding t values 'ts' for each point in 'sampling',
+# 	and an optional corresponding 'dt' for each point in sampling (default is 1/len(sampling)),
+# 	returns W, a 4-by-4 numpy.array defined as:
+# 		\int_i weight_function( sample ) \overbar{t}^T \overbar{t}^T dt
+# 	where sample, t, and dt are drawn from the corresponding input arrays.
+# 	
+# 	The optional parameter 'num_samples' determines how many samples to use to compute
+# 	the integral.
+# 	'''
+# 	
+# 	### Asserts
+# 	## Ensure our inputs are the same lengths:
+# 	assert len( sampling ) == len( ts )
+# 	assert len( sampling ) == len( dts ) + 1
+# 	
+# 	## Ensure our inputs are numpy.arrays:
+# 	sampling = asarray( sampling )
+# 	ts = asarray( ts )
+# 	dts = asarray( dts )
+# 	
+# 	## sampling must be N-by-k.
+# 	assert len( sampling.shape ) == 2
+# 	assert len( ts.shape ) == 1
+# 	assert len( dts.shape ) == 1
+# 	
+# 	### Compute the integral.
+# 	W_i = zeros( ( 4,4 ) )
+# 	tbar = ones( 4 )
+# 	
+# 	for i in range(len(dts)):
+# 		t = (ts[i] + ts[i+1])/2
+# 		dt = dts[i]
+# 		## For arc-length parameterization:
+# 		# dt = magnitude( sampling[i] - sampling[i+1] )
+# 				
+# 		tbar[0] = t**3
+# 		tbar[1] = t**2
+# 		tbar[2] = t
+# 		tbar = tbar.reshape( (4,1) )
+# 		
+# 		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
+# 		
+# 		W_i += dot( dt * w * tbar, tbar.T )
+# 	
+# 	return W_i
 
-def precompute_partOfR_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
+def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 	'''
 	R = sum( T_i * P.T * M * partofR ) 
 	compute integral of w * tbar * (M * tbar1)
