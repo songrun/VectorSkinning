@@ -33,10 +33,11 @@ class Window:
 	selected = None 
 	traceT, traceR, traceS = [], [], []
 	transforms = {}
+	
 	all_vertices = None
-	facets = None
 	all_weights = None
-	boundaries = None
+	all_indices = None
+	all_pts = None
 	W_matrices = None
 	if_closed = None
 	
@@ -235,8 +236,7 @@ class Window:
 			remove_popup(popup)
 		
 			if len( self.canvas.find_withtag('controls') ) >= 4:
-				self.redraw_handle_affected_curve()
-				self.redraw_approximated_bezier_curve()	
+				self.refresh_curves()
 			
 		btn1 = Tkinter.Button(frame, text='Save', command=lambda id=handle_id, vals=values, 
 				popup=popup : save_transforms(id, [ val.get() for val in vals ], popup), width=4)
@@ -247,8 +247,7 @@ class Window:
 			remove_popup(popup)
 		
 			if len( self.canvas.find_withtag('controls') ) >= 4:
-				self.redraw_handle_affected_curve()
-				self.redraw_approximated_bezier_curve()	
+				self.refresh_curves()	
 		#btn2 = Tkinter.Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
 		#		delete_handle(id, popup), width=4)
 		btn2 = Tkinter.Button(frame, text='Identit', command=lambda id=handle_id, popup=popup : 
@@ -288,8 +287,7 @@ class Window:
 			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', tags='handles')
 			self.transforms[handle] = identity(3).reshape(-1)
 			if len( self.canvas.find_withtag('original_curve') ) > 0:
-				self.redraw_handle_affected_curve()
-				self.redraw_approximated_bezier_curve()
+				self.refresh_curves()
 				
 		elif mode == 2:
 			r = constants.radius
@@ -333,7 +331,7 @@ class Window:
 		def change_constraint():
 			self.constraints[control_id][0] = constraint.get()
 			self.constraints[control_id][1] = is_fixed.get()
-			self.redraw_approximated_bezier_curve()
+			self.refresh_curves()
 	
 		
 		## make the menu	
@@ -380,8 +378,7 @@ class Window:
 			
 #			self.canvas.move(self.selected, event.x-ori_x, event.y-ori_y)
 			if len( self.canvas.find_withtag('affected_curve') ) > 0:
-				self.redraw_handle_affected_curve()
-				self.redraw_approximated_bezier_curve()				
+				self.refresh_curves()			
 		return
 	
 	# for rotation	---- Shift + press and drag
@@ -439,8 +436,7 @@ class Window:
 			entry_6.insert(0,newM[1][2])
 			
 			if len( self.canvas.find_withtag('affected_curve') ) > 0:
-				self.redraw_handle_affected_curve()
-				self.redraw_approximated_bezier_curve()				
+				self.refresh_curves()				
 		return
 	
 	# for scaling ---- Control + press and drag
@@ -493,8 +489,7 @@ class Window:
 			entry_6.insert(0,newM[1][2])
 			
 			if len( self.canvas.find_withtag('affected_curve') ) > 0:
-				self.redraw_handle_affected_curve()
-				self.redraw_approximated_bezier_curve()		
+				self.refresh_curves()		
 						
 		return	
 	
@@ -515,98 +510,23 @@ class Window:
 	'''
 		algorithms for drawing
 	'''	   
-	# draw cubic bezier curve
-	def draw_bezier_curve(self, cps):
-		constants = self.constants
-		
-		assert cps.shape == (4,3)
-		known = asarray( M*cps ).reshape(4, -1)
-		
-		ps = [] 
-		num_samples = constants.sampling_number
-		tbar = ones( 4 )
-		for t in linspace( 0, 1, num_samples ):
-		
-			tbar[0] = t**3
-			tbar[1] = t**2
-			tbar[2] = t
-
-			p = dot( tbar, asarray( M*cps ).reshape(4, -1))
-			ps = ps + [p[0], p[1]]	
-		self.canvas.create_line(ps, width=constants.curve_width, smooth=True, tags='original_bezier')
-	 
-	def redraw_bezier_curve(self, cps):
-	
-		self.canvas.delete( 'original_bezier' )
-		self.draw_bezier_curve( cps )
-		
-	# draw curve affected by the handles' weight
-	def redraw_handle_affected_curve(self):
-		if self.boundaries == None: return
-		
-		constants = self.constants
-		self.canvas.delete( 'affected_curve' )
-		all_indices = self.boundaries
-		w = self.all_weights
-		vs = self.all_vertices
-		
-		for indices in all_indices:
-			tps = []	
-			for i in indices:
-				m = zeros(9)
-				p = asarray(vs[i] + [1.0])
-				for j, h in enumerate(self.canvas.find_withtag('handles')):
-					m = m + self.transforms[h]*w[i,j]
-			
-				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-				tps = tps + [p[0], p[1]]
-
-			self.canvas.create_line(tps, width=constants.curve_width, smooth=True, fill='magenta', tags='affected_curve')
-			
-				
-	def redraw_approximated_bezier_curve(self):
-		constants = self.constants
-		
-		self.canvas.delete( 'approximated_curve' )
-		self.canvas.delete( 'new_controls' )
+	'''
+	Draw original Bezier curve is done in triangulate_and_compute_weights once and for all.	
+	'''				
+	def refresh_curves(self):
+		constants = self.constants	
 		
 		trans = [item[1] for item in sorted(self.transforms.items())]
 		cps = self.get_controls()
 		Cset = make_control_points_chain( cps, self.if_closed.get() )
 		if Cset is None: return
+		
 	
-		'''
-		global gOnce
-		
-		import csv
-		outname = 'integration_accuracy.csv'
-		def uniquepath( path ):
-			import os
-			i = 1
-			result = path
-			while os.path.exists( result ):
-				split = os.path.splitext( path )
-				result = split[0] + ( ' %d' % i ) + split[1]
-				i += 1
-			return result
-		
-		writer = csv.writer( open( uniquepath( 'integration_accuracy.csv' ), 'w' ) )
-		'''
-		## for approximation of the partitions of a bezier curve.
-		'''
-		partition = [0.2, 0.4, 0.4]
-
-		assert sum( partition ) == 1.0
-		for x in partition:
-			assert x > 0. and x <=1.
-			
-		P_primes = approximate_bezier_partitions( partition, cps, handles, trans, level)
-		'''
 		if_closed = self.if_closed.get()
-		P_primes = approximate_beziers(self.W_matrices, Cset, trans, 
-										self.constraints, if_closed )
+		P_primes, bbw_curves, spline_skin_curves = approximate_beziers(self.W_matrices, Cset, trans, self.constraints, self.all_weights, self.all_vertices, self.all_indices, self.all_pts, if_closed )
 
-		# new control points
+		## new control points
+		self.canvas.delete( 'new_controls' )
 		for i in range( len( P_primes ) ):
 			for j, pp in enumerate( P_primes[i] ):
 				pp = asarray( pp ).reshape(-1)
@@ -618,16 +538,15 @@ class Window:
 				else:
 					x0, x1, y0, y1 = pp[0]-sr, pp[0]+sr, pp[1]-sr, pp[1]+sr
 					control = self.canvas.create_oval(x0, y0, x1, y1, fill='green', outline='green', tags='new_controls')
+		
+		## draw curve affected by the handles' weight
+		self.canvas.delete( 'affected_curve' )
+		for ps in bbw_curves:
+			self.canvas.create_line(ps, width=constants.curve_width, smooth=True, fill='magenta', tags='affected_curve')
 
-		num_samples = constants.sampling_number
-		for i in range( len( P_primes ) ):
-			known = asarray( M * P_primes[i] ).reshape(4, -1)	
-			ps = [] 
-			samples = array( range( num_samples ) ) / float(num_samples - 1)
-			
-			for t in samples:
-				p = dot( asarray( [t**3, t**2, t, 1] ), known )
-				ps = ps + [p[0], p[1]]	
+		## draw the spline skinned curves
+		self.canvas.delete( 'approximated_curve' )
+		for ps in spline_skin_curves:
 			self.canvas.create_line(ps, width=constants.curve_width, smooth=True, fill='green', tags='approximated_curve')
 
 	'''
@@ -657,6 +576,7 @@ class Window:
 		
 		return cps
 		
+		
 	## sample all the original bezier curves on canvas, 
 	## and tessellate with these sampled points.
 	def triangulate_and_construct_weights(self):
@@ -670,36 +590,35 @@ class Window:
 		print 'haha ', skeleton_handle_vertices
 		
 		
-		all_pts = sample_cubic_bezier_curve_chain( Cset )
+		all_pts, all_dts = sample_cubic_bezier_curve_chain( Cset )
 		from itertools import chain
 		loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
-
-		self.all_vertices, self.facets, self.all_weights = (triangulate_and_compute_weights(loop, skeleton_handle_vertices))
+		self.all_pts = all_pts
+	
+		self.all_vertices, facets, self.all_weights = (triangulate_and_compute_weights(loop, skeleton_handle_vertices))
 														
 		## draw boundary bezier curves
 		for pts, ts in all_pts:
 			pts = pts[:,:-1].reshape(-1).tolist()
 			self.canvas.create_line(pts, width=2, tags='original_bezier')
 
-		## boundaries is a table of all the indices of the points on the boundary 
+		## all_indices is a table of all the indices of the points on the boundary 
 		## in all_vertices
-		self.boundaries = [range(len(pts)) for pts, ts in all_pts]
+		self.all_indices = [range(len(pts)) for pts, ts in all_pts]
 		last = 0
-		for i in range(len(self.boundaries)):
-			self.boundaries[i] = asarray(self.boundaries[i])+last
-			last = self.boundaries[i][-1]
-		self.boundaries[-1][-1] = self.boundaries[0][0]	
+		for i in range(len(self.all_indices)):
+			self.all_indices[i] = asarray(self.all_indices[i])+last
+			last = self.all_indices[i][-1]
+		self.all_indices[-1][-1] = self.all_indices[0][0]	
 		
 		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
 		for k in xrange(len( Cset )):	
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, 
-										self.all_weights, i, all_pts[k][0], all_pts[k][1])	
+				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, self.all_weights, i, all_pts[k][0], all_pts[k][1], all_dts[k])	
 						
-		self.redraw_handle_affected_curve()	
- 		self.redraw_approximated_bezier_curve()		
+		self.refresh_curves()		
 		
 def main():
   

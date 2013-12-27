@@ -19,14 +19,6 @@ class Bundle( object ):
 		else:
 			self.directions = dirs
 
-# class Constraint( object ):
-#	  def __init__( self, smoothness, position_is_fixed ):
-#		  '''
-#		  The parameter 'smoothness' must be one of 'C0', 'C1', 'G1', or 'A'.
-#		  The parameter 'position_is_fixed' is a boolean.
-#		  '''
-#		  self.smoothness = smoothness
-#		  self.position_is_fixed = position_is_fixed
 
 class BezierConstraintSolver( object ):
 	def __init__( self, W_matrices, control_points, constraints, transforms, is_closed ):

@@ -71,10 +71,6 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 		assert allclose( vs[vi], p, 1e-5 )
 		return weights[ vi, i ]
 	
-# 	result[0] = precompute_W_i_with_weight_function_and_sampling( weight_function, 
-# 				sampling, ts, dts )
-# 	result[1] = precompute_partOfR_with_weight_function_and_sampling( weight_function, 
-# 				sampling, ts, dts )
 	result[:] = precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )		
 				
 	return result
