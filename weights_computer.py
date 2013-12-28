@@ -59,7 +59,8 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	result = zeros((4,4 ))
 
 	## Vertices and sampling must have the same dimension for each point.
-	sampling = sampling[:,:-1]
+# 	debugger()
+# 	sampling = sampling[:,:-1]
 	assert vs.shape[1] == sampling.shape[1]
 	
 	## The index 'i' must be valid.
@@ -231,34 +232,16 @@ def default_w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def compute_error_metric( transforms, handle_positions, P_primes, P, M, num_samples = 100, dim = 3 ):
+def compute_error_metric( bbw_curve, spline_skin_curve, dts ):
 	
-	P_primes = asarray( P_primes )
-	P = asarray( P )
-	M = asarray( M )
+	bbw_curve = asarray(bbw_curve).reshape(-1,2)
+	spline_skin_curve = asarray(spline_skin_curve).reshape(-1,2)
 	
-	assert P_primes.shape == (4, dim)
-	assert P.shape == (4, dim)
-	assert M.shape == (4, 4)
+	assert bbw_curve.shape == spline_skin_curve.shape
 	
-	Error = 0.0
-	tbar = ones( 4 )
-	dt = 1./num_samples
-	#for t in linspace( a, b, num_samples ):
-	for ti in xrange( num_samples ):
-		t = ( ti + .5 ) * dt
+	diffs = ((spline_skin_curve - bbw_curve)**2 ).sum( axis = 1 )
+	diffs = (diffs[:-1] + diffs[1:])/2
+	
+	diffs = dot(diffs, dts)
 		
-		tbar[0] = t**3
-		tbar[1] = t**2
-		tbar[2] = t
-		tbar = tbar.reshape( (4,1) )
-		
-		tmp = 0
-		for i in range( len( transforms ) ):
-			w = w_i( handle_positions, i, dot( P.T, dot( M.T, tbar ) ) )
-			tmp += w * dot( transforms[i].reshape(3,3),	 dot( dot(P.T, M), tbar ) )
-			
-		diff = dot( dot(P_primes.T, M), tbar ) - tmp 
-		Error += dot( diff.T, diff ) * dt
-		
-	return Error
+	return diffs

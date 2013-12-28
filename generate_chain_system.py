@@ -21,7 +21,7 @@ class Bundle( object ):
 
 
 class BezierConstraintSolver( object ):
-	def __init__( self, W_matrices, control_points, constraints, transforms, is_closed ):
+	def __init__( self, W_matrices, control_points, constraints, transforms, is_closed=True ):
 		## compute the weight of each segment according to its length
 		num = len(control_points)
 		weights = asarray([length_of_cubic_bezier_curve(P) for P in control_points])

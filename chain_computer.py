@@ -2,34 +2,66 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
+
+class Control_point:
+	tag = -1
+	position = zeros(2)
+	is_joint = False
+	constraint = None
+	
+	def __init__(self, tag, pos, is_joint=False, constraint = [1,0] ):
+		pos = asarray( pos )
+		constraint = asarray( constraint )
+		assert len( pos ) == 2
+		assert len( constraint ) == 2
+	
+		self.tag = tag
+		self.position = pos
+		self.is_joint = is_joint
+		if is_joint:
+			self.constraint = constraint
+
+def get_controls( controls ):
+	
+	control_pos = []
+	constraints = []
+	for control in controls:
+		control_pos.append( control.position )
+		if control.is_joint:
+			assert control.constraint is not None
+			constraints.append( control.constraint )
+		
+	control_pos = make_control_points_chain( control_pos )
+
+	return asarray(control_pos), asarray(constraints)
+
 ## The dimensions of a point represented in the homogeneous coordinates
 dim = 2
 	
-def approximate_beziers(W_matrices, Cset, transforms, constraints, all_weights, all_vertices, all_indices, all_pts, if_closed=True):
+def approximate_beziers(W_matrices, controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts, enable_refinement=True):
 	
 	'''
 	### 1 construct and solve the linear system for the odd iteration. if the constraints don't contain fixed angle and G1, skip ### 2.
 	### 2 If the constraints contain any fixed angle and G1, iterate between the even and odd system until two consecutive solutions are close enough.
-	### 3 refine the solutions based on the error of each curve. If it is larger than a threshold, split the curve into two.
-	### 4 compute the bbw curves
-	### 5 compute all the points along the curves.
+	### 3 compute the bbw curves
+	### 4 compute all the points along the curves.
+	### 5 refine the solutions based on the error of each curve. If it is larger than a threshold, split the curve into two.
 	'''
 	
 	solutions = None
-	## select the joint points' constraints
-	joint_constraints = [constraints[key] for key in sorted(constraints.iterkeys())]
-	joint_constraints = asarray(joint_constraints)
+	control_pos, constraints = get_controls( controls )
+	control_pos = concatenate((control_pos, ones((control_pos.shape[0],4,1))), axis=2)
 
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, Cset, joint_constraints, transforms, if_closed)
-# 	odd.update_rhs_for_handles( transforms )
+	odd = BezierConstraintSolverOdd(W_matrices, control_pos, constraints, transforms )
+#	odd.update_rhs_for_handles( transforms )
 	last_solutions = solutions = odd.solve()
 
 	### 2	
-	if 2 in joint_constraints[:,0] or 4 in joint_constraints[:,0]: 
+	if 2 in constraints[:,0] or 4 in constraints[:,0]: 
 
-		even = BezierConstraintSolverEven(W_matrices, Cset, joint_constraints, transforms, if_closed)	
-	# 		even.update_rhs_for_handles( transforms )
+		even = BezierConstraintSolverEven(W_matrices, control_pos, constraints, transforms )	
+	#		even.update_rhs_for_handles( transforms )
 
 		for iter in xrange( 1 ):
 			even.update_system_with_result_of_previous_iteration( solutions )
@@ -46,11 +78,8 @@ def approximate_beziers(W_matrices, Cset, transforms, constraints, all_weights, 
 		
 			if allclose(last_solutions, solutions, atol=0.5, rtol=1e-03):
 				break
-
-	### 3
-	
-	
-	### 4 
+					
+	### 3 
 	bbw_curves = []
 	for indices in all_indices:
 		tps = []	
@@ -61,10 +90,10 @@ def approximate_beziers(W_matrices, Cset, transforms, constraints, all_weights, 
 				m = m + transforms[h]*all_weights[i,h]
 		
 			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-			tps = tps + [p[0], p[1]] 	
+			tps = tps + [p[0], p[1]]	
 		bbw_curves.append(tps)
 	
-	### 5
+	### 4
 	spline_skin_curves = []
 	for k, solution in enumerate(solutions):
 		tps = []
@@ -73,25 +102,70 @@ def approximate_beziers(W_matrices, Cset, transforms, constraints, all_weights, 
 			p = dot(tbar, asarray( M * solution ) )
 			tps = tps + [p[0], p[1]]
 		spline_skin_curves.append(tps)
+	
+	
+	### 5
+	new_controls = adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts )
+	
+	if enable_refinement and len( new_controls ) > len( controls ):	
 		
+		new_control_pos = get_controls( new_controls )[0]
+
+		W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts = precompute_all_when_configuration_change( new_control_pos, handles  )
+	
+		solutions, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, new_controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts)	
+	
 	return solutions, bbw_curves, spline_skin_curves
-    	
-def main():
-	Cset = array([[[100, 300,   1],
-        [200, 400,   1],
-        [300, 400,   1],
-        [400, 300,   1]],
 
-       [[400, 300,   1],
-        [300, 200,   1],
-        [200, 200,   1],
-        [100, 300,   1]]])
-        
 
-	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
-	trans = [array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.]), array([ 1.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  1.])]	  
+def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
+	
+	assert len( bbw_curves ) == len( spline_skin_curves )
+	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
+	print 'differences: ', diffs
+	
+	new_controls = []
+	partition = [0.5, 0.5]
+	threshold = 100 
+	
+	all_pos = asarray([x.position for x in controls])
+	
+	for k, diff in enumerate( diffs ):
+		control_pos = all_pos[ k*3 : k*3+4 ]
+		if len(control_pos) == 3:	
+			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
+		
+		if diff > threshold:
+			splitted = split_cublic_beizer_curve( control_pos, partition )
+			splitted = asarray( splitted ).astype(int)
+			
+			new_controls.append( controls[ k*3 ] )
+			for j, each in enumerate(splitted):
+				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
+				if j != len(splitted)-1:
+					new_controls.append( Control_point(-1, each[1], True, [4,0]) )	
+			
+		else:
+			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
+			
+	'''
+	if is not closed, add the last control at the end.
+	'''
+	
+	return new_controls
 
-	all_pts, all_dts = sample_cubic_bezier_curve_chain( Cset, 100 )
+
+def precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  ):
+	'''
+	precompute everything when the configuration changes, in other words, when the number of control points and handles change.
+	W_matrices is the table contains all integral result corresponding to each sample point on the boundaries.
+	all_weights is an array of num_samples-by-num_handles
+	all_vertices is an array of positions of all sampling points. It contains no duplicated points, and matches to all_weights one-on-one
+	all_indices is an array of all indices in all_vertices of those sampling points on the boundaries(the curves we need to compute).
+	all_pts is an array containing all sampling points and ts for each curve.(boundaries)
+	all_dts contains all dts for each curve. It is in the shape of num_curve-by-(num_samples-1)
+	'''
+	all_pts, all_dts = sample_cubic_bezier_curve_chain( control_pos, 100 )
 	from itertools import chain
 	loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
 
@@ -105,20 +179,43 @@ def main():
 	for i in range(len(all_indices)):
 		all_indices[i] = asarray(all_indices[i])+last
 		last = all_indices[i][-1]
-	all_indices[-1][-1] = all_indices[0][0]	
+	all_indices[-1][-1] = all_indices[0][0] 
 		
 		
-	W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
-	for k in xrange(len( Cset )):	
+	W_matrices = zeros( ( len( control_pos ), len( skeleton_handle_vertices ), 4, 4 ) )
+	for k in xrange(len( control_pos )):	
 		for i in xrange(len( skeleton_handle_vertices )):
 			## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 			## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
 			W_matrices[k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_pts[k][0], all_pts[k][1], all_dts[k])
+			
+	return W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts
+
 	
-							       
-	constraints = {1: [1.0, 0.0], 4: [2.0, 0.0]}
+		
+def main():
+	'''
+	a console test.
+	'''
+	control_pos = array([[[100, 300,	1],
+		[200, 400,	 1],
+		[300, 400,	 1],
+		[400, 300,	 1]],
+
+	   [[400, 300,	 1],
+		[300, 200,	 1],
+		[200, 200,	 1],
+		[100, 300,	 1]]])
+		
+	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
 	
-	P_primes, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, Cset, trans, constraints, all_weights, all_vertices, all_indices, all_pts )
+	W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts = precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  )
+	
+	trans = [array([ 1.,  0.,  0.,	0.,	 1.,  0.,  0.,	0.,	 1.]), array([ 1.,	0.,	 0.,  0.,  1., 0., 0., 0., 1.])]	  
+						   
+	constraints = [[1, 0], [2, 0]]
+	
+	P_primes, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, control_pos, skeleton_handle_vertices, trans, constraints, all_weights, all_vertices, all_indices, all_pts, all_dts )
 	
 	print 'HAHA ~ '
 	print P_primes

@@ -53,6 +53,7 @@ def sample_cubic_bezier_curve_with_dt( P, num_samples = 100 ):
 	if num_samples is None:
 		num_samples = max(int(length_of_cubic_bezier_curve(P) / 1), 2)
 	
+	P = asarray( P )
 	result = []
 	ts = []
 	tbar = ones( (4,1) )
@@ -117,6 +118,7 @@ def length_of_cubic_bezier_curve( P, num_samples = 100 ):
 	return sum( lengths )
 	
 def make_control_points_chain( controls, close = True ):
+	controls = asarray(controls)
 	Cset = []
 	if close == True:
 		if len( controls ) %3 != 0 or len(controls) < 3:
@@ -140,3 +142,40 @@ def make_control_points_chain( controls, close = True ):
 		Cset = asarray( Cset )
 	
 	return Cset
+	
+def split_cublic_beizer_curve( controls, partition ):
+	'''
+	controls are the four control points of an cubic bezier curve
+	partition is an array has each splitted curve's portion
+	e.g. [0.5, 0.3, 0.2] is an partition
+	'''
+	controls = asarray( controls )
+	partition = asarray( partition )
+
+	assert len(controls.shape) == 2
+	assert controls.shape[0] == 4
+	assert sum( partition ) == 1
+	assert partition.any() > 0
+	
+	num = len( partition )
+	
+	ref = 1.0
+	for i in range( len(partition) ):
+		partition[i] = partition[i] / ref
+		ref = ( 1 - partition[i] ) * ref
+	
+	result = []
+	for i, k in enumerate( partition[:-1] ):
+		
+		r1 = controls[:-1]*(1.-k) + controls[1:]*k
+		r2 = r1[:-1]*(1.-k) + r1[1:]*k
+		r3 = r2[:-1]*(1.-k) + r2[1:]*k
+		
+		result.append([controls[0].tolist(), r1[0].tolist(), r2[0].tolist(), r3[0].tolist()])
+
+		controls = array( [r3[-1], r2[-1], r1[-1], controls[-1]] )
+	
+	result.append(controls)
+	
+	return asarray(result)
+	

@@ -22,6 +22,7 @@ class Drawing_constants:
 	sampling_number = 100
 	initial_constraint = [1, 0]
 	colors = ['green', 'gold', 'brown', 'coral', 'cyan', 'gray', 'cadet blue', 'lawn green', 'green yellow', 'lime green', 'dark salmon', 'salmon']
+
 	
 class Window:
 	canvas = None
@@ -33,17 +34,18 @@ class Window:
 	selected = None 
 	traceT, traceR, traceS = [], [], []
 	transforms = {}
+	controls = []
 	
 	all_vertices = None
 	all_weights = None
 	all_indices = None
 	all_pts = None
+	all_dts = None
 	W_matrices = None
-	if_closed = None
 	
-	## temporarily use
-	curves = None
-	
+# 	is_closed = True
+	is_ready = False
+		
 	'''
 	Construct UI
 	'''
@@ -88,7 +90,7 @@ class Window:
 		mb_file.menu.add_command(label='import', command=self.askopenfilename)
 		mb_file.menu.add_command(label='save', command=self.askopenfilename)
 		mb_file.menu.add_separator()	
-		mb_file.menu.add_command(label='triangle', command=self.triangulate_and_construct_weights)
+		mb_file.menu.add_command(label='triangle', command=self.setup_configuration)
 		mb_file.menu.add_separator()	
 		mb_file.menu.add_command(label='close', command=self.exit)
 		
@@ -111,13 +113,7 @@ class Window:
 		mb_edit.menu.add_radiobutton(label='add handle', variable=self.mode, value=1, 
 									command=change_mode)
 		mb_edit.menu.add_radiobutton(label='select', variable=self.mode, value=2, 
-									command=change_mode)
-												
-		mb_edit.menu.add_separator()
-		self.if_closed = Tkinter.BooleanVar()
-		mb_edit.menu.add_checkbutton(label='Path closed', onvalue=True, offvalue=False, 
-									variable=self.if_closed)
-		self.if_closed.set(True)
+									command=change_mode)												
 													
 		mb_edit.menu.add_separator()
 		def clear_canvas():
@@ -235,23 +231,19 @@ class Window:
 			self.transforms[id][:] = vals
 			remove_popup(popup)
 		
-			if len( self.canvas.find_withtag('controls') ) >= 4:
+			if self.is_ready:
 				self.refresh_curves()
 			
-		btn1 = Tkinter.Button(frame, text='Save', command=lambda id=handle_id, vals=values, 
-				popup=popup : save_transforms(id, [ val.get() for val in vals ], popup), width=4)
+		btn1 = Tkinter.Button(frame, text='Save', command=lambda id=handle_id, vals=values, popup=popup : save_transforms(id, [ val.get() for val in vals ], popup), width=4)
 		btn1.grid(row=3, column=0, sticky=Tkinter.SW)
 		
-		def delete_handle(id, popup):	
-			self.canvas.delete(id)
-			remove_popup(popup)
-		
-			if len( self.canvas.find_withtag('controls') ) >= 4:
-				self.refresh_curves()	
-		#btn2 = Tkinter.Button(frame, text='Delete', command=lambda id=handle_id, popup=popup : 
-		#		delete_handle(id, popup), width=4)
-		btn2 = Tkinter.Button(frame, text='Identit', command=lambda id=handle_id, popup=popup : 
-				save_transforms(id, identity(3).reshape(-1), popup), width=4)
+# 		def delete_handle(id, popup):	
+# 			self.canvas.delete(id)
+# 			remove_popup(popup)
+# 		
+# 			if self.is_ready:	self.refresh_curves()	
+
+		btn2 = Tkinter.Button(frame, text='Identit', command=lambda id=handle_id, popup=popup : save_transforms(id, identity(3).reshape(-1), popup), width=4)
 		btn2.grid(row=3, column=0, sticky=Tkinter.S)
 	
 		self.popup = popup
@@ -269,13 +261,16 @@ class Window:
 		if mode == 0:
 			sr, br= constants.small_radius, constants.big_radius		 
 			
-			if len(self.get_controls()) % 3 == 0:
+			if len(self.control_positions_on_canvas()) % 3 == 0:
 				x0, x1, y0, y1 = event.x-br, event.x+br, event.y-br, event.y+br
-				control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
-				self.constraints[control] = constants.initial_constraint[:]
+				control_id = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
+				control = Control_point(control_id, [event.x, event.y], is_joint=True)
+				self.controls.append( control ) 
 			else:
 				x0, x1, y0, y1 = event.x-sr, event.x+sr, event.y-sr, event.y+sr
-				control = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
+				control_id = self.canvas.create_oval(x0, y0, x1, y1, fill='blue', outline='blue', tags='controls')
+				control = Control_point(control_id, [event.x, event.y], is_joint=False)
+				self.controls.append( control ) 
 						
 			## the first element 0~3, indicating which type of contraint is applied
 			## the second element 0 or 1, indicating whether fixed 
@@ -286,7 +281,7 @@ class Window:
 			x0, x1, y0, y1 = event.x-r, event.x+r, event.y-r, event.y+r
 			handle = self.canvas.create_rectangle(x0, y0, x1, y1, fill='red', outline='red', tags='handles')
 			self.transforms[handle] = identity(3).reshape(-1)
-			if len( self.canvas.find_withtag('original_curve') ) > 0:
+			if self.is_ready:
 				self.refresh_curves()
 				
 		elif mode == 2:
@@ -296,6 +291,8 @@ class Window:
 			if len(sels) > 0:
 				self.selected = sels.pop()
 				self.popup_handle_editor(self.selected)
+				
+				
 	
 	def on_double_click_handler(self, event):
 		mode = self.mode.get()
@@ -310,11 +307,12 @@ class Window:
 		
 		self.selected = sels.pop()
 		self.popup_quick_menu(self.selected, event)
+		
+		
 	
 	def popup_quick_menu(self, control_id, event):
 		self.canvas.delete('popup') 
 		self.selected = control_id		
-# 		debugger()
 		
 		coord = self.canvas.bbox(control_id)
 		p = asarray([(coord[0]+coord[2])/2, (coord[1]+coord[3])/2, 1.0])
@@ -322,17 +320,19 @@ class Window:
 		
 		constraint = Tkinter.IntVar()
 		is_fixed = Tkinter.IntVar()
-		constraint.set(int(self.constraints[control_id][0]))
-		if self.constraints[control_id][1] == 0:
+		control = [x for x in self.controls if x.tag == control_id][0] 
+		constraint.set(int(control.constraint[0]))
+		if control.constraint[1] == 0:
 			is_fixed.set(0)
 		else:
 			is_fixed.set(1)		
 		
 		def change_constraint():
-			self.constraints[control_id][0] = constraint.get()
-			self.constraints[control_id][1] = is_fixed.get()
-			self.refresh_curves()
-	
+			control.constraint[0] = constraint.get()
+			control.constraint[1] = is_fixed.get()
+			if self.is_ready:
+				self.refresh_curves()
+
 		
 		## make the menu	
 		menu.add_checkbutton(label='fixed', variable=is_fixed, onvalue=1, command=change_constraint)
@@ -377,9 +377,8 @@ class Window:
 			self.transforms[h][2], self.transforms[h][5] = new_x, new_y
 			
 #			self.canvas.move(self.selected, event.x-ori_x, event.y-ori_y)
-			if len( self.canvas.find_withtag('affected_curve') ) > 0:
-				self.refresh_curves()			
-		return
+			if self.is_ready: self.refresh_curves()			
+		
 	
 	# for rotation	---- Shift + press and drag
 	def on_shift_mouse_handler(self, event):
@@ -435,9 +434,8 @@ class Window:
 			entry_6.delete(0,Tkinter.END)
 			entry_6.insert(0,newM[1][2])
 			
-			if len( self.canvas.find_withtag('affected_curve') ) > 0:
-				self.refresh_curves()				
-		return
+			if self.is_ready: 	self.refresh_curves()				
+			
 	
 	# for scaling ---- Control + press and drag
 	def on_control_mouse_handler(self, event):
@@ -488,10 +486,8 @@ class Window:
 			entry_6.delete(0,Tkinter.END)
 			entry_6.insert(0,newM[1][2])
 			
-			if len( self.canvas.find_withtag('affected_curve') ) > 0:
-				self.refresh_curves()		
+			if self.is_ready:	self.refresh_curves()		
 						
-		return	
 	
 	def onrelease_handler(self, event):
 	
@@ -517,13 +513,14 @@ class Window:
 		constants = self.constants	
 		
 		trans = [item[1] for item in sorted(self.transforms.items())]
-		cps = self.get_controls()
-		Cset = make_control_points_chain( cps, self.if_closed.get() )
-		if Cset is None: return
 		
+		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
 	
-		if_closed = self.if_closed.get()
-		P_primes, bbw_curves, spline_skin_curves = approximate_beziers(self.W_matrices, Cset, trans, self.constraints, self.all_weights, self.all_vertices, self.all_indices, self.all_pts, if_closed )
+		P_primes, bbw_curves, spline_skin_curves = approximate_beziers(self.W_matrices, self.controls, skeleton_handle_vertices, trans, self.all_weights, self.all_vertices, self.all_indices, self.all_pts, self.all_dts )
+
+		## update the configuration if refined.
+		if len( P_primes ) > len( self.controls )//3:
+			self.controls = adapt_configuration_based_on_diffs( self.controls, bbw_curves, spline_skin_curves, self.all_dts )
 
 		## new control points
 		self.canvas.delete( 'new_controls' )
@@ -567,7 +564,7 @@ class Window:
 		return handles
 	
 	## calculate the control points on the canvas
-	def get_controls(self):
+	def control_positions_on_canvas(self):
 	
 		cps = self.canvas.find_withtag('controls')
 		cps = [self.canvas.bbox(x) for x in cps]
@@ -579,44 +576,21 @@ class Window:
 		
 	## sample all the original bezier curves on canvas, 
 	## and tessellate with these sampled points.
-	def triangulate_and_construct_weights(self):
+	def setup_configuration(self):
 		
-		curves = self.canvas.find_withtag('original_bezier')
-		cps = self.get_controls()
-		Cset = make_control_points_chain( cps, self.if_closed.get() )
-		if (Cset == None): return
+		controls = get_controls( self.controls )[0]
+		if (controls == None): return
 
 		skeleton_handle_vertices = [item[1] for item in sorted(self.get_handles().items())]
-		print 'haha ', skeleton_handle_vertices
 		
+		self.W_matrices, self.all_weights, self.all_vertices, self.all_indices, self.all_pts, self.all_dts = precompute_all_when_configuration_change( controls, skeleton_handle_vertices  )
 		
-		all_pts, all_dts = sample_cubic_bezier_curve_chain( Cset )
-		from itertools import chain
-		loop = list( chain( *[ samples for samples, ts in asarray(all_pts)[:,:,:-1] ] ) )
-		self.all_pts = all_pts
-	
-		self.all_vertices, facets, self.all_weights = (triangulate_and_compute_weights(loop, skeleton_handle_vertices))
-														
+		self.is_ready = True
 		## draw boundary bezier curves
-		for pts, ts in all_pts:
-			pts = pts[:,:-1].reshape(-1).tolist()
+		self.canvas.delete('original_bezier')
+		for pts, ts in self.all_pts:
+			pts = pts[:,:].reshape(-1).tolist()
 			self.canvas.create_line(pts, width=2, tags='original_bezier')
-
-		## all_indices is a table of all the indices of the points on the boundary 
-		## in all_vertices
-		self.all_indices = [range(len(pts)) for pts, ts in all_pts]
-		last = 0
-		for i in range(len(self.all_indices)):
-			self.all_indices[i] = asarray(self.all_indices[i])+last
-			last = self.all_indices[i][-1]
-		self.all_indices[-1][-1] = self.all_indices[0][0]	
-		
-		self.W_matrices = zeros( ( len( Cset ), len( skeleton_handle_vertices ), 4, 4 ) )
-		for k in xrange(len( Cset )):	
-			for i in xrange(len( skeleton_handle_vertices )):
-				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
-				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				self.W_matrices[k,i] = precompute_W_i_bbw( self.all_vertices, self.all_weights, i, all_pts[k][0], all_pts[k][1], all_dts[k])	
 						
 		self.refresh_curves()		
 		
