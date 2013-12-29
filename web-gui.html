@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>
+    Deform vector graphics
+    </title>
+    
+    <script src="web-gui/jquery-1.10.2.min.js" type="text/javascript"></script>
+    <script src="web-gui/Blob.js" type="text/javascript"></script>
+    <script src="web-gui/FileSaver.js" type="text/javascript"></script>
+    
+    <link rel="stylesheet" href="web-gui/bootstrap.min.css">
+    <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css"> -->
+    <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css"> -->
+    <!-- <script src="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script> -->
+    <script src="web-gui/bootstrap.min.js"></script>
+
+<style type="text/css">
+body
+{
+    margin-top: 20px;
+}
+#svg-holder
+{
+    margin: 10px 45px;
+    height: 400px;
+}
+.empty
+{
+    outline: 9px dashed #ccc;
+    font-size: 200%;
+    font-weight: bold;
+}
+.empty:after
+{
+    content: "Drag an SVG file here."
+}
+.droppable
+{
+    outline: 9px dashed #0c0;
+}
+.not-droppable
+{
+    outline: 9px dashed #c00;
+}
+
+#filename
+{
+    font-family: monospace;
+}
+#save-button
+{
+    margin-left: 1em;
+}
+</style>
+
+</head>
+<body>
+<div class="container">
+<div id="file-info">
+Editing: <span id="filename" class="text-muted">no file loaded</span>
+<button id="save-button" class="btn btn-default" disabled>Save SVG</button>
+</div>
+
+<hr />
+</div>
+
+<div id="svg-holder" class="text-center empty"></div>
+
+<script type='text/javascript'>
+    ///
+    /// Constants.
+    ///
+    var kDebugging = false;
+    
+    ///
+    /// Global variables.
+    ///
+    
+    ///
+    /// Global functions.
+    ///
+    function isDroppable( evt )
+    {
+        var files = evt.dataTransfer.files;
+        if( files.length === 1 && files[0].type === 'image/svg+xml' )
+        {
+            return true;
+        }
+        return false;
+    }
+    function displayDroppable( evt )
+    {
+        console.log("displayDroppable")
+        
+        evt.preventDefault();
+        
+        var droppable = isDroppable( evt );
+        var add = ( droppable ? "droppable" : "not-droppable" );
+        var remove = ( !droppable ? "droppable" : "not-droppable" );
+        
+        $("#svg-holder").removeClass( remove );
+        $("#svg-holder").addClass( add );
+    }
+    
+    
+    ///
+    /// Initialization.
+    ///
+    $(document).ready( function() {
+    
+    // In order to use jQuery event handling with drag-and-drop events,
+    // we have to tell jQuery to include it:
+    jQuery.event.props.push( "dataTransfer" );
+    
+    $( window ).on( 'dragover', displayDroppable );
+    // The dragleave event is a bad of hurt, because it fires when any child
+    // element is entered.
+    // $( window ).on( 'dragleave', function() { $('#svg-holder').removeClass( "droppable not-droppable" ); } );
+    
+    $( window ).on( 'drop', function( evt ) {
+        evt.preventDefault();
+        
+        var svg_holder = $('#svg-holder');
+        svg_holder.removeClass( "droppable not-droppable" );
+        
+        if( !isDroppable( evt ) ) return;
+        
+        var file = evt.dataTransfer.files[0];
+        var reader = new FileReader();
+        
+        reader.onloadend = function(evt) {
+            if (evt.target.readyState == FileReader.DONE) {
+                var svg_text = reader.result;
+                
+                $("#filename").text( file.name );
+                $("#filename").removeClass( "text-muted" );
+                
+                svg_holder.html( svg_text );
+                svg_holder.removeClass( "empty" );
+                var svg = svg_holder.find( "svg" )[0];
+                svg_holder.width( svg.getBBox().width );
+                svg_holder.height( svg.getBBox().height );
+                
+                $("#save-button").prop( "disabled", false );
+            }
+            }
+        
+        reader.readAsBinaryString(file);
+        } );
+    
+    $("#save-button").click( function() {
+        var svg_to_save = $("#svg-holder svg");
+        if( svg_to_save.length === 0 )
+        {
+            alert( "No SVG to save. This button should be disabled." );
+            return;
+        }
+        
+        var blob = new Blob([svg_to_save.parent().html()], {type: "image/svg+xml"});
+        saveAs( blob, $('#filename').text() );
+        } );
+    
+    });
+</script>
+</body>
+</html>
