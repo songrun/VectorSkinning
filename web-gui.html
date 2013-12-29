@@ -70,48 +70,45 @@ Editing: <span id="filename" class="text-muted">no file loaded</span>
 
 <div id="svg-holder" class="text-center empty"></div>
 
+
 <script type='text/javascript'>
-    ///
-    /// Constants.
-    ///
-    var kDebugging = false;
-    
-    ///
-    /// Global variables.
-    ///
-    
-    ///
-    /// Global functions.
-    ///
-    function isDroppable( evt )
+///
+/// Constants.
+///
+var kDebugging = false;
+
+///
+/// Global variables.
+///
+
+///
+/// Global functions.
+///
+function isDroppable( evt )
+{
+    var files = evt.dataTransfer.files;
+    if( files.length === 1 && files[0].type === 'image/svg+xml' )
     {
-        var files = evt.dataTransfer.files;
-        if( files.length === 1 && files[0].type === 'image/svg+xml' )
-        {
-            return true;
-        }
-        return false;
+        return true;
     }
-    function displayDroppable( evt )
-    {
-        console.log("displayDroppable")
-        
-        evt.preventDefault();
-        
-        var droppable = isDroppable( evt );
-        var add = ( droppable ? "droppable" : "not-droppable" );
-        var remove = ( !droppable ? "droppable" : "not-droppable" );
-        
-        $("#svg-holder").removeClass( remove );
-        $("#svg-holder").addClass( add );
-    }
+    return false;
+}
+function displayDroppable( evt )
+{
+    console.log("displayDroppable")
     
+    evt.preventDefault();
     
-    ///
-    /// Initialization.
-    ///
-    $(document).ready( function() {
+    var droppable = isDroppable( evt );
+    var add = ( droppable ? "droppable" : "not-droppable" );
+    var remove = ( !droppable ? "droppable" : "not-droppable" );
     
+    $("#svg-holder").removeClass( remove );
+    $("#svg-holder").addClass( add );
+}
+
+function setupFileIO()
+{
     // In order to use jQuery event handling with drag-and-drop events,
     // we have to tell jQuery to include it:
     jQuery.event.props.push( "dataTransfer" );
@@ -163,8 +160,16 @@ Editing: <span id="filename" class="text-muted">no file loaded</span>
         var blob = new Blob([svg_to_save.parent().html()], {type: "image/svg+xml"});
         saveAs( blob, $('#filename').text() );
         } );
+}
+
+///
+/// Initialization.
+///
+$(document).ready( function() {
     
-    });
+    setupFileIO();
+    
+});
 </script>
 </body>
 </html>
