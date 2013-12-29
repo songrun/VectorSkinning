@@ -114,8 +114,9 @@ function setupFileIO()
     jQuery.event.props.push( "dataTransfer" );
     
     $( window ).on( 'dragover', displayDroppable );
-    // The dragleave event is a bad of hurt, because it fires when any child
-    // element is entered.
+    // The dragenter and dragleave events are hard to use, because they fire when any child
+    // element is entered. Instead, we use 'dragover' and let 'drop' take care of removing
+    // the css classes.
     // $( window ).on( 'dragleave', function() { $('#svg-holder').removeClass( "droppable not-droppable" ); } );
     
     $( window ).on( 'drop', function( evt ) {
