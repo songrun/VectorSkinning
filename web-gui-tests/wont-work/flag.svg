@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   version="1.0"
+   width="300"
+   height="200"
+   id="svg4302">
+  <defs
+     id="defs4304" />
+  <g
+     transform="translate(-193.43346,-491.25093)"
+     id="layer1">
+    <g
+       id="g4338">
+      <path
+         d="M 264.52721,491.25093 C 264.47576,529.95139 232.66509,561.36686 193.43346,561.50093 L 193.43346,629.75093 C 226.63755,629.80308 253.56479,657.3111 253.71471,691.25093 L 493.43346,691.25093 L 493.43346,491.25093 L 264.52721,491.25093 z "
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         id="rect4320" />
+      <path
+         d="M 363.95031 546.96124 A 34.82336 34.82336 0 1 1  294.30359,546.96124 A 34.82336 34.82336 0 1 1  363.95031 546.96124 z"
+         transform="translate(0,0.924514)"
+         style="fill:#ca0000;fill-opacity:1;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         id="path4332" />
+      <path
+         d="M 363.95031 546.96124 A 34.82336 34.82336 0 1 1  294.30359,546.96124 A 34.82336 34.82336 0 1 1  363.95031 546.96124 z"
+         transform="translate(104.77825,0.924514)"
+         style="fill:#ca0000;fill-opacity:1;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         id="path4334" />
+      <path
+         d="M 363.95031 546.96124 A 34.82336 34.82336 0 1 1  294.30359,546.96124 A 34.82336 34.82336 0 1 1  363.95031 546.96124 z"
+         transform="translate(52.389116,87.520654)"
+         style="fill:#ca0000;fill-opacity:1;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         id="path4336" />
+    </g>
+  </g>
+</svg>
