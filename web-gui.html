@@ -27,6 +27,14 @@ body
 {
     margin: 10px 45px;
     height: 400px;
+    
+    position: relative;
+}
+.absolute0
+{
+    position: absolute;
+    left: 0;
+    top: 0;
 }
 .empty
 {
@@ -68,7 +76,10 @@ Editing: <span id="filename" class="text-muted">no file loaded</span>
 <hr />
 </div>
 
-<div id="svg-holder" class="text-center empty"></div>
+<div id="svg-holder" class="text-center empty">
+<div id="svg-file" class="absolute0"></div>
+<div id="svg-overlay" class="absolute0"></div>
+</div>
 
 
 <script type='text/javascript'>
@@ -107,6 +118,11 @@ function displayDroppable( evt )
     $("#svg-holder").addClass( add );
 }
 
+function setupWebsocket()
+{
+    // TODO
+}
+
 function setupFileIO()
 {
     // In order to use jQuery event handling with drag-and-drop events,
@@ -122,8 +138,7 @@ function setupFileIO()
     $( window ).on( 'drop', function( evt ) {
         evt.preventDefault();
         
-        var svg_holder = $('#svg-holder');
-        svg_holder.removeClass( "droppable not-droppable" );
+        $('#svg-holder').removeClass( "droppable not-droppable" );
         
         if( !isDroppable( evt ) ) return;
         
@@ -137,11 +152,7 @@ function setupFileIO()
                 $("#filename").text( file.name );
                 $("#filename").removeClass( "text-muted" );
                 
-                svg_holder.html( svg_text );
-                svg_holder.removeClass( "empty" );
-                var svg = svg_holder.find( "svg" )[0];
-                svg_holder.width( svg.getBBox().width );
-                svg_holder.height( svg.getBBox().height );
+                loadSVG( svg_text );
                 
                 $("#save-button").prop( "disabled", false );
             }
@@ -151,16 +162,86 @@ function setupFileIO()
         } );
     
     $("#save-button").click( function() {
-        var svg_to_save = $("#svg-holder svg");
+        var svg_to_save = $("#svg-file > svg");
         if( svg_to_save.length === 0 )
         {
             alert( "No SVG to save. This button should be disabled." );
             return;
         }
         
-        var blob = new Blob([svg_to_save.parent().html()], {type: "image/svg+xml"});
+        // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG.
+        //       It is also less correct, because we lose the header comments
+        //       that were in the file before the <svg> tag.
+        var blob = new Blob([ svg_to_save.parent().html() ], {type: "image/svg+xml"});
         saveAs( blob, $('#filename').text() );
         } );
+}
+
+function loadSVG( svg_text )
+{
+    // Attach the SVG to its node.
+    $('#svg-file').html( svg_text );
+    // Get the actual SVG dom element with [0] rather than a jquery object.
+    var svg = $('#svg-file > svg')[0];
+    
+    // Set the width and height of the SVG area.
+    var svg_holder = $('#svg-holder');
+    svg_holder.removeClass( "empty" );
+    svg_holder.width( svg.getBBox().width );
+    svg_holder.height( svg.getBBox().height );
+    
+    
+    // TODO: Normalize SVG paths by replacing paths with data in normalizedPathSegList.
+    normalizeSVG();
+    
+    // TODO: Setup UI
+    createUIForSVG();
+}
+
+function normalizeSVG()
+{
+    // Iterate over all paths, replacing them with normalized versions of themselves.
+    var svg = $('#svg-file path').each( function( index, path ) {
+        
+        path.pathSegList = path.normalizedPathSegList;
+        return;
+        
+        /*
+        var normalized = [];
+        
+        /// Adapted from: http://stackoverflow.com/questions/8053487/scripting-path-data-in-svg-reading-and-modifying
+        // http://www.w3.org/TR/SVG/paths.html#__svg__SVGAnimatedPathData__normalizedPathSegList
+        // See also path.pathSegList and path.animatedPathSegList and path.animatedNormalizedPathSegList
+        var segments = path.normalizedPathSegList;
+        for( var i = 0, len = segments.numberOfItems; i < len; ++i )
+        {
+            var pathSeg = segments.getItem(i);
+            // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
+            switch(pathSeg.pathSegType) {
+                case SVGPathSeg.PATHSEG_MOVETO_ABS:
+                    // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSegMovetoAbs
+                    console.log("Move to",pathSeg.x,pathSeg.y);
+                break;
+                
+                case SVGPathSeg.PATHSEG_LINETO_ABS:
+                    // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSegLinetoAbs
+                    console.log("Line to",pathSeg.x,pathSeg.y);
+                break;
+                
+                case SVGPathSeg.PATHSEG_CLOSEPATH:
+                    // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSegClosePath
+                    console.log("Close Path");
+                break;
+            }
+        }
+        */
+        
+        } );
+}
+
+function createUIForSVG()
+{
+    console.log( "createUIForSVG()" );
 }
 
 ///
@@ -168,14 +249,10 @@ function setupFileIO()
 ///
 $(document).ready( function() {
     
-    setupFileIO();
-    
-    // TODO: Normalize SVG paths by replacing paths with data in normalizedPathSegList.
-    
-    // TODO: Setup UI
-    
     // TODO: Setup websocket
+    setupWebsocket();
     
+    setupFileIO();
 });
 </script>
 </body>
