@@ -11,6 +11,7 @@
     <script src="web-gui/jquery-1.10.2.min.js" type="text/javascript"></script>
     <script src="web-gui/Blob.js" type="text/javascript"></script>
     <script src="web-gui/FileSaver.js" type="text/javascript"></script>
+    <script src="web-gui/snap.svg-min.js" type="text/javascript"></script>
     
     <link rel="stylesheet" href="web-gui/bootstrap.min.css">
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css"> -->
@@ -21,14 +22,18 @@
 <style type="text/css">
 body
 {
-    margin-top: 20px;
+    padding-top: 20px;
+    margin: 9px;
 }
 #svg-holder
 {
     margin: 10px 45px;
-    height: 400px;
+    min-height: 100px;
     
     position: relative;
+    
+    font-size: 200%;
+    font-weight: bold;
 }
 .absolute0
 {
@@ -39,12 +44,6 @@ body
 .empty
 {
     outline: 9px dashed #ccc;
-    font-size: 200%;
-    font-weight: bold;
-}
-.empty:after
-{
-    content: "Drag an SVG file here."
 }
 .droppable
 {
@@ -76,8 +75,8 @@ Editing: <span id="filename" class="text-muted">no file loaded</span>
 <hr />
 </div>
 
-<div id="svg-holder" class="text-center empty">
-<div id="svg-file" class="absolute0"></div>
+<div id="svg-holder" class="text-center">
+<div id="svg-file" class="absolute0">Drag an SVG file here.</div>
 <div id="svg-overlay" class="absolute0"></div>
 </div>
 
@@ -87,6 +86,8 @@ Editing: <span id="filename" class="text-muted">no file loaded</span>
 /// Constants.
 ///
 var kDebugging = false;
+// var kDragDropFeedbackSelector = "#svg-holder";
+var kDragDropFeedbackSelector = "body";
 
 ///
 /// Global variables.
@@ -114,8 +115,8 @@ function displayDroppable( evt )
     var add = ( droppable ? "droppable" : "not-droppable" );
     var remove = ( !droppable ? "droppable" : "not-droppable" );
     
-    $("#svg-holder").removeClass( remove );
-    $("#svg-holder").addClass( add );
+    $(kDragDropFeedbackSelector).removeClass( remove );
+    $(kDragDropFeedbackSelector).addClass( add );
 }
 
 function setupWebsocket()
@@ -129,16 +130,18 @@ function setupFileIO()
     // we have to tell jQuery to include it:
     jQuery.event.props.push( "dataTransfer" );
     
+    $(kDragDropFeedbackSelector).addClass( "empty" );
+    
     $( window ).on( 'dragover', displayDroppable );
     // The dragenter and dragleave events are hard to use, because they fire when any child
     // element is entered. Instead, we use 'dragover' and let 'drop' take care of removing
     // the css classes.
-    // $( window ).on( 'dragleave', function() { $('#svg-holder').removeClass( "droppable not-droppable" ); } );
+    // $( window ).on( 'dragleave', function() { $(kDragDropFeedbackSelector).removeClass( "droppable not-droppable" ); } );
     
     $( window ).on( 'drop', function( evt ) {
         evt.preventDefault();
         
-        $('#svg-holder').removeClass( "droppable not-droppable" );
+        $(kDragDropFeedbackSelector).removeClass( "droppable not-droppable" );
         
         if( !isDroppable( evt ) ) return;
         
@@ -169,7 +172,7 @@ function setupFileIO()
             return;
         }
         
-        // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG.
+        // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG in Chrome.
         //       It is also less correct, because we lose the header comments
         //       that were in the file before the <svg> tag.
         var blob = new Blob([ svg_to_save.parent().html() ], {type: "image/svg+xml"});
@@ -181,17 +184,27 @@ function loadSVG( svg_text )
 {
     // Attach the SVG to its node.
     $('#svg-file').html( svg_text );
-    // Get the actual SVG dom element with [0] rather than a jquery object.
-    var svg = $('#svg-file > svg')[0];
+    
+    // Remove the "empty" visual indicator.
+    $(kDragDropFeedbackSelector).removeClass( "empty" );
     
     // Set the width and height of the SVG area.
     var svg_holder = $('#svg-holder');
-    svg_holder.removeClass( "empty" );
+    
+    /*
+    // Get the actual SVG dom element with [0] rather than a jquery object.
+    // UPDATE: This gets the bounding box size of the contents, not the size of the actual
+    //         SVG-defined viewport, which is what is used for drawing.
+    var svg = $('#svg-file > svg')[0];
     svg_holder.width( svg.getBBox().width );
     svg_holder.height( svg.getBBox().height );
+    */
     
+    var svg = $('#svg-file > svg');
+    svg_holder.width( svg.width() );
+    svg_holder.height( svg.height() );
     
-    // TODO: Normalize SVG paths by replacing paths with data in normalizedPathSegList.
+    // TODO: Normalize SVG paths by converting them entirely to cubic bezier.
     normalizeSVG();
     
     // TODO: Setup UI
@@ -202,40 +215,8 @@ function normalizeSVG()
 {
     // Iterate over all paths, replacing them with normalized versions of themselves.
     var svg = $('#svg-file path').each( function( index, path ) {
-        
-        path.pathSegList = path.normalizedPathSegList;
-        return;
-        
-        /*
-        var normalized = [];
-        
-        /// Adapted from: http://stackoverflow.com/questions/8053487/scripting-path-data-in-svg-reading-and-modifying
-        // http://www.w3.org/TR/SVG/paths.html#__svg__SVGAnimatedPathData__normalizedPathSegList
-        // See also path.pathSegList and path.animatedPathSegList and path.animatedNormalizedPathSegList
-        var segments = path.normalizedPathSegList;
-        for( var i = 0, len = segments.numberOfItems; i < len; ++i )
-        {
-            var pathSeg = segments.getItem(i);
-            // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
-            switch(pathSeg.pathSegType) {
-                case SVGPathSeg.PATHSEG_MOVETO_ABS:
-                    // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSegMovetoAbs
-                    console.log("Move to",pathSeg.x,pathSeg.y);
-                break;
-                
-                case SVGPathSeg.PATHSEG_LINETO_ABS:
-                    // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSegLinetoAbs
-                    console.log("Line to",pathSeg.x,pathSeg.y);
-                break;
-                
-                case SVGPathSeg.PATHSEG_CLOSEPATH:
-                    // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSegClosePath
-                    console.log("Close Path");
-                break;
-            }
-        }
-        */
-        
+        // Snap.path.toCubic() converts paths entirely to absolute cubic beziers.
+        path.setAttribute( 'd', Snap.path.toCubic( path.getAttribute('d') ).toString() );
         } );
 }
 
