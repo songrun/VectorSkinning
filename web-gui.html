@@ -102,7 +102,8 @@ Constraint type:
 
 <div id="svg-holder" class="text-center">
 <div id="svg-file" class="absolute0"></div>
-<div id="svg-overlay" class="absolute0"></div>
+<div id="svg-constraints-overlay" class="absolute0"></div>
+<div id="svg-handles-overlay" class="absolute0"></div>
 </div>
 
 <script type='text/javascript'>
@@ -120,6 +121,10 @@ var kFakeWebSocket = true;
 ///
 // For each path, for each cubic end point, a dictionary { 'fixed': true|false, 'continuity': 'C0|C1|G1|A' }
 var gPathsControlPointConstraints = null;
+// The index of the largest path.
+var gLargestPathIndex = -1;
+// An array of handles, where each handle is a dictionary { 'pos': [ x,y ], 'transform': Snap.Matrix }
+gHandles = [];
 // The WebSocket.
 var gSocket = null;
 
@@ -228,6 +233,20 @@ function sendPathsForPrecomputation()
             };
         } );
     
+    // createHandleUIForSVG() needs the largest closed path.
+    var biggest_bbox_area = -1;
+    gLargestPathIndex = -1;
+    for( var i = 0; i < paths_info.length; ++i )
+    {
+        if( !paths_info[i].closed ) continue;
+        
+        if( paths_info[i].bbox_area > biggest_bbox_area )
+        {
+            biggest_bbox_area = paths_info[i].bbox_area;
+            gLargestPathIndex = i;
+        }
+    }
+    
     gSocket.send( "paths-info " + JSON.stringify( paths_info ) );
 }
 function sendHandlePositions()
@@ -246,7 +265,16 @@ function sendHandleTransformation( handle_index )
 {
     "use strict";
     
-    gSocket.send( "handle-transform " + JSON.stringify( [ i, gHandles[i].transform ] ) );
+    var M = gHandles[ handle_index ].transform;
+    gSocket.send( "handle-transform " + JSON.stringify( [
+        handle_index,
+        // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
+        // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
+        // (The third row is assumed to always be [ 0, 0, 1 ].)
+        // This is all assuming that the matrix M is multiplied by a column
+        // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
+        [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+        ] ) );
 }
 function sendControlPointConstraintsChanged( path_index, segment_index )
 {
@@ -384,9 +412,14 @@ function createUIForSVG()
 {
     console.log( "createUIForSVG()" );
     
+    createConstraintUIForSVG();
+    createHandleUIForSVG();
+}
+function createConstraintUIForSVG()
+{
     // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
-    $( '#svg-overlay' ).html( $('#svg-file > svg').clone().empty() );
-    var ui = Snap( '#svg-overlay > svg' );
+    $( '#svg-constraints-overlay' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-constraints-overlay > svg' );
     ui.clear();
     
     gPathsControlPointConstraints = [];
@@ -417,7 +450,7 @@ function createUIForSVG()
             
             c.click( function() {
                 // Reset colors of all circles.
-                $('#svg-overlay circle').attr( "fill", '#5555da' );
+                $('#svg-constraints-overlay circle').attr( "fill", '#5555da' );
                 
                 // If the point is currently selected, deselect it.
                 if( controlPointIsSelected( path_index, segment_index ) )
@@ -464,6 +497,94 @@ function createUIForSVG()
                     break;
             }
         }
+        } );
+}
+function createHandleUIForSVG()
+{
+    // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
+    $( '#svg-handles-overlay' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-handles-overlay > svg' );
+    ui.clear();
+    
+    // We previously found the largest closed path. Use that to make sure handles
+    // aren't created outside the shape.
+    var clickable = null;
+    if( gLargestPathIndex !== -1 )
+    {
+        clickable = ui.path( $('#svg-file path')[ gLargestPathIndex ].getAttribute( 'd' ) );
+        clickable.attr({ opacity: 0. });
+    }
+    else
+    {
+        // If we don't have any closed paths, users can click anywhere.
+        clickable = ui;
+    }
+    
+    // disableHandleControls();
+    
+    clickable.click( function( evt ) {
+        // Don't use the x,y that come in as the second and third parameters.
+        // They are equivalent to evt.pageX and evt.pageY.
+        var parent = $( '#svg-handles-overlay > svg' );
+        var x = evt.pageX - parent.offset().left;
+        var y = evt.pageY - parent.offset().top;
+        
+        var kHandleRectEdge = 10;
+        var kHandleRectRound = 2;
+        
+        // r0 represents the original position of the handle.
+        // This has the side effect that a duplicate handle can't be made,
+        // because the shape under this can't be clicked.
+        r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+        r0.attr({
+            fill: "#da55da",
+            stroke: "#000",
+            strokeWidth: 2.,
+            opacity: .5
+            });
+        
+        r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+        r.attr({
+            fill: "#da55da",
+            stroke: "#000",
+            strokeWidth: 2.
+            });
+        
+        var M = new Snap.Matrix();
+        var handle_index = gHandles.length;
+        gHandles.push( { 'pos': [ x, y ], 'transform': M } );
+        sendHandlePositions();
+        
+        // Make a drag handler for the handle.
+        var x0, y0, e0, f0;
+        r.drag(
+            // drag move
+            function( dx, dy ) {
+                M.e = dx + e0;
+                M.f = dy + f0;
+                
+                r.x = dx + x0;
+                r.y = dy + y0;
+                
+                sendHandleTransformation( handle_index );
+                
+                // This attr() call comes from the default drag handler.
+                // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
+                this.attr({
+                    transform: origTransform + (origTransform ? "T" : "t") + [dx, dy]
+                });
+            },
+            // drag start
+            function( x, y ) {
+                x0 = x;
+                y0 = y;
+                e0 = M.e;
+                f0 = M.f;
+                
+                // This origTransform comes from the default drag handler.
+                // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
+                origTransform = this.transform().local;
+            } );
         } );
 }
 
