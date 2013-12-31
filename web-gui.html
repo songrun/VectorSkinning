@@ -62,6 +62,27 @@ body
 {
     margin-top: 10px;
 }
+
+.background-selected
+{
+    background: #ffc;
+}
+
+/*
+Magic to make columns equal height.
+From: http://stackoverflow.com/questions/19695784/how-can-i-make-bootstrap-columns-all-the-same-height
+But with 100% instead of 99999px as in:
+From: http://stackoverflow.com/questions/19089384/twitter-bootstrap-3-two-columns-full-height
+*/
+[class*="col-"]
+{
+    margin-bottom: -100%;
+    padding-bottom: 100%;
+}
+.row
+{
+    overflow: hidden; 
+}
 </style>
 
 </head>
@@ -79,7 +100,7 @@ body
 </div>
 <div class="row">
 
-<div id="control-point-constraints" class="col-sm-6 text-muted" disabled>
+<div id="control-point-constraints" class="col-sm-4 text-muted equal-height">
 <span class="lead">Control point &lt;<span id="path_index" class="tt">null</span>, <span id="segment_index" class="tt">null</span>&gt;:</span>
 <div class="checkbox">
 <label>Position fixed <input id="fixed" type="checkbox" disabled /></label>
@@ -94,6 +115,9 @@ Constraint type:
         </select>
 </div>
 </div>
+<div id="handle-widgets" class="col-sm-4 text-muted equal-height">
+<span class="lead">Handles</span>
+</div>
 
 </div>
 
@@ -102,18 +126,18 @@ Constraint type:
 
 <div id="svg-holder" class="text-center">
 <div id="svg-file" class="absolute0"></div>
-<div id="svg-constraints-overlay" class="absolute0"></div>
-<div id="svg-handles-overlay" class="absolute0"></div>
+<div id="svg-overlay-constraints" class="absolute0"></div>
+<div id="svg-overlay-handles" class="absolute0"></div>
 </div>
 
 <script type='text/javascript'>
 ///
 /// Constants.
 ///
-var kDebugging = false;
+var kDebugging = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
-var kWebSocketURI = "ws://localhost:9000";
+var kWebSocketURI = "ws://localhost:9123";
 var kFakeWebSocket = true;
 
 ///
@@ -168,13 +192,77 @@ function setupWebSocket()
     gSocket = new WebSocket( kWebSocketURI );
     gSocket.onopen = function(evt) { console.log( 'CONNECTED' ); };
     gSocket.onclose = function(evt) { console.log( 'DISCONNECTED' ); };
-    gSocket.onmessage = function(evt) { handleSocketMessage( evt.data ) };
+    gSocket.onmessage = function(evt) { receiveSocketMessage( evt.data ) };
     gSocket.onerror = function(evt) { console.log( 'ERROR: ' + evt.data ); };
 }
-function handleSocketMessage( data )
+function receiveSocketMessage( data )
 {
-    // TODO
-    console.log( 'Received data: ' + data );
+    "use strict";
+    
+    if( kDebugging ) console.log( 'Received data: ' + data );
+    
+    // Assuming that there is only one thing we ever get sent, updated
+    // curve positions:
+    updatePaths( JSON.parse( data ) );
+}
+// updatePaths() updates the paths in the SVG.
+// Its parameter is an array containing updated versions
+// of the 'cubic_bezier_chain' field, one for each path,
+// as packaged for sendPathsForPrecomputation().
+function updatePaths( new_paths_points )
+{
+    var paths = $( '#svg-file > svg path' );
+    if( paths.length !== new_paths_points.length )
+    {
+        console.log( "Can't update with the wrong number of paths." )
+        return;
+    }
+    
+    for( var path_index = 0; path_index < paths.length; ++path_index )
+    {
+        var new_points = new_paths_points[path_index];
+        var path = paths[path_index];
+        
+        var segments = path.pathSegList;
+        // First take care of the initial Move-to.
+        var pathSeg = segments.getItem(0);
+        if( !pathSeg.pathSegType === SVGPathSeg.PATHSEG_MOVETO_ABS )
+        {
+            console.log( "Expected move-to" );
+            return;
+        }
+        pathSeg.x = new_points[0][0];
+        pathSeg.y = new_points[0][1];
+        
+        // The rest of the points should proceed simply.
+        for( var i = 1; i < segments.numberOfItems; ++i )
+        {
+            pathSeg = segments.getItem(i);
+            if( i === segments.numberOfItems-1 && pathSeg.pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH )
+            {
+                // It's OK to have a close-path at the end.
+                continue;
+            }
+            
+            // We are expecting absolute cubic curves throughout.
+            if( !pathSeg.pathSegType === SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS )
+            {
+                console.log( "Expected move-to" );
+                return;
+            }
+            
+            pathSeg.x1 = new_points[ (i-1)*3 + 1 ][0];
+            pathSeg.y1 = new_points[ (i-1)*3 + 1 ][1];
+            
+            pathSeg.x2 = new_points[ (i-1)*3 + 2 ][0];
+            pathSeg.y2 = new_points[ (i-1)*3 + 2 ][1];
+            
+            pathSeg.x = new_points[ (i-1)*3 + 3 ][0];
+            pathSeg.y = new_points[ (i-1)*3 + 3 ][1];
+        }
+    }
+    
+    // TODO: Update the circle widgets created by createConstraintUIForSVG().
 }
 function sendPathsForPrecomputation()
 {
@@ -183,7 +271,7 @@ function sendPathsForPrecomputation()
     
     // Send all paths over the websocket.
     // TODO Q: Should I figure out which one is the biggest one?
-    //         A heuristic would be to take the one with the largest bounding box.
+    //         A heuristic that might work is to take the one with the largest bounding box.
     
     var paths_info = [];
     $('#svg-file path').each( function( index, path ) {
@@ -418,8 +506,8 @@ function createUIForSVG()
 function createConstraintUIForSVG()
 {
     // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
-    $( '#svg-constraints-overlay' ).html( $('#svg-file > svg').clone().empty() );
-    var ui = Snap( '#svg-constraints-overlay > svg' );
+    $( '#svg-overlay-constraints' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-overlay-constraints > svg' );
     ui.clear();
     
     gPathsControlPointConstraints = [];
@@ -450,7 +538,7 @@ function createConstraintUIForSVG()
             
             c.click( function() {
                 // Reset colors of all circles.
-                $('#svg-constraints-overlay circle').attr( "fill", '#5555da' );
+                $('#svg-overlay-constraints circle').attr( "fill", '#5555da' );
                 
                 // If the point is currently selected, deselect it.
                 if( controlPointIsSelected( path_index, segment_index ) )
@@ -475,9 +563,9 @@ function createConstraintUIForSVG()
             switch( pathSeg.pathSegType )
             {
                 case SVGPathSeg.PATHSEG_MOVETO_ABS:
-                    // TODO Q: Skip the first "move to" point if the last command is close path?
+                    // Q: Skip the first "move to" point if the last command is close path?
                     // A1: Yes. Otherwise I have two sets of constraints for the same point.
-                    // A2: No. Skip the last curveTo point, so that indexing is easier.
+                    // A2: <see the next case statement>
                     // if( 0 === i && segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
                     createControlPointHandle( index, i, pathSeg );
                     break;
@@ -502,8 +590,8 @@ function createConstraintUIForSVG()
 function createHandleUIForSVG()
 {
     // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
-    $( '#svg-handles-overlay' ).html( $('#svg-file > svg').clone().empty() );
-    var ui = Snap( '#svg-handles-overlay > svg' );
+    $( '#svg-overlay-handles' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-overlay-handles > svg' );
     ui.clear();
     
     // We previously found the largest closed path. Use that to make sure handles
@@ -525,7 +613,7 @@ function createHandleUIForSVG()
     clickable.click( function( evt ) {
         // Don't use the x,y that come in as the second and third parameters.
         // They are equivalent to evt.pageX and evt.pageY.
-        var parent = $( '#svg-handles-overlay > svg' );
+        var parent = $( '#svg-overlay-handles > svg' );
         var x = evt.pageX - parent.offset().left;
         var y = evt.pageY - parent.offset().top;
         
@@ -621,6 +709,7 @@ function disableControlPointControls()
 }
 function setupGlobalUI()
 {
+    // Change handlers for control point constraints.
     $('#continuity').change( function() {
         
         var path_index = parseInt( $('#path_index').text() );
@@ -639,6 +728,30 @@ function setupGlobalUI()
         
         sendControlPointConstraintsChanged( path_index, segment_index );
         } );
+    
+    
+    // Switching modes between control point constraints and handles
+    $('#handle-widgets').click( function() {
+        // Set highlight state.
+        $('#handle-widgets').addClass( 'background-selected' );
+        $('#control-point-constraints').removeClass( 'background-selected' );
+        
+        // Hide/show the SVG layers.
+        $( '#svg-overlay-constraints' ).hide();
+        $( '#svg-overlay-handles' ).show();
+        } );
+    $('#control-point-constraints').click( function() {
+        // Set highlight state.
+        $('#handle-widgets').removeClass( 'background-selected' );
+        $('#control-point-constraints').addClass( 'background-selected' );
+        
+        // Hide/show the SVG layers.
+        $( '#svg-overlay-constraints' ).show();
+        $( '#svg-overlay-handles' ).hide();
+        } );
+    
+    // The default tool is handle-widgets.
+    $('#handle-widgets').click();
 }
 
 
