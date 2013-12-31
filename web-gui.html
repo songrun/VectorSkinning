@@ -18,6 +18,8 @@
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css"> -->
     <!-- <script src="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script> -->
     <script src="web-gui/bootstrap.min.js"></script>
+    
+    <link rel="stylesheet" href="web-gui/contextmenu.css" type="text/css" media="all" />
 
 <style type="text/css">
 body
@@ -80,7 +82,6 @@ Editing: <span id="filename" class="text-muted">no file loaded</span>
 <svg id="svg-overlay" class="absolute0"></svg>
 </div>
 
-
 <script type='text/javascript'>
 ///
 /// Constants.
@@ -92,6 +93,7 @@ var kDragDropFeedbackSelector = "body";
 ///
 /// Global variables.
 ///
+
 
 ///
 /// Global functions.
@@ -236,21 +238,82 @@ function createUIForSVG()
         // See also path.pathSegList and path.animatedPathSegList and path.animatedNormalizedPathSegList
         var segments = path.pathSegList;
         
-        function createControlPointHandle( pathSeg )
+        function createControlPointMenu( path_index, segment_index, pathSeg )
         {
-            var x0 = pathSeg.x;
-            var y0 = pathSeg.y;
-            
             var c = ui.circle( pathSeg.x, pathSeg.y, 10. );
             c.attr({
                 fill: "#5555da",
                 stroke: "#000",
                 strokeWidth: 2.
                 });
-            c.drag( function( dx, dy ) {
-                pathSeg.x = x0 + dx;
-                pathSeg.y = y0 + dy;
+            
+            function makemenu()
+            {
+            $(c.node).off( "contextmenu" );
+            
+            var fixed = false;
+            var constraint = "C0";
+            var menu = contextmenu([
+                {
+                    label: (fixed ? "+ " : " ") + "Fixed position",
+                    checked: fixed,
+                    onclick: function( e ) {
+                        fixed = !fixed;
+                        c.attr({ fill: ( fixed ? "#da5555" : "#5555da" ) });
+                        
+                        makemenu();
+                    }
+                },
+                { hr: true },
+                {
+                    label: ("C0" === constraint ? "+ " : " ") + "C0",
+                    checked: "C0" === constraint,
+                    onclick: function( e ) {
+                        constraint = "C0";
+                        c.attr({ stroke: "#000" });
+                        
+                        makemenu();
+                    }
+                },
+                {
+                    label: ("C1" === constraint ? "+ " : " ") + "C1",
+                    checked: "C1" === constraint,
+                    onclick: function( e ) {
+                        constraint = "C1";
+                        c.attr({ stroke: "#f00" });
+                        
+                        makemenu();
+                    }
+                },
+                {
+                    label: ("G1" === constraint ? "+ " : " ") + "G1",
+                    checked: "G1" === constraint,
+                    onclick: function( e ) {
+                        constraint = "G1";
+                        c.attr({ stroke: "#0f0" });
+                        
+                        makemenu();
+                    }
+                },
+                {
+                    label: ("A" === constraint ? "+ " : " ") + "Fixed angle",
+                    checked: "A" === constraint,
+                    onclick: function( e ) {
+                        constraint = "A";
+                        c.attr({ stroke: "#00f" });
+                        
+                        makemenu();
+                    }
+                }
+                ]);
+            
+            // contextmenu.attach( c.node, menu );
+            $(c.node).on( "contextmenu", function (e) {
+                target = e.target;
+                contextmenu.show( menu, e.target );
                 } );
+            }
+            makemenu();
         }
         
         for( var i = 0; i < segments.numberOfItems; ++i )
@@ -260,8 +323,10 @@ function createUIForSVG()
             switch( pathSeg.pathSegType )
             {
                 case SVGPathSeg.PATHSEG_MOVETO_ABS:
+                    // TODO Q: Skip the first "move to" point if the last command is close path?
+                    // if( 0 === i && segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
-                    createControlPointHandle( pathSeg );
+                    createControlPointMenu( index, i, pathSeg );
                     break;
                 
                 case SVGPathSeg.PATHSEG_CLOSEPATH:
@@ -287,5 +352,6 @@ $(document).ready( function() {
     setupFileIO();
 });
 </script>
+<script type="text/javascript" src="web-gui/contextmenu.js"></script>
 </body>
 </html>
