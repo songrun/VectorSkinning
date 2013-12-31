@@ -22,7 +22,6 @@
 <style type="text/css">
 body
 {
-    padding-top: 20px;
     margin: 9px;
 }
 #svg-holder
@@ -54,9 +53,14 @@ body
     outline: 9px dashed #c00;
 }
 
-#filename
+.tt
 {
     font-family: monospace;
+}
+
+#file-info h1
+{
+    margin-top: 10px;
 }
 </style>
 
@@ -66,18 +70,17 @@ body
 
 <div class="row">
 
-<div id="file-info" class="col-sm-4">
-<span class="lead">Editing:</span>
-<div class="form-group" style="margin-top: 10px;">
-<span id="filename" class="text-muted">no file loaded</span>
-</div>
-<div class="form-group">
+<div id="file-info" class="col-sm-12">
+<h1><span id="filename" class="tt">Drag an SVG file here.</span>
 <button type="button" id="save-button" class="btn btn-default" disabled>Save SVG</button>
-</div>
+</h1>
 </div>
 
+</div>
+<div class="row">
+
 <div id="control-point-constraints" class="col-sm-6 text-muted" disabled>
-<span class="lead">Control point:</span>
+<span class="lead">Control point &lt;<span id="path_index" class="tt">null</span>, <span id="segment_index" class="tt">null</span>&gt;:</span>
 <div class="checkbox">
 <label>Position fixed: <input id="fixed" type="checkbox" disabled /></label>
 </div>
@@ -98,7 +101,7 @@ Constraint type:
 </div>
 
 <div id="svg-holder" class="text-center">
-<div id="svg-file" class="absolute0">Drag an SVG file here.</div>
+<div id="svg-file" class="absolute0"></div>
 <svg id="svg-overlay" class="absolute0"></svg>
 </div>
 
@@ -318,14 +321,14 @@ function createUIForSVG()
 function controlPointIsSelected( path_index, segment_index )
 {
     return(
-        gSelectedControlPoint !== null &&
-        gSelectedControlPoint[0] === path_index &&
-        gSelectedControlPoint[1] === segment_index
+        parseInt( $('#path_index').text() ) === path_index &&
+        parseInt( $('#segment_index').text() ) === segment_index
         );
 }
 function setupControlPointControls( path_index, segment_index )
 {
-    gSelectedControlPoint = [ path_index, segment_index ];
+    $('#path_index').text( path_index );
+    $('#segment_index').text( segment_index );
     
     // We really only have to enable these controls the first time.
     var controls = $('#control-point-constraints');
@@ -334,7 +337,8 @@ function setupControlPointControls( path_index, segment_index )
 }
 function disableControlPointControls()
 {
-    gSelectedControlPoint = null;
+    $('#path_index').text( 'null' );
+    $('#segment_index').text( 'null' );
     
     // We really only have to enable these controls the first time.
     var controls = $('#control-point-constraints');
