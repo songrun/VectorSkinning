@@ -27,7 +27,7 @@ body
 #svg-holder
 {
     margin: 10px 45px;
-    min-height: 100px;
+    /* min-height: 100px; */
     
     position: relative;
     
@@ -86,7 +86,7 @@ body
 </div>
 <div class="form-group">
 Constraint type:
-        <select id="constraint" disabled>
+        <select id="continuity" disabled>
         <option value="C0" selected>C0</option>
         <option value="C1">C1</option>
         <option value="G1">G1</option>
@@ -112,11 +112,16 @@ Constraint type:
 var kDebugging = false;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
+var kWebSocketURI = "ws://localhost:9000";
+var kFakeWebSocket = true;
 
 ///
 /// Global variables.
 ///
-var gSelectedControlPoint = null;
+// For each path, for each cubic end point, a dictionary { 'fixed': true|false, 'continuity': 'C0|C1|G1|A' }
+var gPathsControlPointConstraints = null;
+// The WebSocket.
+var gSocket = null;
 
 
 ///
@@ -145,9 +150,109 @@ function displayDroppable( evt )
     $(kDragDropFeedbackSelector).addClass( add );
 }
 
-function setupWebsocket()
+function setupWebSocket()
+{
+    if( kFakeWebSocket )
+    {
+        console.log( "Using a fake WebSocket" );
+        gSocket = {};
+        gSocket.send = function( msg ) { console.log( "SEND " + msg ); }
+        return;
+    }
+    
+    gSocket = new WebSocket( kWebSocketURI );
+    gSocket.onopen = function(evt) { console.log( 'CONNECTED' ); };
+    gSocket.onclose = function(evt) { console.log( 'DISCONNECTED' ); };
+    gSocket.onmessage = function(evt) { handleSocketMessage( evt.data ) };
+    gSocket.onerror = function(evt) { console.log( 'ERROR: ' + evt.data ); };
+}
+function handleSocketMessage( data )
 {
     // TODO
+    console.log( 'Received data: ' + data );
+}
+function sendPathsForPrecomputation()
+{
+    // I want JSON encoding.
+    "use strict";
+    
+    // Send all paths over the websocket.
+    // TODO Q: Should I figure out which one is the biggest one?
+    //         A heuristic would be to take the one with the largest bounding box.
+    
+    var paths_info = [];
+    $('#svg-file path').each( function( index, path ) {
+        var cubic_points = [];
+        
+        /// Adapted from: http://stackoverflow.com/questions/8053487/scripting-path-data-in-svg-reading-and-modifying
+        // http://www.w3.org/TR/SVG/paths.html#__svg__SVGAnimatedPathData__normalizedPathSegList
+        // See also path.pathSegList and path.animatedPathSegList and path.animatedNormalizedPathSegList
+        var segments = path.pathSegList;
+        for( var i = 0; i < segments.numberOfItems; ++i )
+        {
+            var pathSeg = segments.getItem(i);
+            // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
+            switch( pathSeg.pathSegType )
+            {
+                case SVGPathSeg.PATHSEG_MOVETO_ABS:
+                    if( 0 !== i ) console.log( "This is bad. Move-to should only appear as the first thing in a path." );
+                    cubic_points.push( [ pathSeg.x, pathSeg.y ] );
+                    break;
+                
+                case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
+                    cubic_points.push( [ pathSeg.x1, pathSeg.y1 ] );
+                    cubic_points.push( [ pathSeg.x2, pathSeg.y2 ] );
+                    cubic_points.push( [ pathSeg.x, pathSeg.y ] );
+                    break;
+                
+                case SVGPathSeg.PATHSEG_CLOSEPATH:
+                    // Nothing to do. This is here because we complain on default.
+                    break;
+                
+                default:
+                    console.log( "We shouldn't see pathSeg.pathSegType: " + pathSeg.pathSegType );
+                    break;
+            }
+        }
+        
+        // Save the bounding box area of the path.
+        var bbox = Snap.path.getBBox( path.getAttribute('d') );
+        var bbox_area = bbox.width * bbox.height;
+        
+        var closed = segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH;
+        
+        paths_info[index] = {
+            'bbox_area': bbox_area,
+            'closed': closed,
+            'cubic_bezier_chain': cubic_points
+            };
+        } );
+    
+    gSocket.send( "paths-info " + JSON.stringify( paths_info ) );
+}
+function sendHandlePositions()
+{
+    "use strict";
+    
+    var handle_positions = [];
+    for( var i = 0; i < gHandles.length; ++i )
+    {
+        handle_positions.push( gHandles[i].pos );
+    }
+    
+    gSocket.send( "handle-positions " + JSON.stringify( handle_positions ) );
+}
+function sendHandleTransformation( handle_index )
+{
+    "use strict";
+    
+    gSocket.send( "handle-transform " + JSON.stringify( [ i, gHandles[i].transform ] ) );
+}
+function sendControlPointConstraintsChanged( path_index, segment_index )
+{
+    "use strict";
+    
+    gSocket.send( "control-point-constraint " + JSON.stringify( [ path_index, segment_index, gPathsControlPointConstraints[ paths_index ][ segment_index ] ] ) );
 }
 
 function setupFileIO()
@@ -233,6 +338,9 @@ function loadSVG( svg_text )
     // Normalize SVG paths by converting them entirely to cubic bezier.
     normalizeSVG();
     
+    // Send SVG to the backend.
+    sendPathsForPrecomputation();
+    
     // Setup UI
     createUIForSVG();
 }
@@ -253,11 +361,15 @@ function createUIForSVG()
     var ui = Snap( '#svg-overlay' );
     ui.clear();
     
+    gPathsControlPointConstraints = [];
+    
     disableControlPointControls();
     
     var paths = $( '#svg-file > svg path' );
     // For each path, make a small clickable circle that brings up a popup menu.
     paths.each( function( index, path ) {
+        
+        gPathsControlPointConstraints.push( [] );
         
         /// Adapted from: http://stackoverflow.com/questions/8053487/scripting-path-data-in-svg-reading-and-modifying
         // http://www.w3.org/TR/SVG/paths.html#__svg__SVGAnimatedPathData__normalizedPathSegList
@@ -266,6 +378,8 @@ function createUIForSVG()
         
         function createControlPointHandle( path_index, segment_index, pathSeg )
         {
+            gPathsControlPointConstraints[ path_index ][ segment_index ] = { 'fixed': false, 'continuity': 'C0' };
+            
             var c = ui.circle( pathSeg.x, pathSeg.y, 10. );
             c.attr({
                 fill: "#5555da",
@@ -301,8 +415,15 @@ function createUIForSVG()
             {
                 case SVGPathSeg.PATHSEG_MOVETO_ABS:
                     // TODO Q: Skip the first "move to" point if the last command is close path?
+                    // A1: Yes. Otherwise I have two sets of constraints for the same point.
+                    // A2: No. Skip the last curveTo point, so that indexing is easier.
                     // if( 0 === i && segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
+                    createControlPointHandle( index, i, pathSeg );
+                    break;
+                
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
+                    // A2: No. Skip the last curveTo point, so that indexing is easier.
+                    if( i+1 < segments.numberOfItems && segments.getItem( i + 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
                     createControlPointHandle( index, i, pathSeg );
                     break;
                 
@@ -334,6 +455,10 @@ function setupControlPointControls( path_index, segment_index )
     var controls = $('#control-point-constraints');
     controls.removeClass( 'text-muted' );
     controls.find( 'select, input' ).prop( "disabled", false );
+    
+    var settings = gPathsControlPointConstraints[ path_index ][ segment_index ];
+    controls.find( '[value=' + settings.continuity + ']' ).prop( 'selected', true );
+    controls.find( 'input' ).prop( 'checked', settings.fixed );
 }
 function disableControlPointControls()
 {
@@ -345,6 +470,27 @@ function disableControlPointControls()
     controls.addClass( 'text-muted' );
     controls.find( 'select, input' ).prop( "disabled", true );
 }
+function setupGlobalUI()
+{
+    $('#continuity').change( function() {
+        
+        var path_index = parseInt( $('#path_index').text() );
+        var segment_index = parseInt( $('#segment_index').text() );
+        
+        gPathsControlPointConstraints[ path_index ][ segment_index ].continuity = this.value;
+        
+        sendControlPointConstraintsChanged( path_index, segment_index );
+        } );
+    
+    $('#fixed').change( function() {
+        var path_index = parseInt( $('#path_index').text() );
+        var segment_index = parseInt( $('#segment_index').text() );
+        
+        gPathsControlPointConstraints[ path_index ][ segment_index ].fixed = this.checked;
+        
+        sendControlPointConstraintsChanged( path_index, segment_index );
+        } );
+}
 
 
 ///
@@ -352,10 +498,11 @@ function disableControlPointControls()
 ///
 $(document).ready( function() {
     
-    // TODO: Setup websocket
-    setupWebsocket();
+    setupWebSocket();
     
     setupFileIO();
+    
+    setupGlobalUI();
 });
 </script>
 </body>
