@@ -220,9 +220,21 @@ function receiveSocketMessage( data )
     
     if( kDebugging ) console.log( 'Received data: ' + data );
     
-    // Assuming that there is only one thing we ever get sent, updated
-    // curve positions:
-    updatePaths( JSON.parse( data ) );
+    // Javascript check if a string starts with another string.
+    // From: http://stackoverflow.com/questions/646628/javascript-startswith
+    if( data.lastIndexOf( 'control-point-constraint ', 0 ) === 0 )
+    {
+        var update = JSON.parse( data.substring( 'control-point-constraint '.length ) );
+        gPathsControlPointConstraints[ update[0] ][ update[1] ] = update[2];
+    }
+    else if( data.lastIndexOf( 'paths-positions ', 0 ) === 0 )
+    {
+        updatePaths( JSON.parse( data.substring( 'paths-positions '.length ) ) );
+    }
+    else
+    {
+        console.log( 'UNKNOWN MESSAGE RECEIVED: ' + data );
+    }
 }
 // updatePaths() updates the paths in the SVG.
 // Its parameter is an array containing updated versions

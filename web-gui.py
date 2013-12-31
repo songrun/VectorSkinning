@@ -33,6 +33,11 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
             
             ## Precompute something with the paths.
             # self.engine ...
+            
+            ## Report back assumed constraints.
+            # for constraint in constraints:
+            # payload = [ path_index, segment_index, { 'fixed': True|False, 'continuity': 'C0|C1|G1|A' } ]
+            # self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
         
         elif msg.startswith( 'handle-positions ' ):
             paths_info = json.loads( msg[ len( 'handle-positions ' ): ] )
@@ -47,7 +52,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
             # new_positions = engine ...
             
             ## Send the new positions to the GUI.
-            # self.sendMessage( json.dumps( new_positions ) )
+            # self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
         
         elif msg.startswith( 'control-point-constraint ' ):
             paths_info = json.loads( msg[ len( 'control-point-constraint ' ): ] )
