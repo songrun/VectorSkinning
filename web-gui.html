@@ -116,7 +116,26 @@ Constraint type:
 </div>
 </div>
 <div id="handle-widgets" class="col-sm-4 text-muted equal-height">
-<span class="lead">Handles</span>
+<span class="lead">Handle &lt;<span id="handle_index" class="tt">null</span>&gt;:</span>
+<div>
+<table class="table table-hover table-condensed table-bordered">
+<tr>
+    <td><input type="text" class="form-control" name="a" value="?" disabled></td>
+    <td><input type="text" class="form-control" name="c" value="?" disabled></td>
+    <td><input type="text" class="form-control" name="e" value="?" disabled></td>
+</tr>
+<tr>
+    <td><input type="text" class="form-control" name="b" value="?" disabled></td>
+    <td><input type="text" class="form-control" name="d" value="?" disabled></td>
+    <td><input type="text" class="form-control" name="f" value="?" disabled></td>
+</tr>
+<tr>
+    <td><span class="form-control" disabled>0</span></td>
+    <td><span class="form-control" disabled>0</span></td>
+    <td><span class="form-control" disabled>1</span></td>
+</tr>
+</table>
+</div>
 </div>
 
 </div>
@@ -608,7 +627,7 @@ function createHandleUIForSVG()
         clickable = ui;
     }
     
-    // disableHandleControls();
+    disableHandleControls();
     
     clickable.click( function( evt ) {
         // Don't use the x,y that come in as the second and third parameters.
@@ -642,6 +661,7 @@ function createHandleUIForSVG()
         var handle_index = gHandles.length;
         gHandles.push( { 'pos': [ x, y ], 'transform': M } );
         sendHandlePositions();
+        setupHandleControls( handle_index );
         
         // Make a drag handler for the handle.
         var x0, y0, e0, f0;
@@ -655,6 +675,8 @@ function createHandleUIForSVG()
                 r.y = dy + y0;
                 
                 sendHandleTransformation( handle_index );
+                // Update the table
+                setupHandleControls( handle_index );
                 
                 // This attr() call comes from the default drag handler.
                 // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
@@ -668,6 +690,9 @@ function createHandleUIForSVG()
                 y0 = y;
                 e0 = M.e;
                 f0 = M.f;
+                
+                // Setup the table when clicking on an already-created rect.
+                setupHandleControls( handle_index );
                 
                 // This origTransform comes from the default drag handler.
                 // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
@@ -707,6 +732,36 @@ function disableControlPointControls()
     controls.addClass( 'text-muted' );
     controls.find( 'select, input' ).prop( "disabled", true );
 }
+function setupHandleControls( handle_index )
+{
+    $('#handle_index').text( handle_index );
+    
+    // We really only have to enable these controls the first time.
+    var controls = $('#handle-widgets table');
+    controls.removeClass( 'text-muted' );
+    
+    var inputs = controls.find( 'input' );
+    
+    var M = gHandles[ handle_index ].transform;
+    inputs.eq(0).val( M.a );
+    inputs.eq(1).val( M.c );
+    inputs.eq(2).val( M.e );
+    inputs.eq(3).val( M.b );
+    inputs.eq(4).val( M.d );
+    inputs.eq(5).val( M.f );
+    
+    inputs.prop( "disabled", false );
+}
+function disableHandleControls()
+{
+    $('#handle_index').text( 'null' );
+    
+    // We really only have to enable these controls the first time.
+    var controls = $('#handle-widgets table');
+    controls.addClass( 'text-muted' );
+    controls.find( 'input' ).prop( 'disabled', true );
+    controls.find( 'input' ).val( '?' );
+}
 function setupGlobalUI()
 {
     // Change handlers for control point constraints.
@@ -730,6 +785,19 @@ function setupGlobalUI()
         } );
     
     
+    // Change handler for handle transform inputs.
+    $('#handle-widgets input').change( function() {
+        var which = this.getAttribute( 'name' );
+        var handle_index = parseInt( $('#handle_index').text() );
+        var M = gHandles[ handle_index ].transform;
+        
+        M[which] = parseFloat( $(this).val() );
+        sendHandleTransformation( handle_index );
+        var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
+        Snap( rect ).transform( M );
+        } );
+    
+    
     // Switching modes between control point constraints and handles
     $('#handle-widgets').click( function() {
         // Set highlight state.
@@ -739,6 +807,11 @@ function setupGlobalUI()
         // Hide/show the SVG layers.
         $( '#svg-overlay-constraints' ).hide();
         $( '#svg-overlay-handles' ).show();
+        
+        // Disable/enable controls
+        // if( $('#handle_index').text() !== 'null' ) setupHandleControls( parseInt( $('#handle_index').text() ) );
+        // $( '#control-point-constraints input, #control-point-constraints select' ).prop( 'disabled', true );
+        disableControlPointControls();
         } );
     $('#control-point-constraints').click( function() {
         // Set highlight state.
@@ -748,6 +821,9 @@ function setupGlobalUI()
         // Hide/show the SVG layers.
         $( '#svg-overlay-constraints' ).show();
         $( '#svg-overlay-handles' ).hide();
+        
+        // Disable/enable controls
+        disableHandleControls();
         } );
     
     // The default tool is handle-widgets.
