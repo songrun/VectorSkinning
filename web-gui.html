@@ -157,7 +157,7 @@ var kDebugging = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
-var kFakeWebSocket = true;
+var kFakeWebSocket = false;
 
 ///
 /// Global variables.
@@ -630,6 +630,9 @@ function createHandleUIForSVG()
     disableHandleControls();
     
     clickable.click( function( evt ) {
+        // TODO: Adding a handle is a slow operation. Maybe we should check if a modifier
+        //       key is held down, and return if it's not.
+        
         // Don't use the x,y that come in as the second and third parameters.
         // They are equivalent to evt.pageX and evt.pageY.
         var parent = $( '#svg-overlay-handles > svg' );
