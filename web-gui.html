@@ -18,8 +18,6 @@
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css"> -->
     <!-- <script src="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script> -->
     <script src="web-gui/bootstrap.min.js"></script>
-    
-    <link rel="stylesheet" href="web-gui/contextmenu.css" type="text/css" media="all" />
 
 <style type="text/css">
 body
@@ -60,18 +58,40 @@ body
 {
     font-family: monospace;
 }
-#save-button
-{
-    margin-left: 1em;
-}
 </style>
 
 </head>
 <body>
 <div class="container">
-<div id="file-info">
-Editing: <span id="filename" class="text-muted">no file loaded</span>
-<button id="save-button" class="btn btn-default" disabled>Save SVG</button>
+
+<div class="row">
+
+<div id="file-info" class="col-sm-4">
+<span class="lead">Editing:</span>
+<div class="form-group" style="margin-top: 10px;">
+<span id="filename" class="text-muted">no file loaded</span>
+</div>
+<div class="form-group">
+<button type="button" id="save-button" class="btn btn-default" disabled>Save SVG</button>
+</div>
+</div>
+
+<div id="control-point-constraints" class="col-sm-6 text-muted" disabled>
+<span class="lead">Control point:</span>
+<div class="checkbox">
+<label>Position fixed: <input id="fixed" type="checkbox" disabled /></label>
+</div>
+<div class="form-group">
+Constraint type:
+        <select id="constraint" disabled>
+        <option value="C0" selected>C0</option>
+        <option value="C1">C1</option>
+        <option value="G1">G1</option>
+        <option value="A">Fixed Angle</option>
+        </select>
+</div>
+</div>
+
 </div>
 
 <hr />
@@ -93,6 +113,7 @@ var kDragDropFeedbackSelector = "body";
 ///
 /// Global variables.
 ///
+var gSelectedControlPoint = null;
 
 
 ///
@@ -229,6 +250,8 @@ function createUIForSVG()
     var ui = Snap( '#svg-overlay' );
     ui.clear();
     
+    disableControlPointControls();
+    
     var paths = $( '#svg-file > svg path' );
     // For each path, make a small clickable circle that brings up a popup menu.
     paths.each( function( index, path ) {
@@ -238,7 +261,7 @@ function createUIForSVG()
         // See also path.pathSegList and path.animatedPathSegList and path.animatedNormalizedPathSegList
         var segments = path.pathSegList;
         
-        function createControlPointMenu( path_index, segment_index, pathSeg )
+        function createControlPointHandle( path_index, segment_index, pathSeg )
         {
             var c = ui.circle( pathSeg.x, pathSeg.y, 10. );
             c.attr({
@@ -247,73 +270,24 @@ function createUIForSVG()
                 strokeWidth: 2.
                 });
             
-            function makemenu()
-            {
-            $(c.node).off( "contextmenu" );
-            
-            var fixed = false;
-            var constraint = "C0";
-            var menu = contextmenu([
+            c.click( function() {
+                // Reset colors of all circles.
+                $('#svg-overlay circle').attr( "fill", '#5555da' );
+                
+                // If the point is currently selected, deselect it.
+                if( controlPointIsSelected( path_index, segment_index ) )
                 {
-                    label: (fixed ? "+ " : " ") + "Fixed position",
-                    checked: fixed,
-                    onclick: function( e ) {
-                        fixed = !fixed;
-                        c.attr({ fill: ( fixed ? "#da5555" : "#5555da" ) });
-                        
-                        makemenu();
-                    }
-                },
-                { hr: true },
-                {
-                    label: ("C0" === constraint ? "+ " : " ") + "C0",
-                    checked: "C0" === constraint,
-                    onclick: function( e ) {
-                        constraint = "C0";
-                        c.attr({ stroke: "#000" });
-                        
-                        makemenu();
-                    }
-                },
-                {
-                    label: ("C1" === constraint ? "+ " : " ") + "C1",
-                    checked: "C1" === constraint,
-                    onclick: function( e ) {
-                        constraint = "C1";
-                        c.attr({ stroke: "#f00" });
-                        
-                        makemenu();
-                    }
-                },
-                {
-                    label: ("G1" === constraint ? "+ " : " ") + "G1",
-                    checked: "G1" === constraint,
-                    onclick: function( e ) {
-                        constraint = "G1";
-                        c.attr({ stroke: "#0f0" });
-                        
-                        makemenu();
-                    }
-                },
-                {
-                    label: ("A" === constraint ? "+ " : " ") + "Fixed angle",
-                    checked: "A" === constraint,
-                    onclick: function( e ) {
-                        constraint = "A";
-                        c.attr({ stroke: "#00f" });
-                        
-                        makemenu();
-                    }
+                    disableControlPointControls();
                 }
-                ]);
-            
-            // contextmenu.attach( c.node, menu );
-            $(c.node).on( "contextmenu", function (e) {
-                target = e.target;
-                contextmenu.show( menu, e.target );
+                else
+                {
+                    // Set up controls for the control point.
+                    setupControlPointControls( path_index, segment_index );
+                    
+                    // Set color of selected circle.
+                    c.attr({ fill: '#da5555' });
+                }
                 } );
-            }
-            makemenu();
         }
         
         for( var i = 0; i < segments.numberOfItems; ++i )
@@ -326,7 +300,7 @@ function createUIForSVG()
                     // TODO Q: Skip the first "move to" point if the last command is close path?
                     // if( 0 === i && segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
-                    createControlPointMenu( index, i, pathSeg );
+                    createControlPointHandle( index, i, pathSeg );
                     break;
                 
                 case SVGPathSeg.PATHSEG_CLOSEPATH:
@@ -341,6 +315,34 @@ function createUIForSVG()
         } );
 }
 
+function controlPointIsSelected( path_index, segment_index )
+{
+    return(
+        gSelectedControlPoint !== null &&
+        gSelectedControlPoint[0] === path_index &&
+        gSelectedControlPoint[1] === segment_index
+        );
+}
+function setupControlPointControls( path_index, segment_index )
+{
+    gSelectedControlPoint = [ path_index, segment_index ];
+    
+    // We really only have to enable these controls the first time.
+    var controls = $('#control-point-constraints');
+    controls.removeClass( 'text-muted' );
+    controls.find( 'select, input' ).prop( "disabled", false );
+}
+function disableControlPointControls()
+{
+    gSelectedControlPoint = null;
+    
+    // We really only have to enable these controls the first time.
+    var controls = $('#control-point-constraints');
+    controls.addClass( 'text-muted' );
+    controls.find( 'select, input' ).prop( "disabled", true );
+}
+
+
 ///
 /// Initialization.
 ///
@@ -352,6 +354,5 @@ $(document).ready( function() {
     setupFileIO();
 });
 </script>
-<script type="text/javascript" src="web-gui/contextmenu.js"></script>
 </body>
 </html>
