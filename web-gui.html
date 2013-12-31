@@ -82,7 +82,7 @@ body
 <div id="control-point-constraints" class="col-sm-6 text-muted" disabled>
 <span class="lead">Control point &lt;<span id="path_index" class="tt">null</span>, <span id="segment_index" class="tt">null</span>&gt;:</span>
 <div class="checkbox">
-<label>Position fixed: <input id="fixed" type="checkbox" disabled /></label>
+<label>Position fixed <input id="fixed" type="checkbox" disabled /></label>
 </div>
 <div class="form-group">
 Constraint type:
@@ -102,7 +102,7 @@ Constraint type:
 
 <div id="svg-holder" class="text-center">
 <div id="svg-file" class="absolute0"></div>
-<svg id="svg-overlay" class="absolute0"></svg>
+<div id="svg-overlay" class="absolute0"></div>
 </div>
 
 <script type='text/javascript'>
@@ -252,7 +252,7 @@ function sendControlPointConstraintsChanged( path_index, segment_index )
 {
     "use strict";
     
-    gSocket.send( "control-point-constraint " + JSON.stringify( [ path_index, segment_index, gPathsControlPointConstraints[ paths_index ][ segment_index ] ] ) );
+    gSocket.send( "control-point-constraint " + JSON.stringify( [ path_index, segment_index, gPathsControlPointConstraints[ path_index ][ segment_index ] ] ) );
 }
 
 function setupFileIO()
@@ -349,8 +349,34 @@ function normalizeSVG()
 {
     // Iterate over all paths, replacing them with normalized versions of themselves.
     var svg = $('#svg-file path').each( function( index, path ) {
+        
+        // When a path is closed, Snap drops the final Z and adds a
+        // cubic bezier line connecting the last and first point.
+        // That is unnecessary when the last and first point were already equal.
+        // Check for this case and remove such a final bezier curve.
+        // Afterwards, put the last Z back.
+        var closed = path.pathSegList.getItem( path.pathSegList.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH;
+        
         // Snap.path.toCubic() converts paths entirely to absolute cubic beziers.
         path.setAttribute( 'd', Snap.path.toCubic( path.getAttribute('d') ).toString() );
+        
+        var segments = path.pathSegList;
+        var pathSeg0 = segments.getItem( 0 );
+        var pathSegN1 = segments.getItem( segments.numberOfItems - 1 );
+        var pathSegN2 = segments.getItem( segments.numberOfItems - 2 );
+        
+        if( closed )
+        {
+            // Check if the first and last points were the same.
+            if( pathSeg0.x === pathSegN2.x && pathSeg0.y === pathSegN2.y )
+            {
+                segments.replaceItem( path.createSVGPathSegClosePath(), segments.numberOfItems - 1 );
+            }
+            else
+            {
+                segments.appendItem( path.createSVGPathSegClosePath() );
+            }
+        }
         } );
 }
 
@@ -358,7 +384,9 @@ function createUIForSVG()
 {
     console.log( "createUIForSVG()" );
     
-    var ui = Snap( '#svg-overlay' );
+    // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
+    $( '#svg-overlay' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-overlay > svg' );
     ui.clear();
     
     gPathsControlPointConstraints = [];
