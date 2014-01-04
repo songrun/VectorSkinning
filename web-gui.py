@@ -19,6 +19,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
         print 'CONNECTED'
     
     def onMessage( self, msg, binary ):
+    	debugger()
         ### BEGIN DEBUGGING
         if not binary:
             from pprint import pprint

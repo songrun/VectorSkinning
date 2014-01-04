@@ -4,25 +4,40 @@ from bezier_constraint_even_solver import *
 
 
 class Control_point:
-	tag = -1
+	'''
+	Class of control point.
+	id is the control point's id.
+	position is its relative position with respect to the canvas
+	is_joint tells if it is an joint point. If so, it has constraint whose first element corresponds to one of the four types of C^0, fixed angle, C^1 and G^1, and second element indicates if its position is fixed.
+	'''
+	id = -1
 	position = zeros(2)
 	is_joint = False
 	constraint = None
 	
-	def __init__(self, tag, pos, is_joint=False, constraint = [1,0] ):
+	def __init__(self, id, pos, is_joint=False, constraint = [1,0] ):
 		pos = asarray( pos )
 		constraint = asarray( constraint )
 		assert len( pos ) == 2
 		assert len( constraint ) == 2
 	
-		self.tag = tag
+		self.id = id
 		self.position = pos
 		self.is_joint = is_joint
 		if is_joint:
 			self.constraint = constraint
+			
+	def compare_shape( compared_control ):
+		assert isinstance( compared_control, Handle )
+		if compared_control.id == self.id and array_equal( compared_control.position, self.position) and compared_control.is_joint == self.is_joint and array_equal( compared_control.constraint, self.constraint ) :
+			return True
+		else: 
+			return False
 
 def get_controls( controls ):
-	
+	'''
+	given a list of Control_point classes, return each control point's position and the joint's constraint.
+	'''
 	control_pos = []
 	constraints = []
 	for control in controls:
@@ -108,18 +123,20 @@ def approximate_beziers(W_matrices, controls, handles, transforms, all_weights, 
 	new_controls = adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts )
 	
 	if enable_refinement and len( new_controls ) > len( controls ):	
-		
+# 		debugger()
 		new_control_pos = get_controls( new_controls )[0]
 
 		W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts = precompute_all_when_configuration_change( new_control_pos, handles  )
 	
-		solutions, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, new_controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts)	
+		solutions, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, new_controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts, False)	
 	
 	return solutions, bbw_curves, spline_skin_curves
 
 
 def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
-	
+	'''
+	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
+	'''
 	assert len( bbw_curves ) == len( spline_skin_curves )
 	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
 	print 'differences: ', diffs
@@ -135,15 +152,16 @@ def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves
 		if len(control_pos) == 3:	
 			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
 		
-		if diff > threshold:
+		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
 			splitted = split_cublic_beizer_curve( control_pos, partition )
 			splitted = asarray( splitted ).astype(int)
+# 			debugger()
 			
 			new_controls.append( controls[ k*3 ] )
 			for j, each in enumerate(splitted):
 				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
 				if j != len(splitted)-1:
-					new_controls.append( Control_point(-1, each[1], True, [4,0]) )	
+					new_controls.append( Control_point(-1, each[-1], True, [4,0]) )	
 			
 		else:
 			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]

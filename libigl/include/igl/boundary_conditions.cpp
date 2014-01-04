@@ -149,6 +149,12 @@ IGL_INLINE bool igl::boundary_conditions(
     assert(sum != 0);
     bc.row(i).array() /= sum;
   }
+	// If there's only a single boundary condition, the following tests
+	// are overzealous.
+	if(bc.rows() == 1)
+	{
+		return true;
+	}
 
   // Check that every Weight function has at least one boundary value of 1 and
   // one value of 0

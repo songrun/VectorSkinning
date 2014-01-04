@@ -320,7 +320,7 @@ class Window:
 		
 		constraint = Tkinter.IntVar()
 		is_fixed = Tkinter.IntVar()
-		control = [x for x in self.controls if x.tag == control_id][0] 
+		control = [x for x in self.controls if x.id== control_id][0] 
 		constraint.set(int(control.constraint[0]))
 		if control.constraint[1] == 0:
 			is_fixed.set(0)

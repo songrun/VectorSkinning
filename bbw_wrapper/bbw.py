@@ -1,5 +1,6 @@
 import os
 from cffi import FFI
+from numpy import *
 
 try:
    from pydb import debugger
@@ -140,6 +141,7 @@ def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
     assert len( skeleton_point_handles ) == len( set( skeleton_point_handles ) )
     
     Wout = numpy.empty( ( len( vertices ), len( skeleton_handle_vertices ) ), dtype = numpy.float64 )
+#     debugger()
     result = libbbw.bbw(
         len( vertices ),                 ffi.cast( 'real_t*',  vertices.ctypes.data ),
         len( faces ),                    ffi.cast( 'index_t*', faces.ctypes.data ),
@@ -176,7 +178,7 @@ def test_simple():
     vs = array([(-1, -1), (1, -1), (1, 1), (-1, 1), (0, 0)])
     faces = array([[3, 0, 4], [4, 1, 2], [1, 4, 0], [4, 2, 3]])
     
-    handle_points = [ 0, 1 ]
+    handle_points = [ 0 ]
     W = bbw( vs, faces, [ vs[i] for i in handle_points ], list(range(len( handle_points ))) )
     print W
 
