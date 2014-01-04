@@ -112,7 +112,7 @@ int bbw(
     MatrixXd W;
     if(!bbw(V,F,b,bc,bbw_data,W))
     {
-        return 1;
+        return 2;
     }
     
     // Normalize weights.

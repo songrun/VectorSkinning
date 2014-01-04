@@ -168,7 +168,9 @@ def test_OBJ( path ):
     assert len( set( handle_points ) ) == len( handle_points )
     assert min( handle_points ) >= 0
     assert max( handle_points ) < len( vs )
-#     debugger()
+#   debugger()
+    ## To test a single handle, uncomment the following line.
+    #handle_points = handle_points[:1]
     W = bbw( vs, faces, [ vs[i] for i in handle_points ], list(range(len( handle_points ))) )
     print W
 
