@@ -38,7 +38,7 @@ class Engine:
 	'''
 	A data persistant that have all information needed to precompute and the system matrix of the previous state.
 	'''
-	handle_pos = []
+	handle_positions = []
 	transforms = []
 	
 	all_controls = []
@@ -57,18 +57,60 @@ class Engine:
 # 			self.is_ready = True
 	
 	def set_control_positions( self, paths_info, boundary_index ):
-		
+		'''
+		initialize the control points for multiple paths and make the default constraints
+		boundary_index tells which path is the outside boundary
+		'''
 		self.boundary_index = boundary_index
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 		
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints		
-
 			
-	def set_constraints( self, constraints ):
-		pass
+	def constraint_change( self, path_index, joint_index, constraint ):
+		'''
+		change the constraint at a joint of a path.
+		path_index tells which path, joint_index tells which joint
+		'''
+		constraint = asarray( constraint )
+		assert constraint.shape == (2, )
+		
+		self.all_constraints[ path_index ][ joint_index ] = constraint
 
+	def transform_change( self, i, transform ):
+		'''
+		change the transform at the index i
+		'''
+		assert i in range( len( self.transforms ) )
+		transform = asarray( transform )
+		if len( transform ) == 2:
+			transform = concatenate( ( transform, array( [[0, 0, 1]] ) ), axis=0 )
+		assert transform.shape == (3,3)
+		
+		self.transforms[i] = transform
+	
+	def set_handle_positions( self, handles ):
+		'''
+		set new handles with identity transforms and keep old handles and transforms unchanged.
+		'''
+		handles = asarray( handles )
+		handle_positions = self.handle_positions
+		handle_positions = asarray( handle_positions )
+		num_adding = len( handles ) - len( handle_positions	)
+		
+		assert num_adding >= 0
+		if len( handle_positions ) != 0:
+			assert array_equal( handle_positions, handles[ :len( handle_positions ) ] )
+		
+		self.handle_positions = handles.tolist()
+		
+		for i in range( num_adding ):
+			self.transforms.append( identity(3) )
+		
+	def solve( self ):
+		raise NotImplementedError('Solve has not been done yet.')
+		
 def get_controls( controls ):
 	'''
 	given a list of Control_point classes, return each control point's position and the joint's constraint.
@@ -312,9 +354,11 @@ def main():
 #                           [-272.5870056152344, -3.197000026702881],
 #                           [-272.48699951171875, -4.85099983215332]]}
 					]
-		
-	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
 	
+	skeleton_handle_vertices = [[176, 126]]	
+# 	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
+	
+	constraint = [0, 3, (2,1) ]
 	
 	engine = Engine()
 	boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
@@ -322,10 +366,10 @@ def main():
 	
 	engine.set_control_positions( paths_info, boundary_index )
 	
-# 	engine.set_constraints()
-# 	
-# 	engine.set_handle_positions()
-# 	
+ 	engine.constraint_change( constraint[0], constraint[1], constraint[2] )
+
+	engine.set_handle_positions( skeleton_handle_vertices )
+ 	
 # 	engine.set_transforms()
 	
 	debugger()
@@ -333,7 +377,7 @@ def main():
 	
 	trans = [array([ 1.,  0.,  0.,	0.,	 1.,  0.,  0.,	0.,	 1.]), array([ 1.,	0.,	 0.,  0.,  1., 0., 0., 0., 1.])]	  
 						   
-	constraints = [[1, 0], [2, 0]]
+
 	
 	P_primes, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, control_pos, skeleton_handle_vertices, trans, constraints, all_weights, all_vertices, all_indices, all_pts, all_dts )
 	

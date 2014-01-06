@@ -131,6 +131,7 @@ def make_control_points_chain( controls, close = True ):
 			print 'wrong num for closed controls: ', len(controls), ': ', controls
 	else:
 		if close == False:	
+			debugger()
 			print 'wrong num for open controls: ', len(controls), ': ', controls
 	
 	num_segment = len( controls )//3
