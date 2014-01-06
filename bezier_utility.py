@@ -118,30 +118,70 @@ def length_of_cubic_bezier_curve( P, num_samples = 100 ):
 	return sum( lengths )
 	
 def make_control_points_chain( controls, close = True ):
-	controls = asarray(controls)
-	Cset = []
-	if close == True:
-		if len( controls ) %3 != 0 or len(controls) < 3:
-			print 'bad number of control points.'
-			return None
-			
-		for i in range( len( controls )//3 -1 ):
-			Cset.append(controls[i*3:i*3+4].tolist())
-		
-		last = controls[-3:].tolist() + [controls[0].tolist()]
-		Cset.append(last)
-		Cset = asarray( Cset )
+	'''
+	make every control points a group from a chain of control points. Discard the remainder control points if there is any extra.
+	'''
+	controls = asarray(controls)	
+	remain_num = len( controls ) % 3
+	
+	if remain_num == 2:
+		print 'wrong num for controls: ', len(controls), ': ', controls, 'closed:', close  
+	elif remain_num == 1:
+		if close == True and not array_equal( controls[0], controls[-1] ):
+			print 'wrong num for closed controls: ', len(controls), ': ', controls
 	else:
-		if len( controls ) %3 != 1 or len(controls) < 4:
-			print 'bad number of control points.'
-			return None
-			
-		for i in range( len( controls )//3 ):
-			Cset.append(controls[i*3:i*3+4].tolist())
-		
-		Cset = asarray( Cset )
+		if close == False:	
+			debugger()
+			print 'wrong num for open controls: ', len(controls), ': ', controls
+	
+	num_segment = len( controls )//3
+	if close == True:
+		controls = concatenate( (controls[:num_segment*3], controls[0].reshape(1,2) ), axis=0 )
+	elif close == False and remain_num == 0:
+		num_segment -= 1
+
+	controls = controls[ :3*num_segment+1 ] 		
+	            
+	Cset = []
+	for i in range( num_segment ):
+		Cset.append(controls[i*3:i*3+4].tolist())
+	
+	Cset = asarray( Cset )
 	
 	return Cset
+	
+def make_constraints_from_control_points( control_group, close=True ):
+	'''
+	Make default constraints based on the following assumptions:
+	- if upon loading they appear to be G1, they should stay G1
+    - C1 is G1
+    - 90 degrees defaults to fixed angle
+    - pinning should never be done; user can add later or handles placed near control points have that effect	
+	'''
+	control_group = asarray( control_group )
+	num = len( control_group )
+	constraints = zeros( ( num, 2 ) ) 
+	
+	for i in range( num ):
+		dir1 = dir_allow_zero( control_group[i,-1] - control_group[i,-2] )
+		dir2 = dir_allow_zero( control_group[(i+1)%num,1] - control_group[(i+1)%num,0] )
+		
+		if allclose( dir1, dir2, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
+			## G1
+			constraints[ (i+1)%num, 0 ] = 4 
+		elif allclose( dot( dir1, dir2 ), 0, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
+			## fixed angle
+			constraints[ (i+1)%num, 0 ] = 2  
+		else:
+			## C0
+			constraints[ (i+1)%num, 0 ] = 1
+		
+ 	if close == False:
+ 		constraints[0,0] = 0
+ 		constraints = concatenate( (constraints, zeros( (1,2) ) ), axis=0 )
+ 		
+ 	return constraints	
+	
 	
 def split_cublic_beizer_curve( controls, partition ):
 	'''

@@ -4,23 +4,37 @@ import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
 
-def triangulate_and_compute_weights(pts, skeleton_handle_vertices):
+def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None):
 	'''
 	trianglue a region closed by a bunch of bezier curves, precompute the vertices at each sample point.
 	'''
-	boundary_edges = [ ( i, (i+1) % len(pts) ) for i in xrange(len( pts )) ]
+	if all_pts is None:
+		all_pts = boundary_pts
 	
-	pts = asarray( pts )[:, :2]
+	from itertools import chain
+	clean_boundary = list( chain( *[ samples for samples, ts in asarray(boundary_pts)[:,:,:-1] ] ) )
+	
+	clean_boundary = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
+	clean_boundary = asarray( clean_boundary )[:, :2]
+	
+	all_clean_pts = []
+	for pts in all_pts:
+		clean_pts = list( chain( *[ samples for samples, ts in asarray(pts)[:,:,:-1] ] ) )
+		clean_pts = [ ( i, (i+1) % len(clean_pts) ) for i in xrange(len( clean_pts )) ]
+		all_clean_pts += clean_pts 
+	
+	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
 	if len( skeleton_handle_vertices ) > 0:
 		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
-	pts = concatenate( ( pts, skeleton_handle_vertices ), axis = 0 )
-	vs, faces = triangles_for_points( pts, boundary_edges )
-	vs = asarray(vs)[:, :2].tolist()
+	all_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
+	vs, faces = triangles_for_points( all_pts, clean_boundary )
 	
+	vs = asarray(vs)[:, :2].tolist()	
 	faces = asarray(faces).tolist()
+# 	debugger()
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
 	
 	return vs, faces, all_weights
@@ -243,5 +257,12 @@ def compute_error_metric( bbw_curve, spline_skin_curve, dts ):
 	diffs = (diffs[:-1] + diffs[1:])/2
 	
 	diffs = dot(diffs, dts)
-		
-	return diffs
+	
+	bbw_lengths = [mag(bbw_curve[i]-bbw_curve[i+1]) for i in xrange( len( bbw_curve )-1 )]
+	spline_lengths = [mag(spline_skin_curve[i]-spline_skin_curve[i+1]) for i in xrange( len( spline_skin_curve )-1 )]
+	
+	scale = sum( spline_lengths )
+	
+# 	if diffs*scale > 100: debugger()
+	
+	return diffs*scale

@@ -30,6 +30,7 @@ def mag2( vec ):
 def mag( vec ):
 	return sqrt(mag2(vec))
 def dir( vec ):
+	assert mag(vec) != 0
 	vec = asarray(vec)
 	return vec * 1./mag(vec)
 def dir_allow_zero( vec ):

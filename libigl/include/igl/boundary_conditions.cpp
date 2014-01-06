@@ -149,6 +149,12 @@ IGL_INLINE bool igl::boundary_conditions(
     assert(sum != 0);
     bc.row(i).array() /= sum;
   }
+	// If there's only a single boundary condition, the following tests
+	// are overzealous.
+	if(bc.rows() == 1)
+	{
+		return true;
+	}
 
   // If there's only a single boundary condition, the following tests
   // are overzealous.
