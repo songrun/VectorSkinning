@@ -8,6 +8,7 @@ from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, 
 
 ## All payloads are JSON-formatted.
 import json
+from chain_computer import *
 
 engine = None
 
@@ -19,7 +20,6 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
         print 'CONNECTED'
     
     def onMessage( self, msg, binary ):
-    	debugger()
         ### BEGIN DEBUGGING
         if not binary:
             from pprint import pprint
@@ -29,9 +29,27 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
         if binary:
             print 'Received unknown message: binary of length', len( msg )
         
-        elif msg.startswith( 'paths-info ' ):
+        elif msg.startswith( 'paths-info ' ):      
             paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
             
+            boundary_path = max(paths_info, key=lambda e : e[u'bbox_area'])
+            boundary_index = paths_info.index( boundary_path )
+            
+            self.engine.set_control_positions( paths_info, boundary_index )
+            all_constraints = self.engine.all_constraints
+            print 'constraints: ', all_constraints
+            for i, constraints in enumerate( all_constraints ):
+            	for j, constraint in enumerate( constraints ):
+            		fixed = False
+            		if constraint[1] == 1:	fixed = True
+            		continuity = 'C0'
+            		if constraint[0] == 1: continuity = 'C0'
+            		elif constraint[0] == 2: continuity = 'A'
+            		elif constraint[0] == 3: continuity = 'C1'
+            		elif constraint[0] == 4: continuity = 'G1'
+            		
+            		payload = [ i, j, { 'fixed': fixed, 'continuity': continuity} ]
+            		self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
             ## Precompute something with the paths.
             # self.engine ...
             
@@ -84,7 +102,7 @@ if __name__ == '__main__':
     
     ## Create engine:
     # engine = ...
-    engine = None
+    engine = Engine()
     
     setupWebSocket( "ws://localhost:9123", engine )
     

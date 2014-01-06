@@ -23,35 +23,9 @@ class Handle:
 		else: 
 			return False
 		
-class Precomputed_parameters:
-	all_vertices = None
-	all_weights = None
-	all_indices = None
-	all_pts = None
-	all_dts = None
-	W_matrices = None
-	
-	def __init__(W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts):
-		self.W_matrices = W_matrices
-		self.all_weights = all_weights
-		self.all_vertices = all_weights
-		self.all_indices = all_indices
-		self.all_pts = all_pts
-		self.all_dts = all_dts
 
-class Engine:
 
-	transforms = []
-	controls = []	
-	precomputed_parameter_table = []
-	is_ready = False
-	
-	def __init__( controls, handles ):
-		setup_configuration( controls, handles )
-		self.is_ready = True
-	
-	
-	def setup_configuration( controls, handles ):
+
 		
 			
 		
