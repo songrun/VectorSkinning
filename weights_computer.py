@@ -13,14 +13,12 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	
 	from itertools import chain
 	clean_boundary = list( chain( *[ samples for samples, ts in asarray(boundary_pts)[:,:,:-1] ] ) )
-	
-	clean_boundary = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
+	boundary_edges = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
 	clean_boundary = asarray( clean_boundary )[:, :2]
 	
 	all_clean_pts = []
 	for pts in all_pts:
 		clean_pts = list( chain( *[ samples for samples, ts in asarray(pts)[:,:,:-1] ] ) )
-		clean_pts = [ ( i, (i+1) % len(clean_pts) ) for i in xrange(len( clean_pts )) ]
 		all_clean_pts += clean_pts 
 	
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
@@ -29,12 +27,12 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
-	all_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	vs, faces = triangles_for_points( all_pts, clean_boundary )
+	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
+	vs, faces = triangles_for_points( registered_pts, boundary_edges )
 	
-	vs = asarray(vs)[:, :2].tolist()	
-	faces = asarray(faces).tolist()
-# 	debugger()
+	vs = asarray(vs)[:, :2]	
+	faces = asarray(faces)
+
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
 	
 	return vs, faces, all_weights

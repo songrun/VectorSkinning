@@ -31,7 +31,6 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		elif msg.startswith( 'paths-info ' ):	   
 			paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
-			
 			boundary_path = max(paths_info, key=lambda e : e[u'bbox_area'])
 			boundary_index = paths_info.index( boundary_path )
 			
@@ -62,8 +61,20 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			paths_info = json.loads( msg[ len( 'handle-positions ' ): ] )
 
 			self.engine.set_handle_positions( paths_info )
-# 			new_positions = self.engine.solve()
-# 			self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
+			engine.precompute_configuration()
+			
+			all_paths = self.engine.solve()	
+# 			if type(all_paths) in types.StringTypes():
+# 				print all_paths
+# 				return
+
+			all_positions = [] 					
+			for path in all_paths:
+				new_positions = concatenate( asarray(path)[:-1, :-1] )
+				new_positions = concatenate( ( new_positions, path[-1] ) )
+				new_positions = new_positions.tolist()
+				all_positions.append( new_positions )
+			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
 			## Generate the triangulation and the BBW weights.
 			# self.engine ...
@@ -72,8 +83,19 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			paths_info = json.loads( msg[ len( 'handle-transform ' ): ] )
 			
 			self.engine.transform_change( paths_info[0], paths_info[1] )
-# 			new_positions = self.engine.solve()
-# 			self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
+			
+			all_paths = self.engine.solve()	
+# 			if type(all_paths) in types.StringTypes():
+# 				print all_paths
+# 				return
+
+			all_positions = [] 					
+			for path in all_paths:
+				new_positions = concatenate( asarray(path)[:-1, :-1] )
+				new_positions = concatenate( ( new_positions, path[-1] ) )
+				new_positions = new_positions.tolist()
+				all_positions.append( new_positions )
+			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
 			## Solve for the new curve positions given the updated transform matrix.
 			# new_positions = engine ...
@@ -93,8 +115,18 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
 			
-# 			new_positions = self.engine.solve()
-# 			self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
+			all_paths = self.engine.solve()	
+# 			if type(all_paths) in types.StringTypes():
+# 				print all_paths
+# 				return
+			
+			all_positions = [] 	
+			for path in all_paths:
+				new_positions = concatenate( asarray(path)[:-1, :-1] )
+				new_positions = concatenate( ( new_positions, path[-1] ) )
+				new_positions = new_positions.tolist()
+				all_positions.append( new_positions )
+			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
 			## Solve for the new curve positions given the updated control point constraint.
 			# new_positions = self.engine ...
