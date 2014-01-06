@@ -166,7 +166,7 @@ var kFakeWebSocket = false;
 // For each path, for each cubic end point, a dictionary { 'fixed': true|false, 'continuity': 'C0|C1|G1|A' }
 var gPathsControlPointConstraints = null;
 // The index of the largest path.
-var gLargestPathIndex = -1;
+var gLargestPath = null;
 // An array of handles, where each handle is a dictionary { 'pos': [ x,y ], 'transform': Snap.Matrix }
 gHandles = [];
 // The WebSocket.
@@ -243,58 +243,88 @@ function receiveSocketMessage( data )
 // as packaged for sendPathsForPrecomputation().
 function updatePaths( new_paths_points )
 {
-    var paths = $( '#svg-file > svg path' );
-    if( paths.length !== new_paths_points.length )
-    {
-        console.log( "Can't update with the wrong number of paths." )
-        return;
-    }
+    // TODO: Handle subpaths and compound paths.
     
-    for( var path_index = 0; path_index < paths.length; ++path_index )
+    var paths = $( '#svg-file > svg path' );
+    // Because of subpaths and compound paths, we can't compare paths.length with new_paths_points.length.
+    
+    var new_path_index = -1;
+    var new_path_offset = 0;
+    for( var svg_path_index = 0; svg_path_index < paths.length; ++svg_path_index )
     {
-        var new_points = new_paths_points[path_index];
-        var path = paths[path_index];
-        
+        var path = paths[svg_path_index];
         var segments = path.pathSegList;
-        // First take care of the initial Move-to.
-        var pathSeg = segments.getItem(0);
-        if( !pathSeg.pathSegType === SVGPathSeg.PATHSEG_MOVETO_ABS )
-        {
-            console.log( "Expected move-to" );
-            return;
-        }
-        pathSeg.x = new_points[0][0];
-        pathSeg.y = new_points[0][1];
         
-        // The rest of the points should proceed simply.
-        for( var i = 1; i < segments.numberOfItems; ++i )
+        for( var i = 0; i < segments.numberOfItems; ++i )
         {
-            pathSeg = segments.getItem(i);
-            if( i === segments.numberOfItems-1 && pathSeg.pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH )
+            var pathSeg = segments.getItem(i);
+            // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
+            switch( pathSeg.pathSegType )
             {
-                // It's OK to have a close-path at the end.
-                continue;
+                case SVGPathSeg.PATHSEG_MOVETO_ABS:
+                    // Handle subpaths and compound paths by creating a new path every
+                    // time we see a move-to.
+                    // NOTE: This will be wrong if there is a close-path *not* followed
+                    //       by a move-to.
+                    new_path_index += 1;
+                    new_path_offset = 0;
+                    
+                    pathSeg.x = new_paths_points[new_path_index][new_path_offset][0];
+                    pathSeg.y = new_paths_points[new_path_index][new_path_offset][1];
+                    break;
+                
+                case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
+                    pathSeg.x1 = new_paths_points[new_path_index][new_path_offset][0];
+                    pathSeg.y1 = new_paths_points[new_path_index][new_path_offset][1];
+                    new_path_offset += 1;
+                    
+                    pathSeg.x2 = new_paths_points[new_path_index][new_path_offset][0];
+                    pathSeg.y2 = new_paths_points[new_path_index][new_path_offset][1];
+                    new_path_offset += 1;
+                    
+                    pathSeg.x = new_paths_points[new_path_index][new_path_offset][0];
+                    pathSeg.y = new_paths_points[new_path_index][new_path_offset][1];
+                    new_path_offset += 1;
+                    
+                    break;
+                
+                default:
+                    console.log( "We shouldn't see pathSeg.pathSegType: " + pathSeg.pathSegType );
+                    break;
             }
-            
-            // We are expecting absolute cubic curves throughout.
-            if( !pathSeg.pathSegType === SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS )
-            {
-                console.log( "Expected move-to" );
-                return;
-            }
-            
-            pathSeg.x1 = new_points[ (i-1)*3 + 1 ][0];
-            pathSeg.y1 = new_points[ (i-1)*3 + 1 ][1];
-            
-            pathSeg.x2 = new_points[ (i-1)*3 + 2 ][0];
-            pathSeg.y2 = new_points[ (i-1)*3 + 2 ][1];
-            
-            pathSeg.x = new_points[ (i-1)*3 + 3 ][0];
-            pathSeg.y = new_points[ (i-1)*3 + 3 ][1];
         }
     }
     
     // TODO: Update the circle widgets created by createConstraintUIForSVG().
+}
+/*
+Given an array of [x,y] coordinates, returns the area of the axis-aligned bounding box
+containing the points.
+Returns 0 for an empty array of points.
+*/
+function bounding_box_area_for_points( points )
+{
+    if( points.length === 0 )
+    {
+        console.log( "bounding_box_area_for_points() called with no points. returning 0." )
+        return 0;
+    }
+    
+    var minx = points[0][0];
+    var miny = points[0][1];
+    var maxx = minx;
+    var maxy = miny;
+    
+    for( var i = 1; i < points.length; ++i )
+    {
+        minx = Math.min( minx, points[i][0] );
+        miny = Math.min( miny, points[i][1] );
+        
+        maxx = Math.max( maxx, points[i][0] );
+        maxy = Math.max( maxy, points[i][1] );
+    }
+    
+    return (maxx - minx)*(maxy - miny);
 }
 function sendPathsForPrecomputation()
 {
@@ -302,10 +332,39 @@ function sendPathsForPrecomputation()
     "use strict";
     
     // Send all paths over the websocket.
-    // TODO Q: Should I figure out which one is the biggest one?
-    //         A heuristic that might work is to take the one with the largest bounding box.
+    // Q: Should I figure out which one is the biggest one?
+    // A: A heuristic that might work is to take the one with the largest bounding box.
     
     var paths_info = [];
+    function append_path( cubic_points )
+    {
+        if( cubic_points.length < 4 )
+        {
+            console.error( "append_path() received something too short." );
+            return;
+        }
+        if( (cubic_points.length-1) % 3 )
+        {
+            console.error( "append_path() received the wrong number of points." );
+            return;
+        }
+        
+        // Save the bounding box area of the path.
+        var bbox_area = bounding_box_area_for_points( cubic_points );
+        
+        var first_point = cubic_points[0];
+        var last_point = cubic_points[ cubic_points.length-1 ];
+        
+        var closed = first_point[0] == last_point[0] && first_point[1] == last_point[1];
+        // NOTE: Closed curves will have the last point the same as the first.
+        
+        paths_info.push({
+            'bbox_area': bbox_area,
+            'closed': closed,
+            'cubic_bezier_chain': cubic_points
+            });
+    }
+    
     $('#svg-file path').each( function( index, path ) {
         var cubic_points = [];
         
@@ -320,8 +379,15 @@ function sendPathsForPrecomputation()
             switch( pathSeg.pathSegType )
             {
                 case SVGPathSeg.PATHSEG_MOVETO_ABS:
-                    if( 0 !== i ) console.log( "This is bad. Move-to should only appear as the first thing in a path." );
-                    cubic_points.push( [ pathSeg.x, pathSeg.y ] );
+                    // Handle subpaths and compound paths by creating a new path every
+                    // time we see a move-to.
+                    // NOTE: This will be wrong if there is a close-path *not* followed
+                    //       by a move-to.
+                    if( cubic_points.length > 0 )
+                    {
+                        append_path( cubic_points );
+                    }
+                    cubic_points = [ [ pathSeg.x, pathSeg.y ] ];
                     break;
                 
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
@@ -330,32 +396,19 @@ function sendPathsForPrecomputation()
                     cubic_points.push( [ pathSeg.x, pathSeg.y ] );
                     break;
                 
-                case SVGPathSeg.PATHSEG_CLOSEPATH:
-                    // Nothing to do. This is here because we complain on default.
-                    break;
-                
                 default:
                     console.log( "We shouldn't see pathSeg.pathSegType: " + pathSeg.pathSegType );
                     break;
             }
         }
+        // Append the final path.
+        append_path( cubic_points );
         
-        // Save the bounding box area of the path.
-        var bbox = Snap.path.getBBox( path.getAttribute('d') );
-        var bbox_area = bbox.width * bbox.height;
-        
-        var closed = segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH;
-        
-        paths_info[index] = {
-            'bbox_area': bbox_area,
-            'closed': closed,
-            'cubic_bezier_chain': cubic_points
-            };
         } );
     
     // createHandleUIForSVG() needs the largest closed path.
     var biggest_bbox_area = -1;
-    gLargestPathIndex = -1;
+    gLargestPath = null;
     for( var i = 0; i < paths_info.length; ++i )
     {
         if( !paths_info[i].closed ) continue;
@@ -363,7 +416,7 @@ function sendPathsForPrecomputation()
         if( paths_info[i].bbox_area > biggest_bbox_area )
         {
             biggest_bbox_area = paths_info[i].bbox_area;
-            gLargestPathIndex = i;
+            gLargestPath = paths_info[i].cubic_bezier_chain.slice(0);
         }
     }
     
@@ -501,30 +554,38 @@ function normalizeSVG()
         // When a path is closed, Snap drops the final Z and adds a
         // cubic bezier line connecting the last and first point.
         // That is unnecessary when the last and first point were already equal.
-        // Check for this case and remove such a final bezier curve.
-        // Afterwards, put the last Z back.
-        var closed = path.pathSegList.getItem( path.pathSegList.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH;
+        // Check for this case and remove Z commands where they are unnecessary.
+        // NOTE: This handles subpaths and compound paths.
+        var segments = path.pathSegList;
+        var moveSeg;
+        for( var i = 0; i < segments.numberOfItems; ++i )
+        {
+            var pathSeg = segments.getItem(i);
+            // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
+            switch( pathSeg.pathSegType )
+            {
+                case SVGPathSeg.PATHSEG_MOVETO_ABS:
+                    moveSeg = pathSeg;
+                    break;
+                
+                case SVGPathSeg.PATHSEG_CLOSEPATH:
+                    // Remove the close-path command if we close a path
+                    // but the path has already closed itself
+                    // NOTE: This works even if the close-path immediately follows the move-to.
+                    // TODO Q: Is it OK that we store the moveSeg, even though we call removeItem()?
+                    if( pathSeg.x === moveSeg.x && pathSeg.y === moveSeg.y )
+                    {
+                        segments.removeItem(i);
+                        // We are removing a path segment, so decrement i by one,
+                        // since the for loop will increment it.
+                        i -= 1;
+                    }
+                    break;
+            }
+        }
         
         // Snap.path.toCubic() converts paths entirely to absolute cubic beziers.
         path.setAttribute( 'd', Snap.path.toCubic( path.getAttribute('d') ).toString() );
-        
-        var segments = path.pathSegList;
-        var pathSeg0 = segments.getItem( 0 );
-        var pathSegN1 = segments.getItem( segments.numberOfItems - 1 );
-        var pathSegN2 = segments.getItem( segments.numberOfItems - 2 );
-        
-        if( closed )
-        {
-            // Check if the first and last points were the same.
-            if( pathSeg0.x === pathSegN2.x && pathSeg0.y === pathSegN2.y )
-            {
-                segments.replaceItem( path.createSVGPathSegClosePath(), segments.numberOfItems - 1 );
-            }
-            else
-            {
-                segments.appendItem( path.createSVGPathSegClosePath() );
-            }
-        }
         } );
 }
 
@@ -546,11 +607,13 @@ function createConstraintUIForSVG()
     
     disableControlPointControls();
     
+    // Handle subpaths and compound paths. Store path_index and segment_index separately from the raw path index and segment index.
+    var new_path_index = -1;
+    var new_path_offset = 0;
+    
     var paths = $( '#svg-file > svg path' );
     // For each path, make a small clickable circle that brings up a popup menu.
     paths.each( function( index, path ) {
-        
-        gPathsControlPointConstraints.push( [] );
         
         /// Adapted from: http://stackoverflow.com/questions/8053487/scripting-path-data-in-svg-reading-and-modifying
         // http://www.w3.org/TR/SVG/paths.html#__svg__SVGAnimatedPathData__normalizedPathSegList
@@ -591,25 +654,35 @@ function createConstraintUIForSVG()
         for( var i = 0; i < segments.numberOfItems; ++i )
         {
             var pathSeg = segments.getItem(i);
+            var moveSeg;
             // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
             switch( pathSeg.pathSegType )
             {
                 case SVGPathSeg.PATHSEG_MOVETO_ABS:
-                    // Q: Skip the first "move to" point if the last command is close path?
+                    gPathsControlPointConstraints.push( [] );
+                    new_path_index += 1;
+                    new_segment_index = 0;
+                    
+                    // Q: Skip the first "move to" point if the path is closed?
                     // A1: Yes. Otherwise I have two sets of constraints for the same point.
                     // A2: <see the next case statement>
+                    
+                    // Store the move-to segment, to check for closed paths.
+                    moveSeg = pathSeg;
+                    
                     // if( 0 === i && segments.getItem( segments.numberOfItems - 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
-                    createControlPointHandle( index, i, pathSeg );
+                    createControlPointHandle( new_path_index, new_segment_index, pathSeg );
                     break;
                 
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
                     // A2: No. Skip the last curveTo point, so that indexing is easier.
-                    if( i+1 < segments.numberOfItems && segments.getItem( i + 1 ).pathSegType === SVGPathSeg.PATHSEG_CLOSEPATH ) break;
-                    createControlPointHandle( index, i, pathSeg );
-                    break;
-                
-                case SVGPathSeg.PATHSEG_CLOSEPATH:
-                    // Nothing to do. This is here because we complain on default.
+                    // We have to check whether ( we are the last path OR the next path is a move-to ) AND the curveTo point matches the moveTo point.
+                    if( ( i+1 == segments.numberOfItems || segments.getItem( i + 1 ).pathSegType === SVGPathSeg.PATHSEG_MOVETO_ABS )
+                        && ( pathSeg.x === moveSeg.x && pathSeg.y === moveSeg.y ) )
+                    {
+                        break;
+                    }
+                    createControlPointHandle( new_path_index, new_segment_index, pathSeg );
                     break;
                 
                 default:
@@ -629,9 +702,19 @@ function createHandleUIForSVG()
     // We previously found the largest closed path. Use that to make sure handles
     // aren't created outside the shape.
     var clickable = null;
-    if( gLargestPathIndex !== -1 )
+    if( gLargestPath !== null )
     {
-        clickable = ui.path( $('#svg-file path')[ gLargestPathIndex ].getAttribute( 'd' ) );
+        // If gLargestPath is not null, it is a closed cubic bezier chain.
+        var path = "M" + gLargestPath[0][0] + " " + gLargestPath[0][1];
+        for( var i = 1; i < gLargestPath.length; i += 3 )
+        {
+            path = path + " C";
+            for( var j = 0; j < 3; ++j )
+            {
+                path = path + " " + gLargestPath[i+j][0] + " " + gLargestPath[i+j][1];
+            }
+        }
+        clickable = ui.path( path );
         clickable.attr({ opacity: 0. });
     }
     else
