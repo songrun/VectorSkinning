@@ -30,18 +30,8 @@ class Engine:
 		boundary_index tells which path is the outside boundary
 		'''
 		self.boundary_index = boundary_index
-
-		all_controls = []
-		for path in paths_info:
-			chain = path[u'cubic_bezier_chain']
-			from collections import OrderedDict
-			cleaned_chain = list(OrderedDict.fromkeys(map( tuple, chain )))
-			cleaned_chain = map( list, cleaned_chain )
-			if path[u'closed'] == True:
-				cleaned_chain = concatenate( ( cleaned_chain, [chain[0]]) )
-			all_controls.append( make_control_points_chain( cleaned_chain, path[u'closed'] ) )
 		
-# 		all_controls = [ make_control_points_chain( list( set(path[u'cubic_bezier_chain']) ), path[u'closed'] ) for path in paths_info]
+ 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 		
 		self.all_controls = all_controls

@@ -3,18 +3,53 @@ from triangle import *
 import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
+def uniquify_points_and_return_input_index_to_unique_index_map( pts ):
+   '''
+   Given a sequence of N points 'pts',
+   returns two items:
+       a sequence of all the unique elements in 'pts'
+       and
+       a list of length N where the i-th item in the list tells you where
+       pts[i] can be found in the unique elements.
+   '''
+
+   unique_points = []
+   pts_map = []
+   for pt in pts:
+       pt = tuple( pt )
+       try:
+           index = unique_points.index( pt )
+           pts_map.append( index )
+       except ValueError:
+           pts_map.append( len( unique_points ) )
+           unique_points.append( pt )
+
+   return unique_points, pts_map
 
 def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None):
 	'''
 	trianglue a region closed by a bunch of bezier curves, precompute the vertices at each sample point.
 	'''
 	if all_pts is None:
-		all_pts = boundary_pts
+		all_pts = [boundary_pts]
 	
-	from itertools import chain
-	clean_boundary = list( chain( *[ samples for samples, ts in asarray(boundary_pts)[:,:,:-1] ] ) )
+# 	from itertools import chain
+# 	clean_boundary = list( chain( *[ samples for samples, ts in asarray(boundary_pts)[:,:,:-1] ] ) )
+# 	boundary_edges = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
+# 	clean_boundary = asarray( clean_boundary )[:, :2]
+	
+# 	all_clean_pts = []
+# 	for pts in all_pts:
+# 		clean_pts = list( chain( *[ samples for samples, ts in asarray(pts)[:,:,:-1] ] ) )
+# 		all_clean_pts += clean_pts 
+	
+	boundary_pts = [  ]
+	loop = concatenate( boundary_pts )
+		
+	clean_boundary, boundary_maps = uniquify_points_and_return_input_index_to_unique_index_map( loop )
+
 	boundary_edges = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
-	clean_boundary = asarray( clean_boundary )[:, :2]
+	debugger()
 	
 	all_clean_pts = []
 	for pts in all_pts:
