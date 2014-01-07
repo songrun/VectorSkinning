@@ -266,17 +266,10 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	
 	boundary_pts, boundary_dts = sample_cubic_bezier_curve_chain( controls_on_boundary, num_samples )
 	
-	all_vertices, facets, all_weights = triangulate_and_compute_weights( boundary_pts, skeleton_handle_vertices, all_pts )
+	boundary_pos = [ curve[0] for curve in boundary_pts ]
+	all_pos = [ [ pts[0] for pts in curve_pts ] for curve_pts in all_pts ]
 	
-	## all_indices is a table of all the indices of the points on all paths 
-	## in all_vertices
-	all_indices = [[range(len(pts)) for pts, ts in path] for path in all_pts]
-	for path_indices in all_indices: 
-		last = 0
-		for i in range( len( path_indices ) ):
-			path_indices[i] = asarray(path_indices[i])+last
-			last = path_indices[i][-1]
-		path_indices[-1][-1] = path_indices[0][0] 
+	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pos, skeleton_handle_vertices, all_pos )
 	
 	W_matrices = []
 	for j, control_pos in enumerate( all_control_positions ):

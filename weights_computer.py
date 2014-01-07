@@ -3,28 +3,45 @@ from triangle import *
 import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
-def uniquify_points_and_return_input_index_to_unique_index_map( pts ):
-   '''
-   Given a sequence of N points 'pts',
-   returns two items:
-       a sequence of all the unique elements in 'pts'
-       and
-       a list of length N where the i-th item in the list tells you where
-       pts[i] can be found in the unique elements.
-   '''
+def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pts ):
+	'''
+	Given a sequence of N points 'pts',
+	returns two items:
+	   a sequence of all the unique elements in 'pts'
+	   and
+	   a list of length N where the i-th item in the list tells you where
+	   pts[i] can be found in the unique elements.
+	'''
+	def index_close( pts, pt, rtol=1e-05, atol=1e-08 ):
 
-   unique_points = []
-   pts_map = []
-   for pt in pts:
-       pt = tuple( pt )
-       try:
-           index = unique_points.index( pt )
-           pts_map.append( index )
-       except ValueError:
-           pts_map.append( len( unique_points ) )
-           unique_points.append( pt )
-
-   return unique_points, pts_map
+		for i in range( len( pts ) ):
+			if allclose( pts[i], pt ):
+				return i
+				
+		raise ValueError( 'No close value' )
+		
+	
+	unique_points = []
+	pts_map = []
+	for pt in pts:
+		pt = tuple( pt )
+		try:
+			index = index_close( unique_points, pt )
+			pts_map.append( index )
+		except ValueError:
+			pts_map.append( len( unique_points ) )
+			unique_points.append( pt )
+   
+	boundary_map = []
+	for pt in boundary_pts:
+		pt = tuple( pt )
+		try:
+			index = index_close( unique_points, pt )
+			boundary_map.append( index )
+		except ValueError:
+			raise RuntimeError('boundary_pts contains points not in all_pts')
+				
+	return unique_points, pts_map, boundary_map
 
 def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None):
 	'''
@@ -33,29 +50,23 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	if all_pts is None:
 		all_pts = [boundary_pts]
 	
-# 	from itertools import chain
-# 	clean_boundary = list( chain( *[ samples for samples, ts in asarray(boundary_pts)[:,:,:-1] ] ) )
-# 	boundary_edges = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
-# 	clean_boundary = asarray( clean_boundary )[:, :2]
+	boundary_pts = asarray( boundary_pts )
+	all_pts = asarray( all_pts )
+	boundary_shape = boundary_pts.shape
+	all_shape = all_pts.shape
 	
-# 	all_clean_pts = []
-# 	for pts in all_pts:
-# 		clean_pts = list( chain( *[ samples for samples, ts in asarray(pts)[:,:,:-1] ] ) )
-# 		all_clean_pts += clean_pts 
+	boundary_pts = concatenate( boundary_pts )
+	all_pts = concatenate( [ concatenate( curve_pts ) for curve_pts in all_pts ] )
 	
-	boundary_pts = [  ]
-	loop = concatenate( boundary_pts )
-		
-	clean_boundary, boundary_maps = uniquify_points_and_return_input_index_to_unique_index_map( loop )
+	all_clean_pts, all_maps, boundary_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, boundary_pts )
+	
+	boundary_edges = [ ( i, (i+1) % len( set(boundary_maps) ) ) for i in xrange(len( set(boundary_maps) )) ]
 
-	boundary_edges = [ ( i, (i+1) % len(clean_boundary) ) for i in xrange(len( clean_boundary )) ]
-	debugger()
+# 	boundary_edges = [ ( boundary_maps[i], boundary_maps[ (i+1) % len(boundary_maps) ] ) for i in xrange(len( boundary_maps )) ]
 	
-	all_clean_pts = []
-	for pts in all_pts:
-		clean_pts = list( chain( *[ samples for samples, ts in asarray(pts)[:,:,:-1] ] ) )
-		all_clean_pts += clean_pts 
-	
+
+	boundary_maps = asarray( boundary_maps ).reshape( boundary_shape[:-1] )
+	all_maps = asarray( all_maps ).reshape( all_shape[:-1] )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
 	if len( skeleton_handle_vertices ) > 0:
@@ -65,12 +76,12 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
 	vs, faces = triangles_for_points( registered_pts, boundary_edges )
 	
-	vs = asarray(vs)[:, :2]	
+	vs = asarray(vs)[:, :2] 
 	faces = asarray(faces)
 
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
 	
-	return vs, faces, all_weights
+	return vs, all_weights, all_maps
 
 def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	'''
@@ -106,8 +117,8 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	result = zeros((4,4 ))
 
 	## Vertices and sampling must have the same dimension for each point.
-# 	debugger()
-# 	sampling = sampling[:,:-1]
+#	debugger()
+#	sampling = sampling[:,:-1]
 	assert vs.shape[1] == sampling.shape[1]
 	
 	## The index 'i' must be valid.
@@ -124,54 +135,54 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	return result
 
 # def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
-# 	'''
-# 	Given a function 'weight_function' that takes a point and returns its weight,
-# 	a N-by-k numpy.array 'sampling' containing the positions of the control points as the rows,
-# 	corresponding t values 'ts' for each point in 'sampling',
-# 	and an optional corresponding 'dt' for each point in sampling (default is 1/len(sampling)),
-# 	returns W, a 4-by-4 numpy.array defined as:
-# 		\int_i weight_function( sample ) \overbar{t}^T \overbar{t}^T dt
-# 	where sample, t, and dt are drawn from the corresponding input arrays.
-# 	
-# 	The optional parameter 'num_samples' determines how many samples to use to compute
-# 	the integral.
-# 	'''
-# 	
-# 	### Asserts
-# 	## Ensure our inputs are the same lengths:
-# 	assert len( sampling ) == len( ts )
-# 	assert len( sampling ) == len( dts ) + 1
-# 	
-# 	## Ensure our inputs are numpy.arrays:
-# 	sampling = asarray( sampling )
-# 	ts = asarray( ts )
-# 	dts = asarray( dts )
-# 	
-# 	## sampling must be N-by-k.
-# 	assert len( sampling.shape ) == 2
-# 	assert len( ts.shape ) == 1
-# 	assert len( dts.shape ) == 1
-# 	
-# 	### Compute the integral.
-# 	W_i = zeros( ( 4,4 ) )
-# 	tbar = ones( 4 )
-# 	
-# 	for i in range(len(dts)):
-# 		t = (ts[i] + ts[i+1])/2
-# 		dt = dts[i]
-# 		## For arc-length parameterization:
-# 		# dt = magnitude( sampling[i] - sampling[i+1] )
-# 				
-# 		tbar[0] = t**3
-# 		tbar[1] = t**2
-# 		tbar[2] = t
-# 		tbar = tbar.reshape( (4,1) )
-# 		
-# 		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
-# 		
-# 		W_i += dot( dt * w * tbar, tbar.T )
-# 	
-# 	return W_i
+#	'''
+#	Given a function 'weight_function' that takes a point and returns its weight,
+#	a N-by-k numpy.array 'sampling' containing the positions of the control points as the rows,
+#	corresponding t values 'ts' for each point in 'sampling',
+#	and an optional corresponding 'dt' for each point in sampling (default is 1/len(sampling)),
+#	returns W, a 4-by-4 numpy.array defined as:
+#		\int_i weight_function( sample ) \overbar{t}^T \overbar{t}^T dt
+#	where sample, t, and dt are drawn from the corresponding input arrays.
+#	
+#	The optional parameter 'num_samples' determines how many samples to use to compute
+#	the integral.
+#	'''
+#	
+#	### Asserts
+#	## Ensure our inputs are the same lengths:
+#	assert len( sampling ) == len( ts )
+#	assert len( sampling ) == len( dts ) + 1
+#	
+#	## Ensure our inputs are numpy.arrays:
+#	sampling = asarray( sampling )
+#	ts = asarray( ts )
+#	dts = asarray( dts )
+#	
+#	## sampling must be N-by-k.
+#	assert len( sampling.shape ) == 2
+#	assert len( ts.shape ) == 1
+#	assert len( dts.shape ) == 1
+#	
+#	### Compute the integral.
+#	W_i = zeros( ( 4,4 ) )
+#	tbar = ones( 4 )
+#	
+#	for i in range(len(dts)):
+#		t = (ts[i] + ts[i+1])/2
+#		dt = dts[i]
+#		## For arc-length parameterization:
+#		# dt = magnitude( sampling[i] - sampling[i+1] )
+#				
+#		tbar[0] = t**3
+#		tbar[1] = t**2
+#		tbar[2] = t
+#		tbar = tbar.reshape( (4,1) )
+#		
+#		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
+#		
+#		W_i += dot( dt * w * tbar, tbar.T )
+#	
+#	return W_i
 
 def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 	'''
@@ -296,6 +307,6 @@ def compute_error_metric( bbw_curve, spline_skin_curve, dts ):
 	
 	scale = sum( spline_lengths )
 	
-# 	if diffs*scale > 100: debugger()
+#	if diffs*scale > 100: debugger()
 	
 	return diffs*scale
