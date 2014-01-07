@@ -30,7 +30,18 @@ class Engine:
 		boundary_index tells which path is the outside boundary
 		'''
 		self.boundary_index = boundary_index
-		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
+
+		all_controls = []
+		for path in paths_info:
+			chain = path[u'cubic_bezier_chain']
+			from collections import OrderedDict
+			cleaned_chain = list(OrderedDict.fromkeys(map( tuple, chain )))
+			cleaned_chain = map( list, cleaned_chain )
+			if path[u'closed'] == True:
+				cleaned_chain = concatenate( ( cleaned_chain, [chain[0]]) )
+			all_controls.append( make_control_points_chain( cleaned_chain, path[u'closed'] ) )
+		
+# 		all_controls = [ make_control_points_chain( list( set(path[u'cubic_bezier_chain']) ), path[u'closed'] ) for path in paths_info]
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 		
 		self.all_controls = all_controls
@@ -297,7 +308,7 @@ def main():
 	a console test.
 	'''
 	paths_info =  [
-{u'bbox_area': 73283.73938483332,
+	{u'bbox_area': 81583.4111926838,
   u'closed': True,
   u'cubic_bezier_chain': [[46.95399856567383, 114.95899963378906],
                           [35.944000244140625, 177.95700073242188],
@@ -311,7 +322,10 @@ def main():
                           [241.58200073242188, 21.156999588012695],
                           [116.78900146484375, 22.809999465942383],
                           [61.83000183105469, 29.834999084472656],
-                          [46.95399856567383, 114.95899963378906]]},
+                          [46.95399856567383, 114.95899963378906],
+                          [46.95399856567383, 114.95899963378906],
+                          [46.95399856567383, 114.95899963378906],
+                          [46.95399856567383, 114.95899963378906]]}
 #   {u'bbox_area': 55.29089948625202,
 #   u'closed': False,
 #   u'cubic_bezier_chain': [[-255.1510009765625, 5.1479997634887695],
@@ -380,11 +394,7 @@ def main():
 # 	
 # 	trans = [array([ 1.,  0.,  0.,	0.,	 1.,  0.,  0.,	0.,	 1.]), array([ 1.,	0.,	 0.,  0.,  1., 0., 0., 0., 1.])]	  
 # 						   
-	debugger()
-	
-	P_primes, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, control_pos, skeleton_handle_vertices, trans, constraints, all_weights, all_vertices, all_indices, all_pts, all_dts )
 	
 	print 'HAHA ~ '
-	print P_primes
 	
 if __name__ == '__main__': main()		

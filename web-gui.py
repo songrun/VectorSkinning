@@ -21,9 +21,9 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 	
 	def onMessage( self, msg, binary ):
 		### BEGIN DEBUGGING
-		if not binary:
-			from pprint import pprint
-			pprint( json.loads( msg[ msg.find( ' ' )+1 : ] ) )
+# 		if not binary:
+# 			from pprint import pprint
+# 			pprint( json.loads( msg[ msg.find( ' ' )+1 : ] ) )
 		### END DEBUGGING
 		
 		if binary:
@@ -34,9 +34,12 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			boundary_path = max(paths_info, key=lambda e : e[u'bbox_area'])
 			boundary_index = paths_info.index( boundary_path )
 			
+# 			test_pushback = [ path[u'cubic_bezier_chain'] for path in paths_info ]
+# 			self.sendMessage( 'paths-positions ' + json.dumps( test_pushback ) )
+# 			debugger()
 			self.engine.set_control_positions( paths_info, boundary_index )
 			all_constraints = self.engine.all_constraints
-			print 'constraints: ', all_constraints
+# 			print 'constraints: ', all_constraints
 			for i, constraints in enumerate( all_constraints ):
 				for j, constraint in enumerate( constraints ):
 					fixed = False
