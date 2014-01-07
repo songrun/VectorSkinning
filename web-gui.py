@@ -10,7 +10,7 @@ from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, 
 import json
 from chain_computer import *
 
-engine = None
+kVerbose = 1
 
 class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
@@ -21,9 +21,15 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 	
 	def onMessage( self, msg, binary ):
 		### BEGIN DEBUGGING
-# 		if not binary:
-# 			from pprint import pprint
-# 			pprint( json.loads( msg[ msg.find( ' ' )+1 : ] ) )
+		if kVerbose >= 2:
+			if not binary:
+				from pprint import pprint
+				space = msg.find( ' ' )
+				print msg[ :space-1 ]
+				pprint( json.loads( msg[ space+1 : ] ) )
+		elif kVerbose >= 1:
+			if not binary:
+				print( msg[:72] ), '...'
 		### END DEBUGGING
 		
 		if binary:
@@ -64,7 +70,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			paths_info = json.loads( msg[ len( 'handle-positions ' ): ] )
 
 			self.engine.set_handle_positions( paths_info )
-			engine.precompute_configuration()
+			self.engine.precompute_configuration()
 			
 			all_paths = self.engine.solve()	
 # 			if type(all_paths) in types.StringTypes():

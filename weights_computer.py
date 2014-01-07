@@ -12,33 +12,46 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pt
 	   a list of length N where the i-th item in the list tells you where
 	   pts[i] can be found in the unique elements.
 	'''
+	
+	## index_close() needs this to be an array.
+	pts = asarray( pts )
+	
 	def index_close( pts, pt, rtol=1e-05, atol=1e-08 ):
+		
+		## Fast version:
+		indices = where( abs( pts - pt ).sum( axis = 1 ) < atol )[0]
+		if len( indices ) == 0:
+			return -1
+		else:
+			return indices[0]
 
-		for i in range( len( pts ) ):
-			if allclose( pts[i], pt ):
-				return i
-				
-		raise ValueError( 'No close value' )
+# 		for i in range( len( pts ) ):
+# 			if allclose( pts[i], pt ):
+# 				return i
+# 				
+# 		raise ValueError( 'No close value' )
 		
 	
 	unique_points = []
 	pts_map = []
 	for pt in pts:
-		pt = tuple( pt )
-		try:
-			index = index_close( unique_points, pt )
+		# pt = tuple( pt )
+		index = index_close( unique_points, pt )
+		if index != -1:
 			pts_map.append( index )
-		except ValueError:
+		else:
 			pts_map.append( len( unique_points ) )
 			unique_points.append( pt )
-   
+	
+	## index_close() needs this to be an array.
+	unique_points = asarray( unique_points )
 	boundary_map = []
 	for pt in boundary_pts:
-		pt = tuple( pt )
-		try:
-			index = index_close( unique_points, pt )
+		# pt = tuple( pt )
+		index = index_close( unique_points, pt )
+		if index != -1:
 			boundary_map.append( index )
-		except ValueError:
+		else:
 			raise RuntimeError('boundary_pts contains points not in all_pts')
 				
 	return unique_points, pts_map, boundary_map
