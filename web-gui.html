@@ -243,8 +243,6 @@ function receiveSocketMessage( data )
 // as packaged for sendPathsForPrecomputation().
 function updatePaths( new_paths_points )
 {
-    // TODO: Handle subpaths and compound paths.
-    
     var paths = $( '#svg-file > svg path' );
     // Because of subpaths and compound paths, we can't compare paths.length with new_paths_points.length.
     
@@ -271,6 +269,7 @@ function updatePaths( new_paths_points )
                     
                     pathSeg.x = new_paths_points[new_path_index][new_path_offset][0];
                     pathSeg.y = new_paths_points[new_path_index][new_path_offset][1];
+                    new_path_offset += 1;
                     break;
                 
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
@@ -421,6 +420,20 @@ function sendPathsForPrecomputation()
     }
     
     gSocket.send( "paths-info " + JSON.stringify( paths_info ) );
+    
+    // If we're debugging, update all points with the exact same thing we just loaded.
+    // Nothing should change.
+    if( kDebugging )
+    {
+        setTimeout( function() {
+            var new_paths = [];
+            for( var i = 0; i < paths_info.length; ++i )
+            {
+                new_paths.push( paths_info[i].cubic_bezier_chain );
+            }
+            updatePaths( new_paths );
+            }, 100 );
+    }
 }
 function sendHandlePositions()
 {
@@ -550,12 +563,15 @@ function normalizeSVG()
 {
     // Iterate over all paths, replacing them with normalized versions of themselves.
     var svg = $('#svg-file path').each( function( index, path ) {
-        
         // When a path is closed, Snap drops the final Z and adds a
         // cubic bezier line connecting the last and first point.
         // That is unnecessary when the last and first point were already equal.
         // Check for this case and remove Z commands where they are unnecessary.
         // NOTE: This handles subpaths and compound paths.
+        
+        // We need absolute points in order to do this check.
+        path.setAttribute( 'd', Snap.path.toAbsolute( path.getAttribute('d') ).toString() );
+        
         var segments = path.pathSegList;
         var moveSeg;
         for( var i = 0; i < segments.numberOfItems; ++i )
@@ -573,7 +589,8 @@ function normalizeSVG()
                     // but the path has already closed itself
                     // NOTE: This works even if the close-path immediately follows the move-to.
                     // TODO Q: Is it OK that we store the moveSeg, even though we call removeItem()?
-                    if( pathSeg.x === moveSeg.x && pathSeg.y === moveSeg.y )
+                    var lastPathSeg = segments.getItem(i-1);
+                    if( lastPathSeg.x === moveSeg.x && lastPathSeg.y === moveSeg.y )
                     {
                         segments.removeItem(i);
                         // We are removing a path segment, so decrement i by one,
@@ -609,7 +626,7 @@ function createConstraintUIForSVG()
     
     // Handle subpaths and compound paths. Store path_index and segment_index separately from the raw path index and segment index.
     var new_path_index = -1;
-    var new_path_offset = 0;
+    var new_segment_index = 0;
     
     var paths = $( '#svg-file > svg path' );
     // For each path, make a small clickable circle that brings up a popup menu.
@@ -675,6 +692,7 @@ function createConstraintUIForSVG()
                     break;
                 
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
+                    new_segment_index += 1;
                     // A2: No. Skip the last curveTo point, so that indexing is easier.
                     // We have to check whether ( we are the last path OR the next path is a move-to ) AND the curveTo point matches the moveTo point.
                     if( ( i+1 == segments.numberOfItems || segments.getItem( i + 1 ).pathSegType === SVGPathSeg.PATHSEG_MOVETO_ABS )
