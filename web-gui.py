@@ -82,10 +82,11 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			## Generate the triangulation and the BBW weights.
 			# self.engine ...
 		
-		elif msg.startswith( 'handle-transform ' ):
-			paths_info = json.loads( msg[ len( 'handle-transform ' ): ] )
+		elif msg.startswith( 'handle-transforms ' ):
+			handle_transforms = json.loads( msg[ len( 'handle-transforms ' ): ] )
 			
-			self.engine.transform_change( paths_info[0], paths_info[1] )
+			for handle_index, handle_transform in handle_transforms:
+				self.engine.transform_change( handle_index, handle_transform )
 			
 			all_paths = self.engine.solve()	
 # 			if type(all_paths) in types.StringTypes():

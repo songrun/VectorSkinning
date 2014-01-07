@@ -154,11 +154,12 @@ Constraint type:
 ///
 /// Constants.
 ///
-var kDebugging = true;
+var kDebugging = false;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
 var kFakeWebSocket = false;
+
 
 ///
 /// Global variables.
@@ -168,7 +169,7 @@ var gPathsControlPointConstraints = null;
 // The index of the largest path.
 var gLargestPath = null;
 // An array of handles, where each handle is a dictionary { 'pos': [ x,y ], 'transform': Snap.Matrix }
-gHandles = [];
+var gHandles = [];
 // The WebSocket.
 var gSocket = null;
 
@@ -449,24 +450,89 @@ function sendHandlePositions()
 }
 function sendHandleTransformation( handle_index )
 {
+    sendHandleTransformations( [ handle_index ] );
+}
+function sendHandleTransformations( handle_indices )
+{
     "use strict";
     
-    var M = gHandles[ handle_index ].transform;
-    gSocket.send( "handle-transform " + JSON.stringify( [
-        handle_index,
-        // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
-        // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
-        // (The third row is assumed to always be [ 0, 0, 1 ].)
-        // This is all assuming that the matrix M is multiplied by a column
-        // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
-        [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
-        ] ) );
+    if( handle_indices.length === 0 )
+    {
+        console.error( "sendHandleTransformations() with an empty array." );
+        return;
+    }
+    
+    var payload = [];
+    for( var i = 0; i < handle_indices.length; ++i )
+    {
+        var handle_index = handle_indices[i];
+        var M = gHandles[ handle_index ].transform;
+        
+        payload.push([
+            handle_index,
+            // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
+            // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
+            // (The third row is assumed to always be [ 0, 0, 1 ].)
+            // This is all assuming that the matrix M is multiplied by a column
+            // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
+            [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+            ]);
+    }
+    
+    gSocket.send( "handle-transforms " + JSON.stringify( payload ) );
 }
 function sendControlPointConstraintsChanged( path_index, segment_index )
 {
     "use strict";
     
     gSocket.send( "control-point-constraint " + JSON.stringify( [ path_index, segment_index, gPathsControlPointConstraints[ path_index ][ segment_index ] ] ) );
+}
+function throttleHandleTransformationsUntilUpdate()
+{
+    var gSendHandleTransformationsWait = null;
+    
+    // Throttle sendHandleTransformations, so that it doesn't send again until it gets new positions.
+    var sendHandleTransformations_raw = sendHandleTransformations;
+    sendHandleTransformations = function( handle_indices )
+    {
+        // It's important that we check for an empty array
+        // so that we don't wait for positions to be updated when
+        // they never will.
+        if( handle_indices.length === 0 ) return;
+        
+        if( gSendHandleTransformationsWait !== null )
+        {
+            // Remember which ones to send.
+            for( var i = 0; i < handle_indices.length; ++i )
+            {
+                gSendHandleTransformationsWait[ handle_indices[i] ] = true;
+            }
+        }
+        else
+        {
+            sendHandleTransformations_raw( handle_indices );
+            gSendHandleTransformationsWait = {};
+        }
+    }
+    
+    // Patch updatePaths() to send any waiting transforms.
+    var updatePaths_raw = updatePaths;
+    updatePaths = function( new_paths_points )
+    {
+        updatePaths_raw( new_paths_points );
+        
+        var handle_indices = [];
+        if( gSendHandleTransformationsWait !== null )
+        {
+            for( var handle_index in gSendHandleTransformationsWait )
+            {
+                handle_indices.push( parseInt( handle_index ) );
+            }
+        }
+        
+        gSendHandleTransformationsWait = null;
+        sendHandleTransformations( handle_indices );
+    }
 }
 
 function setupFileIO()
@@ -954,6 +1020,8 @@ function setupGlobalUI()
 $(document).ready( function() {
     
     setupWebSocket();
+    
+    if( !kFakeWebSocket ) throttleHandleTransformationsUntilUpdate();
     
     setupFileIO();
     
