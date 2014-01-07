@@ -2,38 +2,6 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
-
-class Control_point:
-	'''
-	Class of control point.
-	id is the control point's id.
-	position is its relative position with respect to the canvas
-	is_joint tells if it is an joint point. If so, it has constraint whose first element corresponds to one of the four types of C^0, fixed angle, C^1 and G^1, and second element indicates if its position is fixed.
-	'''
-	id = -1
-	position = zeros(2)
-	is_joint = False
-	constraint = None
-	
-	def __init__(self, id, pos, is_joint=False, constraint = [1,0] ):
-		pos = asarray( pos )
-		constraint = asarray( constraint )
-		assert len( pos ) == 2
-		assert len( constraint ) == 2
-	
-		self.id = id
-		self.position = pos
-		self.is_joint = is_joint
-		if is_joint:
-			self.constraint = constraint
-			
-	def compare_shape( compared_control ):
-		assert isinstance( compared_control, Handle )
-		if compared_control.id == self.id and array_equal( compared_control.position, self.position) and compared_control.is_joint == self.is_joint and array_equal( compared_control.constraint, self.constraint ) :
-			return True
-		else: 
-			return False
-
 class Engine:
 	'''
 	A data persistant that have all information needed to precompute and the system matrix of the previous state.
@@ -66,7 +34,11 @@ class Engine:
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 		
 		self.all_controls = all_controls
-		self.all_constraints = all_constraints		
+		self.all_constraints = all_constraints	
+		
+		self.transforms = []
+		self.handle_positions = []	
+		self.precomputed_parameter_table = []
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
@@ -107,30 +79,56 @@ class Engine:
 		
 		for i in range( num_adding ):
 			self.transforms.append( identity(3) )
+	
+	def precompute_configuration( self ):
+		'''
+		precompute W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts
+		'''
+		handles = self.handle_positions
+		all_controls = self.all_controls
+		boundary = all_controls[ self.boundary_index ]
+		
+		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles )		
+		self.precomputed_parameter_table = []
+		self.precomputed_parameter_table.append( layer1 )
 		
 	def solve( self ):
-		raise NotImplementedError('Solve has not been done yet.')
+		'''
+		send back all groups of 
+		'''
+		all_controls = self.all_controls
+		all_constraints = self.all_constraints
+		handles = self.handle_positions
+		transforms = self.transforms
+		if len( all_controls ) == 0:
+			return 'Error Message: No control points'
+		elif len( handles ) == 0:
+			return 'Error Message: No handles'
+		elif len( self.precomputed_parameter_table ) == 0:
+			self.precompute_configuration()			
+		precomputed_parameters = self.precomputed_parameter_table[0]
 		
-def get_controls( controls ):
-	'''
-	given a list of Control_point classes, return each control point's position and the joint's constraint.
-	'''
-	control_pos = []
-	constraints = []
-	for control in controls:
-		control_pos.append( control.position )
-		if control.is_joint:
-			assert control.constraint is not None
-			constraints.append( control.constraint )
+		result = []
+		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
+			W_matrices = precomputed_parameters[0][i]
+			all_weights = precomputed_parameters[1]
+			all_vertices = precomputed_parameters[2]
+			all_indices = precomputed_parameters[3][i]
+			all_pts = precomputed_parameters[4][i]
+			all_dts = precomputed_parameters[5][i]
 		
-	control_pos = make_control_points_chain( control_pos )
-
-	return asarray(control_pos), asarray(constraints)
+			solution_controls = approximate_beziers( controls, constraints, handles, transforms, W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts )[0]
+			
+			result.append( solution_controls )
+			
+		return result	
+			
+		
 
 ## The dimensions of a point represented in the homogeneous coordinates
 dim = 2
 	
-def approximate_beziers(W_matrices, controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts, enable_refinement=False):
+def approximate_beziers( controls, constraints, handles, transforms, W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts, enable_refinement=False ):
 	
 	'''
 	### 1 construct and solve the linear system for the odd iteration. if the constraints don't contain fixed angle and G1, skip ### 2.
@@ -139,20 +137,17 @@ def approximate_beziers(W_matrices, controls, handles, transforms, all_weights, 
 	### 4 compute all the points along the curves.
 	### 5 refine the solutions based on the error of each curve. If it is larger than a threshold, split the curve into two.
 	'''
-	
 	solutions = None
-	control_pos, constraints = get_controls( controls )
-	control_pos = concatenate((control_pos, ones((control_pos.shape[0],4,1))), axis=2)
-
+	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, control_pos, constraints, transforms )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms )
 #	odd.update_rhs_for_handles( transforms )
 	last_solutions = solutions = odd.solve()
 
 	### 2	
 	if 2 in constraints[:,0] or 4 in constraints[:,0]: 
 
-		even = BezierConstraintSolverEven(W_matrices, control_pos, constraints, transforms )	
+		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms )	
 	#		even.update_rhs_for_handles( transforms )
 
 		for iter in xrange( 1 ):
@@ -176,8 +171,8 @@ def approximate_beziers(W_matrices, controls, handles, transforms, all_weights, 
 	for indices in all_indices:
 		tps = []	
 		for i in indices:
-			m = zeros(9)
-			p = asarray(all_vertices[i] + [1.0])
+			m = zeros((3,3))
+			p = concatenate( ( all_vertices[i], [1.0] ) )
 			for h in range(len(transforms)):
 				m = m + transforms[h]*all_weights[i,h]
 		
@@ -261,9 +256,12 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	all_dts contains all dts for each curve. It is in the shape of num_curve-by-(num_samples-1)
 	'''
 	num_samples = 100
-	all_data = asarray([ [sample_cubic_bezier_curve_chain( control_pos, num_samples )] for control_pos in all_control_positions ])
-	all_pts = all_data[:,0]
-	all_dta = all_data[:,1]
+	all_pts = []
+	all_dts = []
+	for control_pos in all_control_positions:
+		pts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples ) 
+		all_pts.append( pts )
+		all_dts.append( dts )	
 	
 	boundary_pts, boundary_dts = sample_cubic_bezier_curve_chain( controls_on_boundary, num_samples )
 	
@@ -272,14 +270,13 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	## all_indices is a table of all the indices of the points on all paths 
 	## in all_vertices
 	all_indices = [[range(len(pts)) for pts, ts in path] for path in all_pts]
-	
-	for path_indices in len( all_indices ):
+	for path_indices in all_indices: 
 		last = 0
 		for i in range( len( path_indices ) ):
 			path_indices[i] = asarray(path_indices[i])+last
 			last = path_indices[i][-1]
 		path_indices[-1][-1] = path_indices[0][0] 
-		
+	
 	W_matrices = []
 	for j, control_pos in enumerate( all_control_positions ):
 		W_matrices.append( zeros( ( len( control_pos ), len( skeleton_handle_vertices ), 4, 4 ) ) )		
@@ -287,10 +284,10 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				W_matrices[k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_pts[j,k,0], all_pts[j,k,1], all_dts[j,k])
+				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_pts[j][k][0], all_pts[j][k][1], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
-			
+
 	return [W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts]
 
 	
@@ -371,13 +368,19 @@ def main():
 	engine.set_handle_positions( skeleton_handle_vertices )
  	
 # 	engine.set_transforms()
+	engine.precompute_configuration()
+	all_paths = engine.solve()
 	
+	for path in all_paths:
+		chain = concatenate( asarray(path)[:-1, :-1] )
+		chain = concatenate( ( chain, path[-1] ) )
+		print chain
+# 	debugger()
+# 	parameters = precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  )
+# 	
+# 	trans = [array([ 1.,  0.,  0.,	0.,	 1.,  0.,  0.,	0.,	 1.]), array([ 1.,	0.,	 0.,  0.,  1., 0., 0., 0., 1.])]	  
+# 						   
 	debugger()
-	parameters = precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  )
-	
-	trans = [array([ 1.,  0.,  0.,	0.,	 1.,  0.,  0.,	0.,	 1.]), array([ 1.,	0.,	 0.,  0.,  1., 0., 0., 0., 1.])]	  
-						   
-
 	
 	P_primes, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, control_pos, skeleton_handle_vertices, trans, constraints, all_weights, all_vertices, all_indices, all_pts, all_dts )
 	

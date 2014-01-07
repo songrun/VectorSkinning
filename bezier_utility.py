@@ -65,7 +65,7 @@ def sample_cubic_bezier_curve_with_dt( P, num_samples = 100 ):
 		tbar[2] = t
  		
  		point = dot( P.T, dot( M.T, tbar ) )
- 		result.append( asarray(point).squeeze() )
+ 		result.append( asarray(point).squeeze().tolist() )
  	
  	dts = ones( num_samples-1 ) * (1./(num_samples-1) )
  		
