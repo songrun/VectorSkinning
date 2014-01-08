@@ -154,7 +154,7 @@ def approximate_beziers( controls, constraints, lengths, handles, transforms, W_
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, lengths, transforms, is_closed )	
 	#		even.update_rhs_for_handles( transforms )
 
-		for iter in xrange( 1 ):
+		for iter in xrange( 10 ):
 			even.update_system_with_result_of_previous_iteration( solutions )
 			last_solutions = solutions
 			solutions = even.solve()
@@ -167,7 +167,7 @@ def approximate_beziers( controls, constraints, lengths, handles, transforms, W_
 			last_solutions = solutions
 			solutions = odd.solve()
 		
-			if allclose(last_solutions, solutions, atol=0.5, rtol=1e-03):
+			if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 				break
 					
 	### 3 
