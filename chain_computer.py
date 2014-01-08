@@ -274,6 +274,7 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	
 	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pos, skeleton_handle_vertices, all_pos )
 	
+	print 'Precomputing W_i...'
 	W_matrices = []
 	for j, control_pos in enumerate( all_control_positions ):
 		W_matrices.append( zeros( ( len( control_pos ), len( skeleton_handle_vertices ), 4, 4 ) ) )		
@@ -284,6 +285,7 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k][0], all_pts[j][k][1], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
+	print '...finished.'
 
 	return [W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts]
 

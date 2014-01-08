@@ -169,9 +169,13 @@ def make_constraints_from_control_points( control_group, close=True ):
 		if allclose( dir1, dir2, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			## G1
 			constraints[ (i+1)%num, 0 ] = 4 
+			## C1
+			# constraints[ (i+1)%num, 0 ] = 3
 		elif allclose( dot( dir1, dir2 ), 0, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			## fixed angle
 			constraints[ (i+1)%num, 0 ] = 2  
+			## C0
+			# constraints[ (i+1)%num, 0 ] = 1
 		else:
 			## C0
 			constraints[ (i+1)%num, 0 ] = 1
