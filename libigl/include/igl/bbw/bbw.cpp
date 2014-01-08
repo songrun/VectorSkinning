@@ -27,6 +27,10 @@ igl::BBWData::BBWData():
 {
   // We know that the Bilaplacian is positive semi-definite
   active_set_params.Auu_pd = true;
+  // Don't iterate more than 10 times.
+  active_set_params.max_iter = 10;
+  // Lower these termination thresholds to 1e-5.
+  active_set_params.inactive_threshold = active_set_params.constraint_threshold = active_set_params.solution_diff_threshold = 1e-5;
 }
 
 void igl::BBWData::print()

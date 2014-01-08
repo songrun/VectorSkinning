@@ -87,7 +87,7 @@ struct igl::active_set_params
   double solution_diff_threshold;
   active_set_params():
     Auu_pd(false),
-    max_iter(10),
+    max_iter(-1),
     inactive_threshold(igl::DOUBLE_EPS),
     constraint_threshold(igl::DOUBLE_EPS),
     solution_diff_threshold(igl::DOUBLE_EPS)
