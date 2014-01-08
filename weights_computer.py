@@ -81,11 +81,12 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	
 	return vs, all_weights, all_maps
 
-def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
+def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, dts = None ):
 	'''
 	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
 	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
 	an index 'i' specifying which handle,
+	a map 'sampling_index2vs_index' from the index of a point in 'sampling' to the index of its closest vertex in 'vs',
 	an M-by-k numpy.array 'sampling' containing sampled positions,
 	a length-M numpy.array of t values corresponding to each sample in 'sampling',
 	an optional length-M numpy.array of dt values corresponding to each sample in 'sampling',
@@ -122,10 +123,11 @@ def precompute_W_i_bbw( vs, weights, i, sampling, ts, dts = None ):
 	## The index 'i' must be valid.
 	assert i >= 0 and i < weights.shape[1]
 	
-	def weight_function( p ):
+	def weight_function( pi ):
 		## Find the closest vertex in 'vs' to 'p'
-		vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
-		assert allclose( vs[vi], p, 1e-5 )
+		#vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
+		vi = sampling_index2vs_index[ pi ]
+		# assert allclose( vs[vi], p, 1e-5 )
 		return weights[ vi, i ]
 	
 	result[:] = precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )		
@@ -213,7 +215,7 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 		tbar[2] = t
 		tbar = tbar.reshape( (4,1) )
 		
-		w = (weight_function( sampling[i] ) + weight_function( sampling[i+1] ))/2
+		w = (weight_function( i ) + weight_function( i+1 ))/2
 		
 		## M * tbar
 		C_P = dot( M, tbar )

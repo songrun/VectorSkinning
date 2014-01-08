@@ -22,7 +22,17 @@ g++ -fPIC \
     -I../libigl/include \
     -I/opt/local/include/eigen3 \
     -dynamiclib -o bbw.dylib \
-    -g -O2 -Wall -Wshadow -Wno-sign-compare
+    -g -O3 -Wall -Wshadow -Wno-sign-compare
+
+g++-mp-4.7 -fPIC \
+    bbw.cpp \
+    -I../libigl/include \
+    -I/opt/local/include/eigen3 \
+    -dynamiclib -o bbw.dylib \
+    -DNDEBUG \
+    /opt/local/lib/gcc47/libgomp.a \
+    -g -O3 -fopenmp -Wall -Wshadow -Wno-sign-compare
+
 
 
 # Linux

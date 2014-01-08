@@ -281,7 +281,7 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_pts[j][k][0], all_pts[j][k][1], all_dts[j][k])
+				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k][0], all_pts[j][k][1], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
 
