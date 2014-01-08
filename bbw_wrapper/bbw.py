@@ -33,6 +33,15 @@ g++-mp-4.7 -static-libgcc -static-libstdc++ -fPIC \
     /opt/local/lib/gcc47/libgomp.a \
     -g -O3 -fopenmp -Wall -Wshadow -Wno-sign-compare
 
+# For some reason this seemed faster in practice, but slower on the bbw.py test.
+# Did I compile in between those tests?
+clang++-mp-3.3 -fPIC \
+    bbw.cpp \
+    -I../libigl/include \
+    -I/opt/local/include/eigen3 \
+    -dynamiclib -o bbw.dylib \
+    -DNDEBUG \
+    -g -O4 -Wall -Wshadow -Wno-sign-compare
 
 
 # Linux
