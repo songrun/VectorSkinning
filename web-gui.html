@@ -156,6 +156,8 @@ Constraint type:
 ///
 var kDebugging = false;
 var kProfiling = false;
+// Whether to also save the SVG decorations to disk when the user clicks the save button.
+var kSaveDecorations = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
@@ -596,18 +598,39 @@ function setupFileIO()
         } );
     
     $("#save-button").click( function() {
-        var svg_to_save = $("#svg-file > svg");
-        if( svg_to_save.length === 0 )
+        
+        function save_as( svg_to_save, filename )
         {
-            alert( "No SVG to save. This button should be disabled." );
-            return;
+            if( svg_to_save.length === 0 )
+            {
+                console.error( "No SVG to save. This button should be disabled." );
+                return;
+            }
+            
+            // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG in Chrome.
+            //       It is also less correct, because we lose the header comments
+            //       that were in the file before the <svg> tag.
+            var blob = new Blob([ svg_to_save.parent().html() ], {type: "image/svg+xml"});
+            saveAs( blob, filename );
         }
         
-        // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG in Chrome.
-        //       It is also less correct, because we lose the header comments
-        //       that were in the file before the <svg> tag.
-        var blob = new Blob([ svg_to_save.parent().html() ], {type: "image/svg+xml"});
-        saveAs( blob, $('#filename').text() );
+        // Save the main SVG file.
+        var svg = $("#svg-file > svg");
+        var filename = $('#filename').text();
+        save_as( svg, filename );
+        
+        // Also save the decorations.
+        if( kSaveDecorations )
+        {
+            $('#svg-holder').children().each( function( index, child ) {
+                if( child.id === 'svg-file' ) return true;
+                
+                var decorations = $(child).children("svg");
+                if( decorations.length === 0 ) return true;
+                
+                save_as( decorations, filename.replace( /\.svg$/, "" ) + "-" + child.id + ".svg" );
+                } );
+        }
         } );
 }
 
