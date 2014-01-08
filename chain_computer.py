@@ -172,27 +172,27 @@ def approximate_beziers( controls, constraints, lengths, handles, transforms, W_
 					
 	### 3 
 	bbw_curves = []
-	for indices in all_indices:
-		tps = []	
-		for i in indices:
-			m = zeros((3,3))
-			p = concatenate( ( all_vertices[i], [1.0] ) )
-			for h in range(len(transforms)):
-				m = m + transforms[h]*all_weights[i,h]
-		
-			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-			tps = tps + [p[0], p[1]]	
-		bbw_curves.append(tps)
+# 	for indices in all_indices:
+# 		tps = []	
+# 		for i in indices:
+# 			m = zeros((3,3))
+# 			p = concatenate( ( all_vertices[i], [1.0] ) )
+# 			for h in range(len(transforms)):
+# 				m = m + transforms[h]*all_weights[i,h]
+# 		
+# 			p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
+# 			tps = tps + [p[0], p[1]]	
+# 		bbw_curves.append(tps)
 	
 	### 4
 	spline_skin_curves = []
-	for k, solution in enumerate(solutions):
-		tps = []
-		for t in asarray(all_pts)[k, 1]:
-			tbar = asarray([t**3, t**2, t, 1.])
-			p = dot(tbar, asarray( M * solution ) )
-			tps = tps + [p[0], p[1]]
-		spline_skin_curves.append(tps)
+# 	for k, solution in enumerate(solutions):
+# 		tps = []
+# 		for t in asarray(all_pts)[k, 1]:
+# 			tbar = asarray([t**3, t**2, t, 1.])
+# 			p = dot(tbar, asarray( M * solution ) )
+# 			tps = tps + [p[0], p[1]]
+# 		spline_skin_curves.append(tps)
 	
 	
 	### 5

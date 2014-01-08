@@ -6,3 +6,8 @@ p = pstats.Stats('profile.out')
 p = p.strip_dirs()
 p.sort_stats('cumulative').print_stats(20)
 # p.print_callers(.5, '__setitem__')
+
+## Visually, and this is great:
+sudo pip install RunSnakeRun
+runsnake profile.out
+/opt/local/Library/Frameworks/Python.framework/Versions/2.7/bin/runsnake profile.out

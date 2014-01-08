@@ -123,7 +123,7 @@ def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, d
 	## The index 'i' must be valid.
 	assert i >= 0 and i < weights.shape[1]
 	
-	def weight_function( pi ):
+	def weight_function( p, pi ):
 		## Find the closest vertex in 'vs' to 'p'
 		#vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
 		vi = sampling_index2vs_index[ pi ]
@@ -214,7 +214,7 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 		tbar[1] = t*t
 		tbar[2] = t
 		
-		w = (weight_function( i ) + weight_function( i+1 ))/2
+		w = (weight_function( sampling[i], i ) + weight_function( sampling[i], i+1 ))/2
 		
 		## M * tbar
 		C_P = dot( M, tbar )
