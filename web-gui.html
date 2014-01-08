@@ -445,6 +445,16 @@ function sendPathsForPrecomputation()
             updatePaths( new_paths );
             }, 100 );
     }
+    
+    if( kDebugging )
+    {
+        var total = 0;
+        for( var i = 0; i < paths_info.length; ++i )
+        {
+            total += ( paths_info[i].cubic_bezier_chain.length - 1. ) / 3.;
+        }
+        console.log( "There are " + total + " cubic bezier curves total." );
+    }
 }
 function sendHandlePositions()
 {
