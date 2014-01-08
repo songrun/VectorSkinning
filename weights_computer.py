@@ -204,26 +204,26 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	
 	## Compute the integral.	
 	R = zeros( ( 4, 4 ) )
-	tbar = ones( 4 )
+	tbar = ones( 4 ).reshape( (4,1) )
 	
 	for i in range(len(dts)):
 		t = (ts[i] + ts[i+1])/2
 		dt = dts[i]
 		
-		tbar[0] = t**3
-		tbar[1] = t**2
+		tbar[0] = t*t*t
+		tbar[1] = t*t
 		tbar[2] = t
-		tbar = tbar.reshape( (4,1) )
 		
 		w = (weight_function( i ) + weight_function( i+1 ))/2
 		
 		## M * tbar
 		C_P = dot( M, tbar )
 		
-		R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1) 
-		R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
-		R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
-		R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)	
+		R += dot( ((w*dt)*tbar), C_P.T )
+		#R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1)
+		#R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
+		#R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
+		#R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)
 	
 	return R
 
