@@ -13,22 +13,25 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pt
 	   pts[i] can be found in the unique elements.
 	'''
 	
-	kRound = 5
+	kRound = 0
 	from collections import OrderedDict
 	unique_pts = OrderedDict()
 	pts_map = []
-	## Add rounded points to a dictionary and set the key to the index into the ordered dictionary.
-	for i, pt in enumerate( map( tuple, asarray( pts ).round( kRound ) ) ):
-		index = unique_pts.setdefault( pt, len( unique_pts ) )
+	## Add rounded points to a dictionary and set the key to
+	## ( the index into the ordered dictionary, the non-rounded point )
+	for i, ( pt, rounded_pt ) in enumerate( zip( pts, map( tuple, asarray( pts ).round( kRound ) ) ) ):
+		index = unique_pts.setdefault( rounded_pt, ( len( unique_pts ), pt ) )[0]
 		pts_map.append( index )
 	
 	boundary_map = []
-	for pt in map( tuple, asarray( boundary_pts ).round( kRound ) ):
-		boundary_map.append( unique_pts[ pt ] )
+	for rounded_pt in map( tuple, asarray( boundary_pts ).round( kRound ) ):
+	    ## Extract the index for the rounded point.
+		boundary_map.append( unique_pts[ rounded_pt ][0] )
 		## The above will raise a KeyError if boundary_pts contains points not in all_pts.
 		# raise RuntimeError('boundary_pts contains points not in all_pts')
 	
-	return unique_pts.keys(), pts_map, boundary_map
+	## Return the original resolution points.
+	return [ tuple( pt ) for i, pt in unique_pts.itervalues() ], pts_map, boundary_map
 
 def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None):
 	'''

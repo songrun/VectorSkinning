@@ -3,6 +3,7 @@ from numpy import *
 from myarray import *
 
 kEps = 1e-7
+kG1andAconstraints = True
 
 try:
    from pydb import debugger
@@ -14,7 +15,7 @@ try:
 except ImportError:
    import pdb
    def debugger():
-       pdb.set_trace()
+	   pdb.set_trace()
 
 ## The bezier curve's coefficient matrix, P(t) = tbar*M*P
 M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.') 
@@ -35,10 +36,10 @@ def sample_cubic_bezier_curve_chain( Cset, num_samples = 100 ):
 		result.append( ( samples, ts ) )
 		all_dts.append( dts )
 		
-# 	if array_equal(Cset[0][0], Cset[-1][-1]) == False:
-# 		samples, ts, dts = sample_cubic_bezier_curve_with_dt( Cset[-1][-1], Cset[0][0], num_samples )	
-# 		result.append( ( samples, ts ) )
-# 		all_dts.append( dts )
+#	if array_equal(Cset[0][0], Cset[-1][-1]) == False:
+#		samples, ts, dts = sample_cubic_bezier_curve_with_dt( Cset[-1][-1], Cset[0][0], num_samples )	
+#		result.append( ( samples, ts ) )
+#		all_dts.append( dts )
 
 	## result in the shape of n by num_samples by dim, n is the number of bezier curves, dim is dimensions
 	#result = asarray( result )[:,:,:2]
@@ -63,12 +64,12 @@ def sample_cubic_bezier_curve_with_dt( P, num_samples = 100 ):
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
- 		
- 		point = dot( P.T, dot( M.T, tbar ) )
- 		result.append( asarray(point).squeeze().tolist() )
- 	
- 	dts = ones( num_samples-1 ) * (1./(num_samples-1) )
- 		
+		
+		point = dot( P.T, dot( M.T, tbar ) )
+		result.append( asarray(point).squeeze().tolist() )
+	
+	dts = ones( num_samples-1 ) * (1./(num_samples-1) )
+		
 	return asarray( result ), asarray( ts ), asarray( dts )
 	
 	
@@ -84,7 +85,7 @@ def sample_straight_line( begin, end, num_samples = 100 ):
 	if num_samples is None:
 		num_samples = max(int(mag(begin - end) / 1), 2)
 	
-	ts = []	
+	ts = [] 
 	for t in linspace( 0, 1, num_samples ):
 		ts.append( t )
 		 
@@ -108,12 +109,12 @@ def length_of_cubic_bezier_curve( P, num_samples = 100 ):
 		tbar[0] = t**3
 		tbar[1] = t**2
 		tbar[2] = t
- 		tbar = tbar.reshape( (4,1) )
- 		point = dot( P.T, dot( M.T, tbar ) )
- 		samples.append( asarray(point).reshape(-1) )
- 	
- 	samples = asarray(samples)	
- 	lengths = [mag(samples[i]-samples[i+1]) for i in range(len(samples)-1)]	
+		tbar = tbar.reshape( (4,1) )
+		point = dot( P.T, dot( M.T, tbar ) )
+		samples.append( asarray(point).reshape(-1) )
+	
+	samples = asarray(samples)	
+	lengths = [mag(samples[i]-samples[i+1]) for i in range(len(samples)-1)] 
 	
 	return sum( lengths )
 	
@@ -140,8 +141,8 @@ def make_control_points_chain( controls, close = True ):
 	elif close == False and remain_num == 0:
 		num_segment -= 1
 
-	controls = controls[ :3*num_segment+1 ] 		
-	            
+	controls = controls[ :3*num_segment+1 ]			
+				
 	Cset = []
 	for i in range( num_segment ):
 		Cset.append(controls[i*3:i*3+4].tolist())
@@ -154,9 +155,9 @@ def make_constraints_from_control_points( control_group, close=True ):
 	'''
 	Make default constraints based on the following assumptions:
 	- if upon loading they appear to be G1, they should stay G1
-    - C1 is G1
-    - 90 degrees defaults to fixed angle
-    - pinning should never be done; user can add later or handles placed near control points have that effect	
+	- C1 is G1
+	- 90 degrees defaults to fixed angle
+	- pinning should never be done; user can add later or handles placed near control points have that effect	
 	'''
 	control_group = asarray( control_group )
 	num = len( control_group )
@@ -167,24 +168,28 @@ def make_constraints_from_control_points( control_group, close=True ):
 		dir2 = dir_allow_zero( control_group[(i+1)%num,1] - control_group[(i+1)%num,0] )
 		
 		if allclose( dir1, dir2, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
-			## G1
-			constraints[ (i+1)%num, 0 ] = 4 
-			## C1
-			# constraints[ (i+1)%num, 0 ] = 3
+			if kG1andAconstraints:
+				## G1
+				constraints[ (i+1)%num, 0 ] = 4 
+			else:
+				## C1
+				constraints[ (i+1)%num, 0 ] = 3
 		elif allclose( dot( dir1, dir2 ), 0, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
-			## fixed angle
-			constraints[ (i+1)%num, 0 ] = 2  
-			## C0
-			# constraints[ (i+1)%num, 0 ] = 1
+			if kG1andAconstraints:
+				## fixed angle
+				constraints[ (i+1)%num, 0 ] = 2	 
+			else:
+				## C0
+				constraints[ (i+1)%num, 0 ] = 1
 		else:
 			## C0
 			constraints[ (i+1)%num, 0 ] = 1
 		
- 	if close == False:
- 		constraints[0,0] = 0
- 		constraints = concatenate( (constraints, zeros( (1,2) ) ), axis=0 )
- 		
- 	return constraints	
+	if close == False:
+		constraints[0,0] = 0
+		constraints = concatenate( (constraints, zeros( (1,2) ) ), axis=0 )
+		
+	return constraints	
 	
 	
 def split_cublic_beizer_curve( controls, partition ):
