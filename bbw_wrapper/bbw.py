@@ -24,7 +24,7 @@ g++ -fPIC \
     -dynamiclib -o bbw.dylib \
     -g -O3 -Wall -Wshadow -Wno-sign-compare
 
-g++-mp-4.7 -fPIC \
+g++-mp-4.7 -static-libgcc -static-libstdc++ -fPIC \
     bbw.cpp \
     -I../libigl/include \
     -I/opt/local/include/eigen3 \
