@@ -212,7 +212,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		assume open end points can only emerge at the endpoints
 		'''
 		for i, smoothness in enumerate(constraints[:,0]):
-			if smoothness == 1: dofs[i] += 4		## C0
+			if smoothness == 0: dofs[i] += 4  		## Free of constraint
+			elif smoothness == 1: dofs[i] += 4		## C0
 			elif smoothness == 2: dofs[i] += 3		## fixed angle
 			elif smoothness == 3: dofs[i] += 4		## C1
 			elif smoothness == 4: dofs[i] += 3		## G1

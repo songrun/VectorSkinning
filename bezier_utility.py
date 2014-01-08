@@ -35,10 +35,10 @@ def sample_cubic_bezier_curve_chain( Cset, num_samples = 100 ):
 		result.append( ( samples, ts ) )
 		all_dts.append( dts )
 		
-	if array_equal(Cset[0][0], Cset[-1][-1]) == False:
-		samples, ts, dts = sample_cubic_bezier_curve_with_dt( Cset[-1][-1], Cset[0][0], num_samples )	
-		result.append( ( samples, ts ) )
-		all_dts.append( dts )
+# 	if array_equal(Cset[0][0], Cset[-1][-1]) == False:
+# 		samples, ts, dts = sample_cubic_bezier_curve_with_dt( Cset[-1][-1], Cset[0][0], num_samples )	
+# 		result.append( ( samples, ts ) )
+# 		all_dts.append( dts )
 
 	## result in the shape of n by num_samples by dim, n is the number of bezier curves, dim is dimensions
 	#result = asarray( result )[:,:,:2]

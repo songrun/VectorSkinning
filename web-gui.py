@@ -9,6 +9,7 @@ from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, 
 ## All payloads are JSON-formatted.
 import json
 from chain_computer import *
+from tictoc import tic, toc, tictoc_dec
 
 kVerbose = 1
 
@@ -19,6 +20,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		print 'CONNECTED'
 	
+	@tictoc_dec
 	def onMessage( self, msg, binary ):
 		### BEGIN DEBUGGING
 		if kVerbose >= 2:
@@ -73,16 +75,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.precompute_configuration()
 			
 			all_paths = self.engine.solve()	
-# 			if type(all_paths) in types.StringTypes():
-# 				print all_paths
-# 				return
 
-			all_positions = [] 					
-			for path in all_paths:
-				new_positions = concatenate( asarray(path)[:-1, :-1] )
-				new_positions = concatenate( ( new_positions, path[-1] ) )
-				new_positions = new_positions.tolist()
-				all_positions.append( new_positions )
+			all_positions = make_chain_from_control_groups( all_paths )
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
 			## Generate the triangulation and the BBW weights.
@@ -91,20 +85,18 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		elif msg.startswith( 'handle-transforms ' ):
 			handle_transforms = json.loads( msg[ len( 'handle-transforms ' ): ] )
 			
+			tic( 'transform_change' )
 			for handle_index, handle_transform in handle_transforms:
 				self.engine.transform_change( handle_index, handle_transform )
+			toc()
 			
+			tic( 'engine.solve()' )
 			all_paths = self.engine.solve()	
-# 			if type(all_paths) in types.StringTypes():
-# 				print all_paths
-# 				return
+			toc()
 
-			all_positions = [] 					
-			for path in all_paths:
-				new_positions = concatenate( asarray(path)[:-1, :-1] )
-				new_positions = concatenate( ( new_positions, path[-1] ) )
-				new_positions = new_positions.tolist()
-				all_positions.append( new_positions )
+			tic( 'make_chain_from_control_groups' )
+			all_positions = make_chain_from_control_groups( all_paths )
+			toc()
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
 			## Solve for the new curve positions given the updated transform matrix.
@@ -126,16 +118,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
 			
 			all_paths = self.engine.solve()	
-# 			if type(all_paths) in types.StringTypes():
-# 				print all_paths
-# 				return
-			
-			all_positions = [] 	
-			for path in all_paths:
-				new_positions = concatenate( asarray(path)[:-1, :-1] )
-				new_positions = concatenate( ( new_positions, path[-1] ) )
-				new_positions = new_positions.tolist()
-				all_positions.append( new_positions )
+
+			all_positions = make_chain_from_control_groups( all_paths )
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
 			## Solve for the new curve positions given the updated control point constraint.
@@ -146,6 +130,21 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		else:
 			print 'Received unknown message:', msg
+
+def make_chain_from_control_groups( all_paths ):
+	
+	all_positions = [] 	
+	for path in all_paths:
+		if len( path ) > 1:
+			new_positions = concatenate( asarray(path)[:-1, :-1] )
+			new_positions = concatenate( ( new_positions, path[-1] ) )
+		else:
+			new_positions = path[0]
+		new_positions = new_positions.tolist()
+		all_positions.append( new_positions )
+		
+	return all_positions
+
 
 def setupWebSocket( address, engine ):
 	'''

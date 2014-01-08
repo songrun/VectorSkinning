@@ -13,73 +13,54 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pt
 	   pts[i] can be found in the unique elements.
 	'''
 	
-	## index_close() needs this to be an array.
-	pts = asarray( pts )
-	
-	def index_close( pts, pt, rtol=1e-05, atol=1e-08 ):
-		
-		## Fast version:
-		indices = where( abs( pts - pt ).sum( axis = 1 ) < atol )[0]
-		if len( indices ) == 0:
-			return -1
-		else:
-			return indices[0]
-
-# 		for i in range( len( pts ) ):
-# 			if allclose( pts[i], pt ):
-# 				return i
-# 				
-# 		raise ValueError( 'No close value' )
-		
-	
-	unique_points = []
+	kRound = 5
+	from collections import OrderedDict
+	unique_pts = OrderedDict()
 	pts_map = []
-	for pt in pts:
-		# pt = tuple( pt )
-		index = index_close( unique_points, pt )
-		if index != -1:
-			pts_map.append( index )
-		else:
-			pts_map.append( len( unique_points ) )
-			unique_points.append( pt )
+	## Add rounded points to a dictionary and set the key to the index into the ordered dictionary.
+	for i, pt in enumerate( map( tuple, asarray( pts ).round( kRound ) ) ):
+		index = unique_pts.setdefault( pt, len( unique_pts ) )
+		pts_map.append( index )
 	
-	## index_close() needs this to be an array.
-	unique_points = asarray( unique_points )
 	boundary_map = []
-	for pt in boundary_pts:
-		# pt = tuple( pt )
-		index = index_close( unique_points, pt )
-		if index != -1:
-			boundary_map.append( index )
-		else:
-			raise RuntimeError('boundary_pts contains points not in all_pts')
-				
-	return unique_points, pts_map, boundary_map
+	for pt in map( tuple, asarray( boundary_pts ).round( kRound ) ):
+		boundary_map.append( unique_pts[ pt ] )
+		## The above will raise a KeyError if boundary_pts contains points not in all_pts.
+		# raise RuntimeError('boundary_pts contains points not in all_pts')
+	
+	return unique_pts.keys(), pts_map, boundary_map
 
 def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None):
 	'''
 	trianglue a region closed by a bunch of bezier curves, precompute the vertices at each sample point.
-	'''
+	'''	
 	if all_pts is None:
 		all_pts = [boundary_pts]
 	
 	boundary_pts = asarray( boundary_pts )
 	all_pts = asarray( all_pts )
-	boundary_shape = boundary_pts.shape
-	all_shape = all_pts.shape
+	all_shapes = [ asarray( pts ).shape[:-1] for pts in all_pts ]
 	
 	boundary_pts = concatenate( boundary_pts )
 	all_pts = concatenate( [ concatenate( curve_pts ) for curve_pts in all_pts ] )
 	
-	all_clean_pts, all_maps, boundary_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, boundary_pts )
+	print 'Removing duplicate points...'
+	all_clean_pts, pts_maps, boundary_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, boundary_pts )
+	print '...finished.'
 	
 	boundary_edges = [ ( i, (i+1) % len( set(boundary_maps) ) ) for i in xrange(len( set(boundary_maps) )) ]
 
 # 	boundary_edges = [ ( boundary_maps[i], boundary_maps[ (i+1) % len(boundary_maps) ] ) for i in xrange(len( boundary_maps )) ]
 	
-
-	boundary_maps = asarray( boundary_maps ).reshape( boundary_shape[:-1] )
-	all_maps = asarray( all_maps ).reshape( all_shape[:-1] )
+	all_maps = []
+	pos = 0
+	for shape in all_shapes:
+		maps = []
+		for j in range( shape[0] ):
+			maps.append( pts_maps[ pos : pos + shape[1] ] )
+			pos += shape[1]
+		all_maps.append( maps )
+	
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
 	if len( skeleton_handle_vertices ) > 0:
@@ -87,12 +68,16 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
+	print 'Computing triangulation...'
 	vs, faces = triangles_for_points( registered_pts, boundary_edges )
+	print '...finished.'
 	
 	vs = asarray(vs)[:, :2] 
 	faces = asarray(faces)
 
+	print 'Computing BBW...'
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+	print '...finished.'
 	
 	return vs, all_weights, all_maps
 

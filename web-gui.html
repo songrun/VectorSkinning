@@ -155,6 +155,7 @@ Constraint type:
 /// Constants.
 ///
 var kDebugging = false;
+var kProfiling = false;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
@@ -222,6 +223,9 @@ function receiveSocketMessage( data )
     
     if( kDebugging ) console.log( 'Received data: ' + data );
     
+    var start;
+    if( kProfiling ) start = new Date().getTime();
+    
     // Javascript check if a string starts with another string.
     // From: http://stackoverflow.com/questions/646628/javascript-startswith
     if( data.lastIndexOf( 'control-point-constraint ', 0 ) === 0 )
@@ -236,6 +240,12 @@ function receiveSocketMessage( data )
     else
     {
         console.log( 'UNKNOWN MESSAGE RECEIVED: ' + data );
+    }
+    
+    if( kProfiling )
+    {
+    	var end = new Date().getTime();
+		console.log( 'receiveSocketMessage took: ' + ( end - start )/1000. );
     }
 }
 // updatePaths() updates the paths in the SVG.

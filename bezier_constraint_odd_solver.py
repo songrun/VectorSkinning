@@ -1,27 +1,28 @@
 from generate_chain_system import *
 
 class BezierConstraintSolverOdd( BezierConstraintSolver ):
-    '''
-    Free direction, magnitude fixed (for G1 or A).
-    '''
-    
-    def update_system_with_result_of_previous_iteration( self, solution ):
-        ### Iterate only over the parts of the matrix that will change,
-        ### such as the lagrange multipliers across G1 or A edges and the right-hand-side.
-        solution = asarray(solution)
-        num = len(self.bundles)
-        assert solution.shape == (num, 4, 2)
-        magnitudes = asarray( [[mag( solution[i][1]-solution[i][0] ), mag( solution[i][2]-solution[i][3] )] for i in range(num) ] )
-        
-        for i in range(num):
-	        self.bundles[i].magnitudes = magnitudes[i]
+	'''
+	Free direction, magnitude fixed (for G1 or A).
+	'''
+	
+	def update_system_with_result_of_previous_iteration( self, solution ):
+		### Iterate only over the parts of the matrix that will change,
+		### such as the lagrange multipliers across G1 or A edges and the right-hand-side.
+		solution = asarray(solution)
+		num = len(self.bundles)
+		assert solution.shape == (num, 4, 2)
+		magnitudes = asarray( [[mag( solution[i][1]-solution[i][0] ), mag( solution[i][2]-solution[i][3] )] for i in range(num) ] )
+		
+		for i in range(num):
+			self.bundles[i].magnitudes = magnitudes[i]
 		
 		self.update_bundles()
 		
-    
-    def solve( self ):
+	
+	def solve( self ):
 		dim = 2
 		num = len(self.bundles)
+#		debugger()
 		
 		x = linalg.solve( self.system, self.rhs )
 		### Return a nicely formatted chain of bezier curves.
@@ -33,8 +34,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			result.append( P )		
 		
 		return result	
-    
-    def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
+	
+	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
 		w0, w1 = bundle0.weight, bundle1.weight
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
 		
@@ -51,7 +52,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		R = None
 		
 		smoothness = bundle0.constraints[1,0]
-		if smoothness == 1:         ## C0
+		if smoothness == 1:			## C0
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
@@ -62,7 +63,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[i*4+3, i] = 1
 				R[sum(dofs0) + i*4, i] = -1
 
-		elif smoothness == 2:        ## fixed angle
+		elif smoothness == 2:		 ## fixed angle
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x - Q1x ) = 0
@@ -89,7 +90,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
 			
-		elif smoothness == 3:        ## C1
+		elif smoothness == 3:		 ## C1
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
@@ -111,7 +112,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			R[ :sum(dofs0), dim: ] *= w1
 			R[ sum(dofs0):, dim: ] *= w0
 
-		elif smoothness == 4:        ## G1
+		elif smoothness == 4:		 ## G1
 			R = zeros( ( dofs, 2*dim ) )
 			for i in range( dim ):
 				R[i*4+3, i] = 1
@@ -146,15 +147,15 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	
 		return R.T, rhs
 		
-        
-    def system_for_curve( self, bundle ):
+		
+	def system_for_curve( self, bundle ):
 		'''
 		## A is computed using Sage, integral of (tbar.T * tbar) with respect to t.
-		# 	A = asarray( [[  1./7,  1./6,  1./5, 1./4], [ 1./6,  1./5, 1./4,  1./3], 
-		# 		[ 1./5, 1./4,  1./3,  1./2], [1./4,  1./3,  1./2,   1.]] )
+		#	A = asarray( [[	 1./7,	1./6,  1./5, 1./4], [ 1./6,	 1./5, 1./4,  1./3], 
+		#		[ 1./5, 1./4,  1./3,  1./2], [1./4,	 1./3,	1./2,	1.]] )
 		## MAM is computed using Sage. MAM = M * A * M
 		'''
- 		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,  3./35, 9./140,  1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,  1./35,  1./14,   1./7]] )
+		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,	3./35, 9./140,	1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,	1./35,	1./14,	 1./7]] )
 		dim = 2
 
 		Left = zeros((8, 8))
@@ -165,59 +166,60 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		return Left
 		
-        
-    def compute_dofs_per_curve( self, bundle ):
-    
-        constraints = asarray(bundle.constraints)
-        dofs = zeros(2)
-        '''
-        assume open end points can only emerge at the endpoints
-        '''
-        for i, smoothness in enumerate(constraints[:,0]):
-            if smoothness == 1: dofs[i] += 4        ## C0
-            elif smoothness == 2: dofs[i] += 4      ## fixed angle
-            elif smoothness == 3: dofs[i] += 4      ## C1
-            elif smoothness == 4: dofs[i] += 4      ## G1
-        
-        return dofs
-        
-    
-    def constraint_number_per_joint(self, constraint ):    
-    
-        assert len(constraint) == 2
-        smoothness = constraint[0]  
-        fixed = constraint[1]    
-        
-        num = 0
-        if smoothness == 1: num = 2         ## C0
-        elif smoothness == 2: num = 4       ## fixed angle
-        elif smoothness == 3: num = 4       ## C1
-        elif smoothness == 4: num = 4       ## G1
-        
-        if fixed != 0:
-            num += 2
-            
-        return num
-        
-        
-    def rhs_for_curve( self, bundle, transforms ):
+		
+	def compute_dofs_per_curve( self, bundle ):
+	
+		constraints = asarray(bundle.constraints)
+		dofs = zeros(2)
+		'''
+		assume open end points can only emerge at the endpoints
+		'''
+		for i, smoothness in enumerate(constraints[:,0]):
+			if smoothness == 0: dofs[i] += 4		## Free of constraint
+			elif smoothness == 1: dofs[i] += 4		## C0
+			elif smoothness == 2: dofs[i] += 4		## fixed angle
+			elif smoothness == 3: dofs[i] += 4		## C1
+			elif smoothness == 4: dofs[i] += 4		## G1
+		
+		return dofs
+		
+	
+	def constraint_number_per_joint(self, constraint ):	   
+	
+		assert len(constraint) == 2
+		smoothness = constraint[0]	
+		fixed = constraint[1]	 
+		
+		num = 0
+		if smoothness == 1: num = 2			## C0
+		elif smoothness == 2: num = 4		## fixed angle
+		elif smoothness == 3: num = 4		## C1
+		elif smoothness == 4: num = 4		## G1
+		
+		if fixed != 0:
+			num += 2
+			
+		return num
+		
+		
+	def rhs_for_curve( self, bundle, transforms ):
 		'''
 		The rhs is computed according to the formula:
 			rhs = sum(Ti * P.T * M.T * W_i * M)
 		'''
-# 		W_matrices = bundle.W_matrices
-# 		controls = bundle.control_points
+#		W_matrices = bundle.W_matrices
+#		controls = bundle.control_points
 # 
-# 		Right = zeros( (3, 4) )
-# 		for i in range( len( transforms ) ):
+#		Right = zeros( (3, 4) )
+#		for i in range( len( transforms ) ):
 # 
-# 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-# 			W_i = W_matrices[i,0]	
+#			T_i = mat( asarray(transforms[i]).reshape(3,3) )
+#			W_i = W_matrices[i,0]	
 # 
-# 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
+#			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
 # 
-# 		Right = asarray(Right).reshape(-1)
-# 		Right = Right[:8]	
+#		Right = asarray(Right).reshape(-1)
+#		Right = Right[:8]	
 
 		W_matrices = bundle.W_matrices
 		controls = bundle.control_points
@@ -227,12 +229,12 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range( len( transforms ) ):
 		
 			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
- 			W_i = asarray(W_matrices[i])
+			W_i = asarray(W_matrices[i])
 
 			temp = temp + dot(asarray(T_i*(controls.T)*M), W_i)
 
 		R = temp[:2,:]
 		
 		Right[:] = concatenate((R[0, :], R[1, :]))
-		 	
+			
 		return Right

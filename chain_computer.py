@@ -6,15 +6,15 @@ class Engine:
 	'''
 	A data persistant that have all information needed to precompute and the system matrix of the previous state.
 	'''
-	handle_positions = []
-	transforms = []
-	
-	all_controls = []
-	all_constraints = []
-	boundary_index = 0
-	
-	precomputed_parameter_table = []
-	is_ready = False
+# 	handle_positions = []
+# 	transforms = []
+# 	
+# 	all_controls = []
+# 	all_constraints = []
+# 	boundary_index = 0
+# 	
+# 	precomputed_parameter_table = []
+# 	is_ready = False
 	
 # 	def __init__( control_pos=None, handles=None ):
 # 		if control_pos is not None:
@@ -117,7 +117,6 @@ class Engine:
 			all_indices = precomputed_parameters[3][i]
 			all_pts = precomputed_parameters[4][i]
 			all_dts = precomputed_parameters[5][i]
-		
 			solution_controls = approximate_beziers( controls, constraints, handles, transforms, W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts )[0]
 			
 			result.append( solution_controls )
@@ -140,15 +139,16 @@ def approximate_beziers( controls, constraints, handles, transforms, W_matrices,
 	'''
 	solutions = None
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
+	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, is_closed )
 #	odd.update_rhs_for_handles( transforms )
 	last_solutions = solutions = odd.solve()
 
 	### 2	
 	if 2 in constraints[:,0] or 4 in constraints[:,0]: 
 
-		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms )	
+		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, is_closed )	
 	#		even.update_rhs_for_handles( transforms )
 
 		for iter in xrange( 1 ):
@@ -285,11 +285,9 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	return [W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts]
 
 	
-		
-def main():
-	'''
-	a console test.
-	'''
+
+def get_test1():
+	
 	paths_info =  [
 	{u'bbox_area': 81583.4111926838,
   u'closed': True,
@@ -354,6 +352,61 @@ def main():
 	
 	constraint = [0, 3, (2,1) ]
 	
+	return paths_info, skeleton_handle_vertices, constraint
+
+def get_test2():
+	paths_info = [{u'bbox_area': 81583.4111926838,
+  u'closed': True,
+  u'cubic_bezier_chain': [[46.95399856567383, 114.95899963378906],
+                          [35.944000244140625, 177.95700073242188],
+                          [96.1259994506836, 266.40399169921875],
+                          [198.39999389648438, 266.40399169921875],
+                          [300.67401123046875, 266.40399169921875],
+                          [342.614990234375, 182.7259979248047],
+                          [342.614990234375, 122.19000244140625],
+                          [342.614990234375, 61.65399932861328],
+                          [366.375, 19.503999710083008],
+                          [241.58200073242188, 21.156999588012695],
+                          [116.78900146484375, 22.809999465942383],
+                          [61.83000183105469, 29.834999084472656],
+                          [46.95399856567383, 114.95899963378906]]},
+ {u'bbox_area': 15.526111421524547,
+  u'closed': False,
+  u'cubic_bezier_chain': [[134.5, 128.5],
+                          [132.61599731445312, 127.67900085449219],
+                          [130.8800048828125, 126.66699981689453],
+                          [129.3159942626953, 125.50499725341797]]},
+ {u'bbox_area': 9399.832030713733,
+  u'closed': False,
+  u'cubic_bezier_chain': [[121.60099792480469, 115.66500091552734],
+                          [115.31800079345703, 99.75399780273438],
+                          [130.28199768066406, 78.03600311279297],
+                          [188.5, 85.5],
+                          [256.49200439453125, 94.21700286865234],
+                          [272.8139953613281, 111.29199981689453],
+                          [272.5719909667969, 137.718994140625]]},
+ {u'bbox_area': 4.357566170394421,
+  u'closed': False,
+  u'cubic_bezier_chain': [[272.23199462890625, 144.0469970703125],
+                          [272.04998779296875, 145.98500061035156],
+                          [271.802001953125, 147.968994140625],
+                          [271.5, 150]]}]
+	
+	skeleton_handle_vertices = [[176, 126]]	
+# 	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
+	
+	constraint = [0, 3, (2,1) ]
+	
+	return paths_info, skeleton_handle_vertices, constraint 
+	
+def main():
+	'''
+	a console test.
+	'''
+	
+	# paths_info, skeleton_handle_vertices, constraint = get_test1()
+	paths_info, skeleton_handle_vertices, constraint = get_test2()
+	
 	engine = Engine()
 	boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
 	boundary_index = paths_info.index( boundary_path )
@@ -369,8 +422,11 @@ def main():
 	all_paths = engine.solve()
 	
 	for path in all_paths:
-		chain = concatenate( asarray(path)[:-1, :-1] )
-		chain = concatenate( ( chain, path[-1] ) )
+		if len( path ) > 1:
+			chain = concatenate( asarray(path)[:-1, :-1] )
+			chain = concatenate( ( chain, path[-1] ) )
+		else:
+			chain = path[0]
 		print chain
 # 	debugger()
 # 	parameters = precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  )
