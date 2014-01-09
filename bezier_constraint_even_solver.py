@@ -65,11 +65,11 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = sum(dofs0) + sum(dofs1)
 		dirs0 = asarray(bundle0.directions)
 		dirs1 = asarray(bundle1.directions)
-		R = None
+		R = zeros( ( dofs, 0 ) )
 		
-		assert bundle0.constraints[1,0] == bundle1.constraints[0,0]
-		smoothness = bundle0.constraints[1,0]
-		if smoothness == 1:         ## C0
+		assert bundle0.constraints[1][0] == bundle1.constraints[0][0]
+		smoothness = bundle0.constraints[1][0]
+		if smoothness == 'C0':         ## C0
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
@@ -82,7 +82,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 			R[sum(dofs0) : sum(dofs0)+dim, :] = identity(dim) * -1
 
-		elif smoothness == 2:        ## fixed angle
+		elif smoothness == 'A':        ## fixed angle
 			R = zeros( ( dofs, dim ) )
 			if dofs0[1] == 3:
 				R[dofs0[0] : dofs0[0]+dim, :] = identity(dim)
@@ -90,7 +90,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				R[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 			R[sum(dofs0) : sum(dofs0)+dim, :] = identity(dim) * -1
 			
-		elif smoothness == 3:        ## C1
+		elif smoothness == 'C1':        ## C1
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
@@ -123,7 +123,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
 				
-		elif smoothness == 4:        ## G1
+		elif smoothness == 'G1':        ## G1
 			R = zeros( ( dofs, dim ) )
 			if dofs0[1] == 3:
 				R[dofs0[0] : dofs0[0]+dim, :] = identity(dim)
@@ -134,7 +134,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		rhs = zeros(R.shape[1])
 		
 		fixed = bundle0.control_points[-1][:dim]
-		if bundle0.constraints[1, 1] != 0:
+		is_fixed = bundle0.constraints[1][1]
+		if is_fixed == True or is_fixed == 'True':
 
 			fixed = asarray(fixed)
 			'''
@@ -157,7 +158,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = self.compute_dofs_per_curve(bundle)
 		Left = zeros((sum(dofs), sum(dofs)))
 		dirs = asarray(bundle.directions)
-		weight = bundle.weight
 
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
@@ -212,12 +212,13 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		assume open end points can only emerge at the endpoints
 		'''
 		for i, smoothness in enumerate(constraints[:,0]):
-			if smoothness == 0: dofs[i] += 4  		## Free of constraint
-			elif smoothness == 1: dofs[i] += 4		## C0
-			elif smoothness == 2: dofs[i] += 3		## fixed angle
-			elif smoothness == 3: dofs[i] += 4		## C1
-			elif smoothness == 4: dofs[i] += 3		## G1
-
+			
+			if smoothness == 'C0': dofs[i] += 4			## C0
+			elif smoothness == 'A': dofs[i] += 3		## fixed angle
+			elif smoothness == 'C1': dofs[i] += 4		## C1
+			elif smoothness == 'G1': dofs[i] += 3		## G1
+			elif smoothness == 'None': dofs[i] += 4  	## Free of constraint
+			
 		return dofs
 
 	
@@ -227,10 +228,10 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		fixed = constraint[1]    
 
 		num = 0
-		if smoothness == 1: num = 2         ## C0
-		elif smoothness == 2: num = 2       ## fixed angle
-		elif smoothness == 3: num = 4       ## C1
-		elif smoothness == 4: num = 2       ## G1
+		if smoothness == 'C0': num = 2         ## C0
+		elif smoothness == 'A': num = 2       ## fixed angle
+		elif smoothness == 'C1': num = 4       ## C1
+		elif smoothness == 'G1': num = 2       ## G1
 
 		if fixed != 0:
 			num += 2

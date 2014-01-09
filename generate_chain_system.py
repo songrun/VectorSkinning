@@ -5,8 +5,7 @@ class Bundle( object ):
 	def __init__( self, W_matrices, control_points, constraints, mags = None, dirs = None ):
 		self.W_matrices = W_matrices
 		self.control_points = control_points
-		self.constraints = asarray( constraints )
-		
+		self.constraints = constraints
 		controls = asarray(self.control_points)
 		if mags is None:
 			self.magnitudes = [mag(controls[1] - controls[0]), mag(controls[2] - controls[3])]
@@ -95,10 +94,9 @@ class BezierConstraintSolver( object ):
 			constraint_eqs = lambdas_per_joint[i+1]
 	
 			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[i], bundles[i+1] )
-	
+			
 			### 4
-			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, 
-					dof_offset : dof_offset + dofs + dofs_next ] = small_lagrange_system
+			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs + dofs_next ] = small_lagrange_system
 			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 	
 			dof_offset += dofs

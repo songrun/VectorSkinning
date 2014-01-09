@@ -48,10 +48,10 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		dofs1 = self.compute_dofs_per_curve(bundle1)
 		dofs = sum(dofs0) + sum(dofs1)
 
-		R = None
+		R = zeros( ( dofs, 0 ) )
 		
-		smoothness = bundle0.constraints[1,0]
-		if smoothness == 1:			## C0
+		smoothness = bundle0.constraints[1][0]
+		if smoothness == 'C0':			## C0
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
@@ -62,7 +62,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[i*4+3, i] = 1
 				R[sum(dofs0) + i*4, i] = -1
 
-		elif smoothness == 2:		 ## fixed angle
+		elif smoothness == 'A':		 ## fixed angle
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x - Q1x ) = 0
@@ -89,7 +89,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
 			
-		elif smoothness == 3:		 ## C1
+		elif smoothness == 'C1':		 ## C1
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - Q1x' ) = 0
@@ -111,7 +111,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
 
-		elif smoothness == 4:		 ## G1
+		elif smoothness == 'G1':		 ## G1
 			R = zeros( ( dofs, 2*dim ) )
 			for i in range( dim ):
 				R[i*4+3, i] = 1
@@ -129,7 +129,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		rhs = zeros(R.shape[1])
 		
 		fixed = bundle0.control_points[-1][:2]
-		if bundle0.constraints[1, 1] != 0:
+		is_fixed = bundle0.constraints[1][1]
+		if is_fixed == True or is_fixed == 'True':
 
 			fixed = asarray(fixed)
 			'''
@@ -174,12 +175,12 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		assume open end points can only emerge at the endpoints
 		'''
 		for i, smoothness in enumerate(constraints[:,0]):
-			if smoothness == 0: dofs[i] += 4		## Free of constraint
-			elif smoothness == 1: dofs[i] += 4		## C0
-			elif smoothness == 2: dofs[i] += 4		## fixed angle
-			elif smoothness == 3: dofs[i] += 4		## C1
-			elif smoothness == 4: dofs[i] += 4		## G1
-		
+			if smoothness == 'C0': dofs[i] += 4			## C0
+			elif smoothness == 'A': dofs[i] += 4		## fixed angle
+			elif smoothness == 'C1': dofs[i] += 4		## C1
+			elif smoothness == 'G1': dofs[i] += 4		## G1
+			elif smoothness == 'None': dofs[i] += 4		## Free of constraint
+			
 		return dofs
 		
 	
@@ -190,10 +191,10 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		fixed = constraint[1]	 
 		
 		num = 0
-		if smoothness == 1: num = 2			## C0
-		elif smoothness == 2: num = 4		## fixed angle
-		elif smoothness == 3: num = 4		## C1
-		elif smoothness == 4: num = 4		## G1
+		if smoothness == 'C0': num = 2			## C0
+		elif smoothness == 'A': num = 4		## fixed angle
+		elif smoothness == 'C1': num = 4		## C1
+		elif smoothness == 'G1': num = 4		## G1
 		
 		if fixed != 0:
 			num += 2

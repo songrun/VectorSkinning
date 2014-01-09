@@ -3,7 +3,7 @@ from numpy import *
 from myarray import *
 
 kEps = 1e-7
-kG1andAconstraints = False
+kG1andAconstraints = True
 
 try:
    from pydb import debugger
@@ -161,7 +161,7 @@ def make_constraints_from_control_points( control_group, close=True ):
 	'''
 	control_group = asarray( control_group )
 	num = len( control_group )
-	constraints = zeros( ( num, 2 ) ) 
+	constraints = [ ['C0', False] ] * num 
 	
 	for i in range( num ):
 		dir1 = dir_allow_zero( control_group[i,-1] - control_group[i,-2] )
@@ -170,24 +170,22 @@ def make_constraints_from_control_points( control_group, close=True ):
 		if allclose( dir1, dir2, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			if kG1andAconstraints:
 				## G1
-				constraints[ (i+1)%num, 0 ] = 4 
+				constraints[ (i+1)%num ][0] = 'G1' 
 			else:
 				## C1
-				constraints[ (i+1)%num, 0 ] = 3
+				constraints[ (i+1)%num ][0] = 'C1'
 		elif allclose( dot( dir1, dir2 ), 0, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			if kG1andAconstraints:
 				## fixed angle
-				constraints[ (i+1)%num, 0 ] = 2	 
+				constraints[ (i+1)%num ][0] = 'A'	 
 			else:
 				## C0
-				constraints[ (i+1)%num, 0 ] = 1
-		else:
-			## C0
-			constraints[ (i+1)%num, 0 ] = 1
+				constraints[ (i+1)%num ][0] = 'C0'
+
 		
 	if close == False:
-		constraints[0,0] = 0
-		constraints = concatenate( (constraints, zeros( (1,2) ) ), axis=0 )
+		constraints[0][0] = 'None'
+		constraints.append( ['None', False] )
 		
 	return constraints	
 	

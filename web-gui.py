@@ -50,13 +50,9 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 # 			print 'constraints: ', all_constraints
 			for i, constraints in enumerate( all_constraints ):
 				for j, constraint in enumerate( constraints ):
-					fixed = False
-					if constraint[1] == 1:	fixed = True
-					continuity = 'C0'
-					if constraint[0] == 1: continuity = 'C0'
-					elif constraint[0] == 2: continuity = 'A'
-					elif constraint[0] == 3: continuity = 'C1'
-					elif constraint[0] == 4: continuity = 'G1'
+	
+					continuity = constraint[0]
+					fixed = constraint[1]
 					
 					payload = [ i, j, { 'fixed': fixed, 'continuity': continuity} ]
 					self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
@@ -107,13 +103,10 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		elif msg.startswith( 'control-point-constraint ' ):
 			paths_info = json.loads( msg[ len( 'control-point-constraint ' ): ] )
-			constraint = zeros(2)
-			if paths_info[2][ u'continuity' ] == u'C0':	constraint[0] = 1
-			elif paths_info[2][ u'continuity' ] == u'A':	constraint[0] = 2
-			elif paths_info[2][ u'continuity' ] == u'C1':	constraint[0] = 3
-			elif paths_info[2][ u'continuity' ] == u'G1':	constraint[0] = 4
 			
-			if paths_info[w][ u'fixed' ] == True:	constraint[1] = 1
+			constraint = [None]*2
+			constraint[0] = str( paths_info[2][ u'continuity' ] )
+			constraint[1] = paths_info[w][ u'fixed' ]
 				
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
 			
