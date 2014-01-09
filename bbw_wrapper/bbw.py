@@ -174,7 +174,7 @@ def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
     
     return Wout
 
-def test_OBJ( path ):
+def test_OBJ( path, num_handle_points = None ):
     from numpy import asarray, asfarray, ones
     vs = [ list( map( float, line.strip().split()[1:] ) ) for line in open( path ) if len( line.strip() ) > 0 and line.strip().split()[0] == 'v' ]
     #vs = asfarray( vs )[:,:2]
@@ -185,14 +185,21 @@ def test_OBJ( path ):
     faces = asarray( faces, dtype = int )
     print 'Loaded', len( vs ), 'vertices and ', len( faces ), 'faces from:', path
     
-    handle_points = [ len(vs)//4, 3*len(vs)//4 ]
+    ## Choose 'num_handle_points' points evenly chosen from the list of points, skipping
+    ## the first and last in case something's up with them.
+    if num_handle_points is None: num_handle_points = 2
+    handle_points = [ ((h+1)*len(vs))//(num_handle_points+1) for h in range( num_handle_points ) ]
     assert len( set( handle_points ) ) == len( handle_points )
     assert min( handle_points ) >= 0
     assert max( handle_points ) < len( vs )
 #   debugger()
     ## To test a single handle, uncomment the following line.
     #handle_points = handle_points[:1]
+    import time
+    duration = time.time()
     W = bbw( vs, faces, [ vs[i] for i in handle_points ], list(range(len( handle_points ))) )
+    duration = time.time() - duration
+    print 'bbw() took', duration, 'seconds'
     print W
 
 def test_simple():
@@ -207,7 +214,7 @@ def main():
     import sys
     
     if len( sys.argv ) > 1:
-        test_OBJ( sys.argv[1] )
+        test_OBJ( sys.argv[1], int( sys.argv[2] ) if len( sys.argv ) > 2 else None )
     
     else:
         test_simple()
