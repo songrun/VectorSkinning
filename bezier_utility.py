@@ -3,7 +3,7 @@ from numpy import *
 from myarray import *
 
 kEps = 1e-7
-kG1andAconstraints = True
+kG1andAconstraints = False
 
 try:
    from pydb import debugger

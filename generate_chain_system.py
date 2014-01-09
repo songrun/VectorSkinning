@@ -2,11 +2,10 @@ from bezier_utility import *
 from weights_computer import *
 
 class Bundle( object ):
-	def __init__( self, W_matrices, control_points, constraints, weight, mags = None, dirs = None ):
+	def __init__( self, W_matrices, control_points, constraints, mags = None, dirs = None ):
 		self.W_matrices = W_matrices
 		self.control_points = control_points
 		self.constraints = asarray( constraints )
-		self.weight = weight
 		
 		controls = asarray(self.control_points)
 		if mags is None:
@@ -21,14 +20,13 @@ class Bundle( object ):
 
 
 class BezierConstraintSolver( object ):
-	def __init__( self, W_matrices, control_points, constraints, lengths, transforms, is_closed ):
+	def __init__( self, W_matrices, control_points, constraints, transforms, is_closed ):
 		## compute the weight of each segment according to its length
 		num = len(control_points)
-		weights = asarray( lengths ) /sum( lengths )
 		control_points = asarray(control_points)
-		self.build_system( W_matrices, control_points, constraints, transforms, is_closed, weights )
+		self.build_system( W_matrices, control_points, constraints, transforms, is_closed )
 
-	def build_system( self, W_matrices, control_points, constraints, transforms, is_closed, weights ):
+	def build_system( self, W_matrices, control_points, constraints, transforms, is_closed ):
 		
 		### 1 Bundle all data for each bezier curve together
 		### 2 Allocate space for the system matrix
@@ -38,7 +36,7 @@ class BezierConstraintSolver( object ):
 		### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
-		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], weights[i] ) for i in xrange(len( control_points )) ]
+		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]] ) for i in xrange(len( control_points )) ]
 						
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						

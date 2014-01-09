@@ -36,7 +36,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		return result	
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
-		w0, w1 = bundle0.weight, bundle1.weight
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
 		
 		vec0 = (bundle0.control_points[2]-bundle0.control_points[3])[:2]
@@ -109,8 +108,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[sum(dofs0)+i*4, i+dim] = 1
 
 			## add weights to lambda	 
-			R[ :sum(dofs0), dim: ] *= w1
-			R[ sum(dofs0):, dim: ] *= w0
+			R[ :sum(dofs0), dim: ] *= mag1
+			R[ sum(dofs0):, dim: ] *= mag0
 
 		elif smoothness == 4:		 ## G1
 			R = zeros( ( dofs, 2*dim ) )
