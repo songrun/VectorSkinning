@@ -1,5 +1,7 @@
 from generate_chain_system import *
 
+import scipy.sparse.linalg
+
 class BezierConstraintSolverEven( BezierConstraintSolver ):
 	'''
 	Fixed direction, magnitude free (for G1 or A).
@@ -26,7 +28,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs_per_bundle = self.dofs_per_bundle
 		dirs_per_bundle = [bundle.directions for bundle in self.bundles]
 		num = len( dofs_per_bundle )
-		x = linalg.solve( self.system, self.rhs )
+		# x = linalg.solve( self.system, self.rhs )
+		x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
 	
 		### Return a nicely formatted chain of bezier curves.
 		result = []

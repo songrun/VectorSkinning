@@ -1,5 +1,7 @@
 from generate_chain_system import *
 
+import scipy.sparse.linalg
+
 class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	'''
 	Free direction, magnitude fixed (for G1 or A).
@@ -24,7 +26,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		num = len(self.bundles)
 #		debugger()
 		
-		x = linalg.solve( self.system, self.rhs )
+		# x = linalg.solve( self.system, self.rhs )
+		x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
 		### Return a nicely formatted chain of bezier curves.
 		x = array( x[:self.total_dofs] ).reshape(-1,4).T
 

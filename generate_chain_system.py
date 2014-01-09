@@ -1,6 +1,10 @@
 from bezier_utility import *
 from weights_computer import *
 
+import scipy.sparse.linalg
+system_build_t = scipy.sparse.lil_matrix
+system_solve_t = scipy.sparse.csr_matrix
+
 class Bundle( object ):
 	def __init__( self, W_matrices, control_points, constraints, mags = None, dirs = None ):
 		self.W_matrices = W_matrices
@@ -49,6 +53,7 @@ class BezierConstraintSolver( object ):
 		test
 		'''
 		self.system = zeros( ( self.system_size, self.system_size ) )
+		# self.system	 = system_build_t( ( self.system_size, self.system_size ) )
 		self.rhs = zeros( self.system_size )
 		self.transforms = transforms
 		self.is_closed = is_closed
@@ -64,7 +69,9 @@ class BezierConstraintSolver( object ):
 		lambdas_per_joint = self.lambdas_per_joint
 		total_dofs = self.total_dofs
 		system_size = self.system_size
-		system = self.system
+		## TODO: Figure out the right sparse matrix type.
+		system = system_build_t( self.system )
+		# system = self.system
 		rhs = self.rhs
 		transforms = self.transforms
 		is_closed = self.is_closed
@@ -78,7 +85,7 @@ class BezierConstraintSolver( object ):
 			small_system = self.system_for_curve( bundle )
 			small_rhs = self.rhs_for_curve(bundle, transforms)
 			### 4
-			system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
+			system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = system_build_t( small_system )
 			rhs[ dof_offset : dof_offset + dofs ] = small_rhs
 	
 			dof_offset += dofs
@@ -98,7 +105,7 @@ class BezierConstraintSolver( object ):
 	
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, 
-					dof_offset : dof_offset + dofs + dofs_next ] = small_lagrange_system
+					dof_offset : dof_offset + dofs + dofs_next ] = system_build_t( small_lagrange_system )
 			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 	
 			dof_offset += dofs
@@ -113,13 +120,15 @@ class BezierConstraintSolver( object ):
 			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[-1], bundles[0] )
 	
 			### 4
-			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = small_lagrange_system[ :, :dofs ]
+			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = system_build_t( small_lagrange_system[ :, :dofs ] )
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs,
-					: dofs_next ] = small_lagrange_system[ :, dofs: ]
+					: dofs_next ] = system_build_t( small_lagrange_system[ :, dofs: ] )
 			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
+		
+		self.system	 = system_solve_t( system )
 		
 	
 	def update_rhs_for_handles( self, transforms ):
@@ -142,7 +151,8 @@ class BezierConstraintSolver( object ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 
 	def solve( self ):
-		x = linalg.solve( self.system, self.rhs )
+		x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
+		# x = linalg.solve( self.system, self.rhs )
 	
 		### Return a nicely formatted chain of bezier curves,
 		### even if some of the variables were substituted in the actual system matrix.
