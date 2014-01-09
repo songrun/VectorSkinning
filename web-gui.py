@@ -91,7 +91,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			toc()
 			
 			tic( 'engine.solve()' )
-			all_paths = self.engine.solve()	
+			all_paths = self.engine.solve_transform_change()	
 			toc()
 
 			tic( 'make_chain_from_control_groups' )

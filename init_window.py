@@ -592,7 +592,9 @@ class Window:
 			pts = pts[:,:].reshape(-1).tolist()
 			self.canvas.create_line(pts, width=2, tags='original_bezier')
 						
-		self.refresh_curves()		
+		self.refresh_curves()	
+		
+
 		
 def main():
   
