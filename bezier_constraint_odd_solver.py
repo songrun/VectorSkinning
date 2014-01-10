@@ -45,7 +45,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		# x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
 		### Return a nicely formatted chain of bezier curves.
 		x = array( x[:self.total_dofs] ).reshape(-1,4).T
-
+		
 		result = []
 		for i in range(num):
 			P = x[:, i*dim:(i+1)*dim ]
@@ -189,12 +189,11 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 	def compute_dofs_per_curve( self, bundle ):
 	
-		constraints = asarray(bundle.constraints)
 		dofs = zeros( 2, dtype = int )
 		'''
 		assume open end points can only emerge at the endpoints
 		'''
-		for i, smoothness in enumerate(constraints[:,0]):
+		for i, (smoothness, fixed) in enumerate(bundle.constraints):
 			if smoothness == 'C0': dofs[i] += 4			## C0
 			elif smoothness == 'A': dofs[i] += 4		## fixed angle
 			elif smoothness == 'C1': dofs[i] += 4		## C1

@@ -161,7 +161,7 @@ def make_constraints_from_control_points( control_group, close=True ):
 	'''
 	control_group = asarray( control_group )
 	num = len( control_group )
-	constraints = [ ['C0', False] ] * num 
+	constraints = [ ['C0', False] for i in range( num ) ]
 	
 	for i in range( num ):
 		dir1 = dir_allow_zero( control_group[i,-1] - control_group[i,-2] )

@@ -705,9 +705,34 @@ function normalizeSVG()
                     // Remove the close-path command if we close a path
                     // but the path has already closed itself
                     // NOTE: This works even if the close-path immediately follows the move-to.
-                    // TODO Q: Is it OK that we store the moveSeg, even though we call removeItem()?
-                    var lastPathSeg = segments.getItem(i-1);
-                    if( lastPathSeg.x === moveSeg.x && lastPathSeg.y === moveSeg.y )
+                    // Q: Is it OK that we store the moveSeg, even though we call removeItem()?
+                    // A: Yes, it works fine.
+                    // UPDATE: If the path has horizontal line and vertical line,
+                    //         then we have to look farther back to find the
+                    //         final X and Y coordinates.
+                    // var lastPathSeg = segments.getItem(i-1);
+                    var lastX, lastY;
+                    {
+                        for( var ii = i-1; ii >= 0; --ii )
+                        {
+                            var lastPathSeg = segments.getItem(ii);
+                            if( lastPathSeg.x !== undefined )
+                            {
+                                lastX = lastPathSeg.x;
+                                break;
+                            }
+                        }
+                        for( var ii = i-1; ii >= 0; --ii )
+                        {
+                            var lastPathSeg = segments.getItem(ii);
+                            if( lastPathSeg.y !== undefined )
+                            {
+                                lastY = lastPathSeg.y;
+                                break;
+                            }
+                        }
+                    }
+                    if( lastX === moveSeg.x && lastY === moveSeg.y )
                     {
                         segments.removeItem(i);
                         // We are removing a path segment, so decrement i by one,
@@ -719,6 +744,9 @@ function normalizeSVG()
         }
         
         // Snap.path.toCubic() converts paths entirely to absolute cubic beziers.
+        // The built-in SVG normalizedPathSegList leaves behind lines (and
+        // converts arc to lots of short lines),
+        // while Snap converts lines and approximates arcs with bezier curves.
         path.setAttribute( 'd', Snap.path.toCubic( path.getAttribute('d') ).toString() );
         } );
 }
