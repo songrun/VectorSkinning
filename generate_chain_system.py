@@ -1,8 +1,9 @@
 from bezier_utility import *
 from weights_computer import *
 
-kSystemSolvePackage = 'numpy-solve'
-kBuildDense = True
+## Change these in generate_chain_system_config
+#kSystemSolvePackage = 'numpy-solve'
+#kBuildDense = True
 
 ## A hack for my speed tests.
 import generate_chain_system_config
@@ -20,7 +21,7 @@ if 'numpy-inv' == kSystemSolvePackage:
 		import scipy.sparse.linalg
 		zeros_system_build_t = scipy.sparse.lil_matrix
 		as_system_build_t = scipy.sparse.lil_matrix
-		to_system_solve_t = scipy.sparse.csr_matrix
+		to_system_solve_t = lambda x: x.todense()
 	
 	def compute_symbolic_factorization( system ):
 		'''
@@ -33,9 +34,9 @@ if 'numpy-inv' == kSystemSolvePackage:
 		def compute_numeric_factorization( system ):
 			try:
 				inverse = linalg.inv( system )
-			except numpy.linalg.linalg.LinAlgError as e:
+			except linalg.linalg.LinAlgError as e:
 				print e
-				inverse = eye( len( system ) )
+				inverse = eye( system.shape[0] )
 			def solve( rhs ):
 				return dot( inverse, rhs )
 			return solve
@@ -50,7 +51,7 @@ elif 'numpy-solve' == kSystemSolvePackage:
 		import scipy.sparse.linalg
 		zeros_system_build_t = scipy.sparse.lil_matrix
 		as_system_build_t = scipy.sparse.lil_matrix
-		to_system_solve_t = scipy.sparse.csr_matrix
+		to_system_solve_t = lambda x: x.todense()
 	
 	def compute_symbolic_factorization( system ):
 		'''
@@ -70,7 +71,7 @@ elif 'scipy' == kSystemSolvePackage:
 	import scipy.sparse.linalg
 	## Sparse matrix types.
 	zeros_system_build_t = scipy.sparse.lil_matrix
-	to_system_solve_t = scipy.sparse.csr_matrix
+	to_system_solve_t = scipy.sparse.csc_matrix
 	## UPDATE: building as a dense matrix is much faster at least for a small system.
 	if kBuildDense:
 		as_system_build_t = lambda x: x.todense()

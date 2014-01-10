@@ -426,7 +426,10 @@ def main():
 	'''
 	
 	# paths_info, skeleton_handle_vertices, constraint = get_test1()
-	paths_info, skeleton_handle_vertices, constraint = get_test2()
+	# paths_info, skeleton_handle_vertices, constraint = get_test2()
+	paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+	#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
+	#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 	
 	engine = Engine()
 	boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
