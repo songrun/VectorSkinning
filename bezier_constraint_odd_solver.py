@@ -149,7 +149,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		fixed = bundle0.control_points[-1][:2]
 		is_fixed = bundle0.constraints[1][1]
-		if is_fixed == True or is_fixed == 'True':
+		assert type( is_fixed ) == bool
+		if is_fixed:
 
 			fixed = asarray(fixed)
 			'''

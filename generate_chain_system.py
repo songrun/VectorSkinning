@@ -52,6 +52,7 @@ elif 'numpy-solve' == kSystemSolvePackage:
 		'''
 		def compute_numeric_factorization( system ):
 			def solve( rhs ):
+				save( 'broken.npy', system )
 				return linalg.solve( system, rhs )
 			return solve
 		return compute_numeric_factorization
