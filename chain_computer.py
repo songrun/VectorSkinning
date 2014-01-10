@@ -445,6 +445,9 @@ def main():
 #	engine.set_transforms()
 	engine.precompute_configuration()
 	all_paths = engine.solve()
+	# from random import randint
+	# engine.transform_change( 0, [[1,0,randint(-20,20)],[0,1,randint(-20,20)]] )
+	all_paths = engine.solve_transform_change()
 	
 	for path in all_paths:
 		if len( path ) > 1:

@@ -1,9 +1,23 @@
+## Run the timing tests.
 for TEST in "simple_closed" "pebble" "alligator"
 do
     python sparse_solver_speed_test.py "${TEST}" 2>&1 | tee "profiles/sparse_solver_speed_test.py.${TEST}.out"
 done
+# python sparse_solver_speed_test.py simple_closed 2>&1 | tee "profiles/sparse_solver_speed_test.py.simple_closed.out"
+
+## Examine the results.
+cd profiles
 
 for TEST in "simple_closed" "pebble" "alligator"
 do
-    egrep '=======>|died' "profiles/sparse_solver_speed_test.py.${TEST}.out"
+    fgrep 'died' "sparse_solver_speed_test.py.${TEST}.out"
+done
+
+for TEST in "simple_closed" "pebble" "alligator"
+do
+    echo '-------------' "${TEST}"
+    echo '++++++ G1 and A False'
+    fgrep Duration "sparse_solver_speed_test.py.${TEST}.out" | cut -d 'k' -f 1 | sort -n | grep 'G1-and-A False'
+    echo '++++++ G1 and A True'
+    fgrep Duration "sparse_solver_speed_test.py.${TEST}.out" | cut -d 'k' -f 1 | sort -n | grep 'G1-and-A True'
 done

@@ -12,6 +12,8 @@ bezier_utility.kG1andAconstraints = %s
 
 sys.excepthook = excepthook
 
+from random import randint
+
 try:
     paths_info, skeleton_handle_vertices, constraint = chain_computer.get_test_%s()
     engine = chain_computer.Engine()
@@ -20,25 +22,32 @@ try:
     engine.set_control_positions( paths_info, boundary_index )
     engine.set_handle_positions( skeleton_handle_vertices )
     engine.precompute_configuration()
+    engine.solve()
 except Exception as e:
     print 'Setup died:'
     print e
     
     import time
     class Engine( object ):
-        def solve( self ):
+        def solve_transform_change( self ):
             return None
     engine = Engine()
 print "===> Finished setup."
 '''
 
 statement = '''
-all_paths = engine.solve()
+engine.transform_change( 0, [[1,0,randint(-20,20)],[0,1,randint(-20,20)]] )
+all_paths = engine.solve_transform_change()
 '''
 
-#solves = [ 'numpy-inv', 'numpy-solve', 'scipy', 'cvxopt' ]
-solves = [ 'numpy-solve', 'scipy', 'cvxopt' ]
-denses = [ 'numpy', 'scipy', 'cvxopt' ]
+## numpy-inv always loses to numpy-solve (this might not be true if we just change the right-hand-side a lot).
+solves = [ 'numpy-inv', 'numpy-solve', 'scipy', 'cvxopt' ]
+# solves = [ 'numpy-solve', 'scipy', 'cvxopt' ]
+
+## 'scipy' matrices are incredibly slow.
+# denses = [ 'numpy', 'cvxopt', 'scipy' ]
+denses = [ 'numpy', 'cvxopt' ]
+
 #whichs = ( 'simple_closed', 'pebble', 'alligator' )
 #whichs = ( 'simple_closed', )
 whichs = sys.argv[1:]
@@ -47,8 +56,8 @@ from numpy import array
 
 N = 100
 R = 3
-for which in whichs:
-    for g1 in ( True, False ):
+for g1 in ( False, True ):
+    for which in whichs:
         for solve in solves:
             for dense in denses:
                 

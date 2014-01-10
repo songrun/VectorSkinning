@@ -35,14 +35,17 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 #		debugger()
 		
 		if self.system_symbolic_factorization is None:
+			#print 'odd symbolic factoring'
 			system = to_system_solve_t( self.system )
 			self.system_symbolic_factorization = compute_symbolic_factorization( system )
 			self.system_factored = self.system_symbolic_factorization( system )
 		
 		elif self.system_factored is None:
+			#print 'odd numeric factoring'
 			system = to_system_solve_t( self.system )
 			self.system_factored = self.system_symbolic_factorization( system )
 		
+		#print 'odd solve'
 		x = self.system_factored( self.rhs )
 		# x = linalg.solve( self.system, self.rhs )
 		# x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
