@@ -36,9 +36,14 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		num = len( dofs_per_bundle )
 		
 		if self.system_symbolic_factorization is None:
-			self.system_symbolic_factorization = compute_symbolic_factorization( self.system )
-		if self.system_factored is None:
-			self.system_factored = self.system_symbolic_factorization( self.system )
+			system = to_system_solve_t( self.system )
+			self.system_symbolic_factorization = compute_symbolic_factorization( system )
+			self.system_factored = self.system_symbolic_factorization( system )
+		
+		elif self.system_factored is None:
+			system = to_system_solve_t( self.system )
+			self.system_factored = self.system_symbolic_factorization( system )
+		
 		x = self.system_factored( self.rhs )
 		# x = linalg.solve( self.system, self.rhs )
 		# x = scipy.sparse.linalg.spsolve( self.system, self.rhs )

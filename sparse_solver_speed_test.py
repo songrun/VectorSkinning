@@ -6,7 +6,7 @@ import sys
 excepthook = sys.excepthook
 import generate_chain_system_config
 generate_chain_system_config.kSystemSolvePackage = '%s'
-generate_chain_system_config.kBuildDense = %s
+generate_chain_system_config.kBuildDense = '%s'
 import chain_computer, bezier_utility, generate_chain_system
 bezier_utility.kG1andAconstraints = %s
 
@@ -38,6 +38,7 @@ all_paths = engine.solve()
 
 #solves = [ 'numpy-inv', 'numpy-solve', 'scipy', 'cvxopt' ]
 solves = [ 'numpy-solve', 'scipy', 'cvxopt' ]
+denses = [ 'numpy', 'scipy', 'cvxopt' ]
 #whichs = ( 'simple_closed', 'pebble', 'alligator' )
 #whichs = ( 'simple_closed', )
 whichs = sys.argv[1:]
@@ -47,9 +48,9 @@ from numpy import array
 N = 100
 R = 3
 for which in whichs:
-    for solve in solves:
-        for dense in ( True, False ):
-            for g1 in ( True, False ):
+    for g1 in ( True, False ):
+        for solve in solves:
+            for dense in denses:
                 
                 ## Fork before running this, because timeit does not actually re-import modules,
                 ## which we require in order to actually run the different solvers.

@@ -3,7 +3,7 @@ from weights_computer import *
 
 ## Change these in generate_chain_system_config
 #kSystemSolvePackage = 'numpy-solve'
-#kBuildDense = True
+#kBuildDense = 'numpy'
 
 ## A hack for my speed tests.
 import generate_chain_system_config
@@ -12,16 +12,33 @@ kBuildDense = generate_chain_system_config.kBuildDense
 print 'kSystemSolvePackage:', kSystemSolvePackage
 print 'kBuildDense:', kBuildDense
 
+if 'scipy' == kSystemSolvePackage or 'scipy' == kBuildDense: import scipy.sparse.linalg
+if 'cvxopt' == kSystemSolvePackage or 'cvxopt' == kBuildDense: import cvxopt
+
+if 'numpy' == kBuildDense:
+	zeros_system_build_t = zeros
+elif 'scipy' == kBuildDense:
+	zeros_system_build_t = scipy.sparse.lil_matrix
+elif 'cvxopt' == kBuildDense:
+	zeros_system_build_t = lambda shape: cvxopt.spmatrix( [], [], [], shape )
+
+def scipy2cvx( m ):
+	m = m.tocoo()
+	cvx = cvxopt.spmatrix( asarray( m.data ), asarray( m.row, dtype = int ), asarray( m.col, dtype = int ) )
+	return cvx
+def cvx2scipy( m ):
+	return scipy.sparse.coo_matrix( ( asarray( m.V ).squeeze(), ( asarray( m.I ).squeeze(), asarray( m.J ).squeeze() ) ), m.size )
+
 if 'numpy-inv' == kSystemSolvePackage:
-	if kBuildDense:
-		zeros_system_build_t = zeros
-		as_system_build_t = lambda x: x
+	if 'numpy' == kBuildDense:
 		to_system_solve_t = lambda x: x
-	else:
-		import scipy.sparse.linalg
-		zeros_system_build_t = scipy.sparse.lil_matrix
-		as_system_build_t = scipy.sparse.lil_matrix
+	elif 'scipy' == kBuildDense:
 		to_system_solve_t = lambda x: x.todense()
+	elif 'cvxopt' == kBuildDense:
+		import cvxopt
+		to_system_solve_t = lambda x: asarray( cvxopt.matrix( x ) )
+	else:
+		raise RuntimeError( "Unknown build dense type: " + str( kBuildDense ) )
 	
 	def compute_symbolic_factorization( system ):
 		'''
@@ -43,15 +60,15 @@ if 'numpy-inv' == kSystemSolvePackage:
 		return compute_numeric_factorization
 
 elif 'numpy-solve' == kSystemSolvePackage:
-	if kBuildDense:
-		zeros_system_build_t = zeros
-		as_system_build_t = lambda x: x
+	if 'numpy' == kBuildDense:
 		to_system_solve_t = lambda x: x
-	else:
-		import scipy.sparse.linalg
-		zeros_system_build_t = scipy.sparse.lil_matrix
-		as_system_build_t = scipy.sparse.lil_matrix
+	elif 'scipy' == kBuildDense:
 		to_system_solve_t = lambda x: x.todense()
+	elif 'cvxopt' == kBuildDense:
+		import cvxopt
+		to_system_solve_t = lambda x: asarray( cvxopt.matrix( x ) )
+	else:
+		raise RuntimeError( "Unknown build dense type: " + str( kBuildDense ) )
 	
 	def compute_symbolic_factorization( system ):
 		'''
@@ -68,15 +85,14 @@ elif 'numpy-solve' == kSystemSolvePackage:
 		return compute_numeric_factorization
 
 elif 'scipy' == kSystemSolvePackage:
-	import scipy.sparse.linalg
-	## Sparse matrix types.
-	zeros_system_build_t = scipy.sparse.lil_matrix
-	to_system_solve_t = scipy.sparse.csc_matrix
-	## UPDATE: building as a dense matrix is much faster at least for a small system.
-	if kBuildDense:
-		as_system_build_t = lambda x: x.todense()
+	if 'numpy' == kBuildDense:
+		to_system_solve_t = scipy.sparse.csc_matrix
+	elif 'scipy' == kBuildDense:
+		to_system_solve_t = scipy.sparse.csc_matrix
+	elif 'cvxopt' == kBuildDense:
+		to_system_solve_t = lambda x: cvx2scipy( x ).tocsc()
 	else:
-		as_system_build_t = scipy.sparse.lil_matrix
+		raise RuntimeError( "Unknown build dense type: " + str( kBuildDense ) )
 	
 	def compute_symbolic_factorization( system ):
 		'''
@@ -89,28 +105,25 @@ elif 'scipy' == kSystemSolvePackage:
 		def compute_numeric_factorization( system ):
 			factorized = scipy.sparse.linalg.factorized( system )
 			def solve( rhs ):
-				## spsolve() is slower.
+				## spsolve() is slower than the factorized above.
 				# return scipy.sparse.linalg.spsolve( system, rhs )
 				return factorized( rhs )
 			return solve
 		return compute_numeric_factorization
 
 elif 'cvxopt' == kSystemSolvePackage:
-	import cvxopt
 	## UPDATE: cholmod dies with our system for some reason.
 	#import cvxopt.cholmod as cvxopt_solver
 	import cvxopt.umfpack as cvxopt_solver
-	## Sparse matrix types.
-	zeros_system_build_t = lambda shape: cvxopt.spmatrix( [], [], [], shape )
 	
-	if kBuildDense:
-		## Build dense
-		as_system_build_t = lambda x: asarray( cvxopt.matrix( x ) )
+	if 'numpy' == kBuildDense:
 		to_system_solve_t = lambda x: cvxopt.sparse( cvxopt.matrix( x ) )
-	else:
-		## Build sparse
-		as_system_build_t = lambda x: x
+	elif 'scipy' == kBuildDense:
+		to_system_solve_t = scipy2cvx
+	elif 'cvxopt' == kBuildDense:
 		to_system_solve_t = lambda x: x
+	else:
+		raise RuntimeError( "Unknown build dense type: " + str( kBuildDense ) )
 	
 	def compute_symbolic_factorization( system ):
 		'''
@@ -122,7 +135,7 @@ elif 'cvxopt' == kSystemSolvePackage:
 		'''
 		symbolic_factorization = cvxopt_solver.symbolic( system )
 		def compute_numeric_factorization( system ):
-			assert abs(asarray( cvxopt.matrix( (system - system.T) ) )).max() < 1e-8
+			# assert abs(asarray( cvxopt.matrix( (system - system.T) ) )).max() < 1e-8
 			full_factorization = cvxopt_solver.numeric( system, symbolic_factorization )
 			def solve( rhs ):
 				x = cvxopt.matrix( rhs )
@@ -205,8 +218,7 @@ class BezierConstraintSolver( object ):
 		lambdas_per_joint = self.lambdas_per_joint
 		total_dofs = self.total_dofs
 		system_size = self.system_size
-		## TODO: Figure out the right sparse matrix type.
-		system = as_system_build_t( self.system )
+		system = self.system
 		# system = self.system
 		rhs = self.rhs
 		transforms = self.transforms
@@ -263,7 +275,7 @@ class BezierConstraintSolver( object ):
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
 		
-		self.system	 = to_system_solve_t( system )
+		# self.system	 = to_system_solve_t( system )
 		## Reset system_factored, but leave 'self.system_symbolic_factorization' alone,
 		## because we didn't change the sparsity pattern of the matrix.
 		## UPDATE: Actually, if constrained directions align with coordinate axes
