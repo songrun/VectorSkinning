@@ -1,5 +1,7 @@
 from generate_chain_system import *
 
+import scipy.sparse.linalg
+
 class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	'''
 	Free direction, magnitude fixed (for G1 or A).
@@ -11,12 +13,22 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		solution = asarray(solution)
 		num = len(self.bundles)
 		assert solution.shape == (num, 4, 2)
-		magnitudes = asarray( [[mag( solution[i][1]-solution[i][0] ), mag( solution[i][2]-solution[i][3] )] for i in range(num) ] )
+		magnitudes = [[mag( solution[i][1]-solution[i][0] ), mag( solution[i][2]-solution[i][3] )] for i in range(num) ]
 		
 		for i in range(num):
 			self.bundles[i].magnitudes = magnitudes[i]
 		
-		self.update_bundles()
+		self._update_bundles( lagrange_only = False )
+		## The lagrange multipliers changed, but not the locations of the zeros.
+		self.system_factorization = None
+		## UPDATE: Actually, if constrained directions align with coordinate axes
+		##         or have zero magnitude, then the lagrange multiplier systems may gain
+		##		   or lose zeros.
+		## UPDATE 2: If we could update_bundles once with all fixed angles
+		##           not parallel or perpendicular, and then compute the symbolic
+		##           factorization, we could keep it.
+		self.system_symbolic_factorization = None
+		
 		
 	
 	def solve( self ):
@@ -24,10 +36,16 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		num = len(self.bundles)
 #		debugger()
 		
-		x = linalg.solve( self.system, self.rhs )
+		if self.system_symbolic_factorization is None:
+			self.system_symbolic_factorization = compute_symbolic_factorization( self.system )
+		if self.system_factored is None:
+			self.system_factored = self.system_symbolic_factorization( self.system )
+		x = self.system_factored( self.rhs )
+		# x = linalg.solve( self.system, self.rhs )
+		# x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
 		### Return a nicely formatted chain of bezier curves.
 		x = array( x[:self.total_dofs] ).reshape(-1,4).T
-
+		
 		result = []
 		for i in range(num):
 			P = x[:, i*dim:(i+1)*dim ]
@@ -48,8 +66,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		dofs1 = self.compute_dofs_per_curve(bundle1)
 		dofs = sum(dofs0) + sum(dofs1)
 
-		R = zeros( ( dofs, 0 ) )
-		
 		smoothness = bundle0.constraints[1][0]
 		if smoothness == 'C0':			## C0
 			'''
@@ -126,11 +142,15 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
 		
+		else:
+			R = zeros( ( dofs, 0 ) )
+		
 		rhs = zeros(R.shape[1])
 		
 		fixed = bundle0.control_points[-1][:2]
 		is_fixed = bundle0.constraints[1][1]
-		if is_fixed == True or is_fixed == 'True':
+		assert type( is_fixed ) == bool
+		if is_fixed:
 
 			fixed = asarray(fixed)
 			'''
@@ -169,12 +189,11 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 	def compute_dofs_per_curve( self, bundle ):
 	
-		constraints = asarray(bundle.constraints)
-		dofs = zeros(2)
+		dofs = zeros( 2, dtype = int )
 		'''
 		assume open end points can only emerge at the endpoints
 		'''
-		for i, smoothness in enumerate(constraints[:,0]):
+		for i, (smoothness, fixed) in enumerate(bundle.constraints):
 			if smoothness == 'C0': dofs[i] += 4			## C0
 			elif smoothness == 'A': dofs[i] += 4		## fixed angle
 			elif smoothness == 'C1': dofs[i] += 4		## C1
