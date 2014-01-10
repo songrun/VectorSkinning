@@ -87,7 +87,16 @@ From: http://stackoverflow.com/questions/19089384/twitter-bootstrap-3-two-column
 
 </head>
 <body>
+
+<div id="svg-holder" class="text-center">
+<div id="svg-file" class="absolute0"></div>
+<div id="svg-overlay-constraints" class="absolute0"></div>
+<div id="svg-overlay-handles" class="absolute0"></div>
+</div>
+
 <div class="container">
+
+<hr />
 
 <div class="row">
 
@@ -99,7 +108,7 @@ From: http://stackoverflow.com/questions/19089384/twitter-bootstrap-3-two-column
 </div>
 
 </div>
-<div class="row">
+<div class="row" style="margin: 20px 0">
 
 <div id="control-point-constraints" class="col-sm-4 text-muted equal-height">
 <span class="lead">Control point &lt;<span id="path_index" class="tt">null</span>, <span id="segment_index" class="tt">null</span>&gt;:</span>
@@ -142,13 +151,6 @@ Constraint type:
 
 </div>
 
-<hr />
-</div>
-
-<div id="svg-holder" class="text-center">
-<div id="svg-file" class="absolute0"></div>
-<div id="svg-overlay-constraints" class="absolute0"></div>
-<div id="svg-overlay-handles" class="absolute0"></div>
 </div>
 
 <script type='text/javascript'>
@@ -156,7 +158,9 @@ Constraint type:
 /// Constants.
 ///
 var kDebugging = false;
-var kProfiling = true;
+var kProfiling = false;
+// Whether to also save the SVG decorations to disk when the user clicks the save button.
+var kSaveDecorations = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
@@ -347,7 +351,6 @@ function sendPathsForPrecomputation()
     // A: A heuristic that might work is to take the one with the largest bounding box.
     
     var paths_info = [];
-    gHandles = [];
     function append_path( cubic_points )
     {
         if( cubic_points.length < 4 )
@@ -446,6 +449,16 @@ function sendPathsForPrecomputation()
             }
             updatePaths( new_paths );
             }, 100 );
+    }
+    
+    if( kDebugging )
+    {
+        var total = 0;
+        for( var i = 0; i < paths_info.length; ++i )
+        {
+            total += ( paths_info[i].cubic_bezier_chain.length - 1. ) / 3.;
+        }
+        console.log( "There are " + total + " cubic bezier curves total." );
     }
 }
 function sendHandlePositions()
@@ -588,23 +601,49 @@ function setupFileIO()
         } );
     
     $("#save-button").click( function() {
-        var svg_to_save = $("#svg-file > svg");
-        if( svg_to_save.length === 0 )
+        
+        function save_as( svg_to_save, filename )
         {
-            alert( "No SVG to save. This button should be disabled." );
-            return;
+            if( svg_to_save.length === 0 )
+            {
+                console.error( "No SVG to save. This button should be disabled." );
+                return;
+            }
+            
+            // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG in Chrome.
+            //       It is also less correct, because we lose the header comments
+            //       that were in the file before the <svg> tag.
+            var blob = new Blob([ svg_to_save.parent().html() ], {type: "image/svg+xml"});
+            saveAs( blob, filename );
         }
         
-        // NOTE: svg_to_save[0].outerHTML does not seem to work with SVG in Chrome.
-        //       It is also less correct, because we lose the header comments
-        //       that were in the file before the <svg> tag.
-        var blob = new Blob([ svg_to_save.parent().html() ], {type: "image/svg+xml"});
-        saveAs( blob, $('#filename').text() );
+        // Save the main SVG file.
+        var svg = $("#svg-file > svg");
+        var filename = $('#filename').text();
+        save_as( svg, filename );
+        
+        // Also save the decorations.
+        if( kSaveDecorations )
+        {
+            $('#svg-holder').children().each( function( index, child ) {
+                if( child.id === 'svg-file' ) return true;
+                
+                var decorations = $(child).children("svg");
+                if( decorations.length === 0 ) return true;
+                
+                save_as( decorations, filename.replace( /\.svg$/, "" ) + "-" + child.id + ".svg" );
+                } );
+        }
         } );
 }
 
 function loadSVG( svg_text )
 {
+    // Reset global variables.
+    gPathsControlPointConstraints = null;
+    gLargestPath = null;
+    gHandles = [];
+    
     // Attach the SVG to its node.
     $('#svg-file').html( svg_text );
     
