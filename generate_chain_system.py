@@ -3,12 +3,21 @@ from weights_computer import *
 
 kSystemSolvePackage = 'numpy-solve'
 kBuildDense = True
+
+## A hack for my speed tests.
+import generate_chain_system_config
+kSystemSolvePackage = generate_chain_system_config.kSystemSolvePackage
+kBuildDense = generate_chain_system_config.kBuildDense
+print 'kSystemSolvePackage:', kSystemSolvePackage
+print 'kBuildDense:', kBuildDense
+
 if 'numpy-inv' == kSystemSolvePackage:
 	if kBuildDense:
 		zeros_system_build_t = zeros
 		as_system_build_t = lambda x: x
 		to_system_solve_t = lambda x: x
 	else:
+		import scipy.sparse.linalg
 		zeros_system_build_t = scipy.sparse.lil_matrix
 		as_system_build_t = scipy.sparse.lil_matrix
 		to_system_solve_t = scipy.sparse.csr_matrix
@@ -38,6 +47,7 @@ elif 'numpy-solve' == kSystemSolvePackage:
 		as_system_build_t = lambda x: x
 		to_system_solve_t = lambda x: x
 	else:
+		import scipy.sparse.linalg
 		zeros_system_build_t = scipy.sparse.lil_matrix
 		as_system_build_t = scipy.sparse.lil_matrix
 		to_system_solve_t = scipy.sparse.csr_matrix

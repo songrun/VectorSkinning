@@ -1,7 +1,5 @@
 from generate_chain_system import *
 
-import scipy.sparse.linalg
-
 class BezierConstraintSolverEven( BezierConstraintSolver ):
 	'''
 	Fixed direction, magnitude free (for G1 or A).
