@@ -173,18 +173,19 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, W_m
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
 	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, is_closed )
-#	odd.update_rhs_for_handles( transforms )
 	last_solutions = solutions = odd.solve()
 
-	if 2 in constraints[:,0] or 4 in constraints[:,0]: 
+	smoothness = [ constraint[0] for constraint in constraints ]
+	if 'A' in smoothness or 'G1' in smoothness: 
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, is_closed )	
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
 		
-		### 2	
-		if 2 in constraints[:,0] or 4 in constraints[:,0]: 
+		### 2
+		smoothness = [ constraint[0] for constraint in constraints ]
+		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
 	
@@ -368,7 +369,7 @@ def get_test1():
 	skeleton_handle_vertices = [[176, 126]] 
 #	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
 	
-	constraint = [0, 3, (2,1) ]
+	constraint = constraint = [0, 3, ('A',True) ]
 	
 	return paths_info, skeleton_handle_vertices, constraint
 
@@ -413,7 +414,7 @@ def get_test2():
 	skeleton_handle_vertices = [[176, 126]] 
 #	skeleton_handle_vertices = [[200.0, 300.0, 1.0], [300.0, 300.0, 1.0]] 
 	
-	constraint = [0, 3, (2,1) ]
+	constraint = [0, 3, ('A',True) ]
 	
 	return paths_info, skeleton_handle_vertices, constraint 
 	
