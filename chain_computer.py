@@ -97,13 +97,13 @@ class Engine:
 		self.fast_update_functions = []
 		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
 			W_matrices = precomputed_parameters[0][i]
-			all_weights = precomputed_parameters[1]
-			all_vertices = precomputed_parameters[2]
-			all_indices = precomputed_parameters[3][i]
-			all_pts = precomputed_parameters[4][i]
-			all_dts = precomputed_parameters[5][i]
+# 			all_weights = precomputed_parameters[1]
+# 			all_vertices = precomputed_parameters[2]
+# 			all_indices = precomputed_parameters[3][i]
+# 			all_pts = precomputed_parameters[4][i]
+# 			all_dts = precomputed_parameters[5][i]
 			
-			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts )
+			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices )
 			self.fast_update_functions.append( fast_update )
 			
 			result.append(	fast_update( transforms ) )
@@ -161,7 +161,7 @@ class Engine:
 ## The dimensions of a point represented in the homogeneous coordinates
 # dim = 2
 
-def prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts ):
+def prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices ):
 	
 	'''
 	### 1 construct and solve the linear system for the odd iteration. if the constraints don't contain fixed angle and G1, skip ### 2.
