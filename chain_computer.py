@@ -190,6 +190,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, W_m
 			even.update_rhs_for_handles( transforms )
 	
 			for iter in xrange( 10 ):
+				#print 'iteration', iter
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
 				solutions = even.solve()

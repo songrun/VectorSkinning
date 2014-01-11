@@ -201,7 +201,7 @@ class BezierConstraintSolver( object ):
 		'''
 		# self.system = zeros( ( self.system_size, self.system_size ) )
 		self.system	 = zeros_system_build_t( ( self.system_size, self.system_size ) )
-		self.system_symbolic_factorization = None
+		self.system_symbolic_factored = None
 		self.system_factored = None
 		self.rhs = zeros( self.system_size )
 		self.transforms = transforms

@@ -18,14 +18,14 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			self.bundles[i].directions = directions[i]
 		
 		self._update_bundles()
-		## The lagrange multipliers changed, but not the locations of the zeros.
-		self.system_factorization = None
+		self.system_factored = None
 		## UPDATE: Actually, if constrained directions align with coordinate axes
 		##         or have zero magnitude, then the systems may gain
 		##		   or lose zeros.
 		## UPDATE 2: If we could update_bundles once with all directions zero-free,
 		##           and then compute the symbolic factorization, we could keep it.
-		self.system_symbolic_factorization = None
+		## UPDATE 3: Let's try it assuming that the first time through there are no zeros.
+		self.system_symbolic_factored = None
 		
 	
 	def solve( self ):
@@ -35,16 +35,16 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dirs_per_bundle = [bundle.directions for bundle in self.bundles]
 		num = len( dofs_per_bundle )
 		
-		if self.system_symbolic_factorization is None:
+		if self.system_symbolic_factored is None:
 			#print 'even symbolic factoring'
 			system = to_system_solve_t( self.system )
-			self.system_symbolic_factorization = compute_symbolic_factorization( system )
-			self.system_factored = self.system_symbolic_factorization( system )
+			self.system_symbolic_factored = compute_symbolic_factorization( system )
+			self.system_factored = self.system_symbolic_factored( system )
 		
 		elif self.system_factored is None:
 			#print 'even numeric factoring'
 			system = to_system_solve_t( self.system )
-			self.system_factored = self.system_symbolic_factorization( system )
+			self.system_factored = self.system_symbolic_factored( system )
 		
 		#print 'even solve'
 		x = self.system_factored( self.rhs )
