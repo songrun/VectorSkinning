@@ -3,6 +3,8 @@ from triangle import *
 import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
+kEnableBBW = True
+
 def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pts ):
 	'''
 	Given a sequence of N points 'pts',
@@ -52,8 +54,6 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	print '...finished.'
 	
 	boundary_edges = [ ( i, (i+1) % len( set(boundary_maps) ) ) for i in xrange(len( set(boundary_maps) )) ]
-
-# 	boundary_edges = [ ( boundary_maps[i], boundary_maps[ (i+1) % len(boundary_maps) ] ) for i in xrange(len( boundary_maps )) ]
 	
 	all_maps = []
 	pos = 0
@@ -71,18 +71,54 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	print 'Computing triangulation...'
-	vs, faces = triangles_for_points( registered_pts, boundary_edges )
-	print '...finished.'
+	try:
+		print 'Computing triangulation...'
+		vs, faces = triangles_for_points( registered_pts, boundary_edges )
+		print '...finished.'
 	
-	vs = asarray(vs)[:, :2] 
-	faces = asarray(faces)
-
-	print 'Computing BBW...'
-	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
-	print '...finished.'
+		vs = asarray(vs)[:, :2] 
+		faces = asarray(faces)
 	
+		if kEnableBBW:
+			print 'Computing BBW...'
+			all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+			print '...finished.'
+		else:
+			print 'Computing Shepherd...'
+			all_weights = shepherd( vs, skeleton_handle_vertices, skeleton_point_handles )
+			print '...finished.'
+		
+	except RuntimeError:
+		print 'Computing triangulation fails, using shepherd weights instead.'
+		print 'Computing Shepherd...'
+		all_weights = shepherd( all_clean_pts, skeleton_handle_vertices, skeleton_point_handles )
+		print '...finished.'
+		
+		return all_clean_pts, all_weights, all_maps
+		
 	return vs, all_weights, all_maps
+
+def shepherd( vs, skeleton_handle_vertices, skeleton_point_handles ):
+	'''
+	M-by-k numpy.array 'sampling' containing sampled positions,
+	an optional length-M numpy.array of dt values corresponding to each sample in 'sampling',
+	If 'dts' is not given, it defaults to 1/len(sampling).
+	'''
+	vs = asarray( vs )
+	skeleton_point_handles = asarray( skeleton_point_handles )
+	
+	assert len( vs.shape ) == 2
+	assert vs.shape[1] == 2
+	assert len( skeleton_handle_vertices ) == len( skeleton_point_handles )
+	assert skeleton_point_handles.any() in range( len( skeleton_point_handles ) )
+	
+	weights = ones( ( len( vs ), len( skeleton_point_handles ) ) )
+	for j, p in enumerate( vs ):
+		for i in range( len( skeleton_handle_vertices ) ):
+			weights[ j, skeleton_point_handles[ i ] ] = shepherd_w_i( skeleton_handle_vertices, i, p)
+			
+	return weights		
+
 
 def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, dts = None ):
 	'''
@@ -119,14 +155,12 @@ def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, d
 	result = zeros((4,4 ))
 
 	## Vertices and sampling must have the same dimension for each point.
-#	debugger()
-#	sampling = sampling[:,:-1]
 	assert vs.shape[1] == sampling.shape[1]
 	
 	## The index 'i' must be valid.
 	assert i >= 0 and i < weights.shape[1]
 	
-	def weight_function( p, pi ):
+	def weight_function( pi ):
 		## Find the closest vertex in 'vs' to 'p'
 		#vi = argmin( ( ( vs - p )**2 ).sum( axis = 1 ) )
 		vi = sampling_index2vs_index[ pi ]
@@ -136,6 +170,7 @@ def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, d
 	result[:] = precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )		
 				
 	return result
+	
 
 # def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 #	'''
@@ -217,33 +252,29 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 		tbar[1] = t*t
 		tbar[2] = t
 		
-		w = (weight_function( sampling[i], i ) + weight_function( sampling[i], i+1 ))/2
+		w = (weight_function( i ) + weight_function( i+1 ))/2
 		
 		## M * tbar
 		C_P = dot( M, tbar )
 		
 		R += dot( ((w*dt)*tbar), C_P.T )
-		#R[:, 0] += asarray(w * tbar * C_P[0] *dt).reshape(-1)
-		#R[:, 1] += asarray(w * tbar * C_P[1] *dt).reshape(-1)
-		#R[:, 2] += asarray(w * tbar * C_P[2] *dt).reshape(-1)
-		#R[:, 3] += asarray(w * tbar * C_P[3] *dt).reshape(-1)
 	
 	return R
 
-def ts_and_dts_for_num_samples( a, b, num_samples ):
-	'''
-	Given two endpoints of integration 'a' and 'b',
-	and positive integer 'num_samples' determining how many samples to use to compute
-	the integral,
-	returns two same-length arrays for numerical integration 'ts' and 'dts',
-	where 'ts' contains the points at which to integrate and 'dts' contains
-	the weight of the corresponding sample.
-	'''
-	dts = ( float(b-a)/num_samples ) * ones( len( num_samples ) )
-	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
-	return ts, dts
+# def ts_and_dts_for_num_samples( a, b, num_samples ):
+# 	'''
+# 	Given two endpoints of integration 'a' and 'b',
+# 	and positive integer 'num_samples' determining how many samples to use to compute
+# 	the integral,
+# 	returns two same-length arrays for numerical integration 'ts' and 'dts',
+# 	where 'ts' contains the points at which to integrate and 'dts' contains
+# 	the weight of the corresponding sample.
+# 	'''
+# 	dts = ( float(b-a)/num_samples ) * ones( len( num_samples ) )
+# 	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
+# 	return ts, dts
 
-def default_w_i( handle_positions, i, p ):	  
+def shepherd_w_i( handle_positions, i, p ):	  
 	'''
 	Given an N-by-(2 or 3) numpy array 'vertices' of 2D or 3D vertices,
 	an M-by-3 numpy array 'faces' of indices into 'vertices',
@@ -261,7 +292,7 @@ def default_w_i( handle_positions, i, p ):
 	
 	## Ensure our inputs are numpy.arrays:
 	handle_positions = asarray( handle_positions )
-	p = asarray( p ).reshape(3)
+	p = asarray( p ).reshape(-1)
 	
 	## 'handle_positions' must be a num-handles-by-k array.
 	assert len( handle_positions.shape ) == 2
