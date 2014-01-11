@@ -173,11 +173,13 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, W_m
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
 	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, is_closed )
+	#print 'odd system size:', odd.system_size
 	last_solutions = solutions = odd.solve()
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
-		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, is_closed )	
+		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, is_closed )
+		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
@@ -426,11 +428,19 @@ def main():
 	a console test.
 	'''
 	
-	# paths_info, skeleton_handle_vertices, constraint = get_test1()
-	# paths_info, skeleton_handle_vertices, constraint = get_test2()
-	paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
-	#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
-	#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
+	import sys
+	argv = list( sys.argv )
+	## Remove the first item in argv, which is always the program name itself.
+	argv.pop(0)
+	
+	if len( argv ) == 1:
+		paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
+	else:
+		# paths_info, skeleton_handle_vertices, constraint = get_test1()
+		# paths_info, skeleton_handle_vertices, constraint = get_test2()
+		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 	
 	engine = Engine()
 	boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
@@ -448,7 +458,7 @@ def main():
 	all_paths = engine.solve()
 	# from random import randint
 	# engine.transform_change( 0, [[1,0,randint(-20,20)],[0,1,randint(-20,20)]] )
-	all_paths = engine.solve_transform_change()
+	# all_paths = engine.solve_transform_change()
 	
 	for path in all_paths:
 		if len( path ) > 1:
