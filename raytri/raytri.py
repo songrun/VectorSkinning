@@ -256,6 +256,41 @@ def point2d_in_mesh2d_barycentric( point2d, vertices2d, faces ):
     smallest = asarray([ bary for fi, bary in intersections ]).min( axis = 1 ).argmax()
     return intersections[ smallest ]
 
+def closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt ):
+    '''
+    Given a line strip (sequence of n-dimensional points) 'linestrip' and n-dimensional point 'pt',
+    returns the tuple (
+        squared distance to the closest point on 'line_strip',
+        index of point in 'line_strip' where the edge (index, index+1) contains the closest point ),
+        t along the line strip such that the closest point is (1-t)*line_strip[index] + t*(line_strip[index+1])
+        ).
+    
+    tested (see test_line_strip_and_loop_distances())
+    '''
+    
+    assert len( line_strip ) > 0
+    
+    from edge_distances import min_distanceSqr_edge_t_to_edges
+    ## This function takes a sequence of points, so we have to pack 'pt' into a length-1 list.
+    ## It also takes edges as pairs of points, not as a line loop, so we have to duplicate points.
+    result = min_distanceSqr_edge_t_to_edges( [ pt ], list( zip( line_strip[:-1], line_strip[1:] ) ) )
+    ## Unpack the result, since we passed a length-1 list containing 'pt'.
+    return result[0][0], result[1][0], result[2][0]
+
+def closest_distsqr_and_edge_index_and_t_on_line_loop_to_point( line_loop, pt ):
+    '''
+    Same as closest_distsqr_and_point_and_edge_index_on_line_strip_to_point(), but
+    takes a line loop (closed path) instead of a line strip (open path).
+    
+    NOTE: The index of the closing edge is len( line_loop )-1.
+    
+    tested (see test_line_strip_and_loop_distances())
+    '''
+    ## Append the first point to the end to turn the line loop into a line strip.
+    return closest_distsqr_and_edge_index_and_t_on_line_strip_to_point(
+        list( line_loop ) + [line_loop[0]], pt
+        )
+
 def test_one_triangle( sx = None, sy = None ):
     if sx is None: sx = 1.
     if sy is None: sy = 1.
@@ -273,6 +308,18 @@ def test_one_triangle( sx = None, sy = None ):
         bary = point2d_in_mesh2d_barycentric( pt, vertices, faces )
         print 'bary:', bary
 
+def test_line_strip_and_loop_distances():
+    pt = (0,0)
+    line_strip = [ ( 0, -.1 ), ( 1, -.1 ), ( 1, .9 ), ( 0, .9 ) ]
+    print 'pt:', pt
+    print 'line_strip:', line_strip
+    print 'closest_distsqr_and_edge_index_and_t_on_line_strip_to_point():'
+    print closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt )
+    
+    ## Interpreted as a line loop, 'line_strip' should pass directly through 'pt'.
+    print 'closest_distsqr_and_edge_index_and_t_on_line_loop_to_point():'
+    print closest_distsqr_and_edge_index_and_t_on_line_loop_to_point( line_strip, pt )
+
 def main():
     import sys
     
@@ -283,5 +330,6 @@ def main():
         sy = float( sys.argv[2] )
     
     test_one_triangle( sx, sy )
+    # test_line_strip_and_loop_distances()
 
 if __name__ == '__main__': main()
