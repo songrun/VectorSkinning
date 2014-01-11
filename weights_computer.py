@@ -3,7 +3,7 @@ from triangle import *
 import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
-kEnableBBW = False
+kEnableBBW = True
 
 def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pts ):
 	'''
@@ -71,20 +71,31 @@ def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	print 'Computing triangulation...'
-	vs, faces = triangles_for_points( registered_pts, boundary_edges )
-	print '...finished.'
+	try:
+		print 'Computing triangulation...'
+		vs, faces = triangles_for_points( registered_pts, boundary_edges )
+		print '...finished.'
 	
-	vs = asarray(vs)[:, :2] 
-	faces = asarray(faces)
-
-	print 'Computing BBW...'
-	if kEnableBBW:
-		all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
-	else:
-		all_weights = shepherd( vs, skeleton_handle_vertices, skeleton_point_handles )
-	print '...finished.'
+		vs = asarray(vs)[:, :2] 
+		faces = asarray(faces)
 	
+		if kEnableBBW:
+			print 'Computing BBW...'
+			all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+			print '...finished.'
+		else:
+			print 'Computing Shepherd...'
+			all_weights = shepherd( vs, skeleton_handle_vertices, skeleton_point_handles )
+			print '...finished.'
+		
+	except RuntimeError:
+		print 'Computing triangulation fails, using shepherd weights instead.'
+		print 'Computing Shepherd...'
+		all_weights = shepherd( all_clean_pts, skeleton_handle_vertices, skeleton_point_handles )
+		print '...finished.'
+		
+		return all_clean_pts, all_weights, all_maps
+		
 	return vs, all_weights, all_maps
 
 def shepherd( vs, skeleton_handle_vertices, skeleton_point_handles ):
