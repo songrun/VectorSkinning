@@ -15,9 +15,13 @@ done
 
 for TEST in "simple_closed" "pebble" "alligator"
 do
-    echo '-------------' "${TEST}"
-    echo '++++++ G1 and A False'
+    echo '##' "${TEST}"
+    echo '======> G1-and-A: False'
     fgrep Duration "sparse_solver_speed_test.py.${TEST}.out" | cut -d 'k' -f 1 | sort -n | grep 'G1-and-A False'
-    echo '++++++ G1 and A True'
+    echo '======> G1-and-A: True'
     fgrep Duration "sparse_solver_speed_test.py.${TEST}.out" | cut -d 'k' -f 1 | sort -n | grep 'G1-and-A True'
 done
+
+In BBEdit, this gets us a lot of the way to a nice looking ascii layout.
+Find: =======> ([^ ]+) Duration of ([^ ]+) build-dense ([^ ]+) ([^ ]+) G1-and-A (False|True) was (\[.*\]) a
+Replace: \1\t\2\t\3\t\4\t\6

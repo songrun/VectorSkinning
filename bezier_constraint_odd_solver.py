@@ -16,7 +16,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range(num):
 			self.bundles[i].magnitudes = magnitudes[i]
 		
-		self._update_bundles( lagrange_only = False )
+		self._update_bundles( lagrange_only = True )
 		## The lagrange multipliers changed, but not the locations of the zeros.
 		self.system_factorization = None
 		## UPDATE: Actually, if constrained directions align with coordinate axes
