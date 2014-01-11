@@ -172,8 +172,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			lambda2 * ( P4y' - constraint_Y' ) = 0
 			'''
 			R2 = zeros( ( dofs, dim ) )
-			for i in range( dim ):
-				R2[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
+			R2[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 		
 			R = concatenate((R, R2), axis=1)
 			rhs = concatenate((rhs, fixed))
@@ -259,7 +258,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		elif smoothness == 'C1': num = 4       ## C1
 		elif smoothness == 'G1': num = 2       ## G1
 
-		if fixed != 0:
+		if fixed == 'True' or fixed == True:
 			num += 2
 	
 		return num	
