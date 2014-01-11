@@ -172,8 +172,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			lambda2 * ( P4y' - constraint_Y' ) = 0
 			'''
 			R2 = zeros( ( dofs, dim ) )
-			for i in range( dim ):
-				R2[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
+# 			for i in range( dim ):
+			R2[sum(dofs0)-dim : sum(dofs0), :] = identity(dim)
 		
 			R = concatenate((R, R2), axis=1)
 			rhs = concatenate((rhs, fixed))
