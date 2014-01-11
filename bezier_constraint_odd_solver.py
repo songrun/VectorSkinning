@@ -19,13 +19,16 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		## The lagrange multipliers changed, but not the locations of the zeros.
 		self._update_bundles( lagrange_only = True )
 		self.system_factored = None
-		## UPDATE: Actually, if constrained directions align with coordinate axes
-		##         or have zero magnitude, then the lagrange multiplier systems may gain
-		##		   or lose zeros.
+		## UPDATE: Actually, if fixed angles are parallel or perpendicular,
+		##         then the lagrange multiplier systems may gain
+		##		   or lose zeros. So, reset the symbolic factorization.
 		## UPDATE 2: If we could update_bundles once with all fixed angles
 		##           not parallel or perpendicular, and then compute the symbolic
 		##           factorization, we could keep it.
 		## UPDATE 3: Let's try it assuming that the first time through there are no zeros.
+		## UPDATE 4: I tried it and it makes no difference to performance at all
+		##           up to alec's alligator. So, we'll reset the symbolic factorization
+		##           in case the initial configuration has zeros.
 		self.system_symbolic_factored = None
 		
 		

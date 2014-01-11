@@ -42,6 +42,7 @@ all_paths = engine.solve_transform_change()
 
 ## numpy-inv always loses to numpy-solve (this might not be true if we just change the right-hand-side a lot).
 solves = [ 'numpy-inv', 'numpy-solve', 'scipy', 'cvxopt' ]
+# solves = [ 'cvxopt' ]
 # solves = [ 'numpy-solve', 'scipy', 'cvxopt' ]
 
 ## 'scipy' matrices are incredibly slow.
