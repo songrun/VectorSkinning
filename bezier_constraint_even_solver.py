@@ -258,7 +258,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		elif smoothness == 'C1': num = 4       ## C1
 		elif smoothness == 'G1': num = 2       ## G1
 
-		if fixed == 'True' or fixed == True:
+		assert type( fixed ) == bool
+		if fixed:
 			num += 2
 	
 		return num	
