@@ -71,6 +71,6 @@ for g1 in ( False, True ):
                 print '=======> Running', solve, 'build-dense', dense, which, 'G1-and-A', g1, 'with repeat', R, 'and number', N
                 durations = timeit.repeat( statement, setup = setup % ( solve, dense, g1, which ), repeat = 3, number = N )
                 durations.sort()
-                seconds_per_calls = array(durations)/N).tolist()
+                seconds_per_calls = (array(durations)/N).tolist()
                 print '=======>', round( min( seconds_per_calls ), 3 ), 'Duration of', solve, 'build-dense', dense, which, 'G1-and-A', g1, 'was', durations, 'aka', seconds_per_calls, 'seconds per call'
                 sys.exit()
