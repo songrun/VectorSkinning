@@ -1,0 +1,2 @@
+Only cvxopt solver times should see any difference, and only got G1-and-A True, because that's the only solver and situation that can save the symbolic factorization.
+UPDATE: I'm not sure that I ran this test with the "keep symbolic" flag on. I am leaving this directory here because the non-cvxopt-umfpack results may be of interest.

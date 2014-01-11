@@ -1,0 +1,1 @@
+Only cvxopt solver times should see any difference, and only got G1-and-A True, because that's the only solver and situation that can save the symbolic factorization.

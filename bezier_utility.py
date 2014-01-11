@@ -128,17 +128,17 @@ def make_control_points_chain( controls, close = True ):
 	if remain_num == 2:
 		print 'wrong num for controls: ', len(controls), ': ', controls, 'closed:', close  
 	elif remain_num == 1:
-		if close == True and not array_equal( controls[0], controls[-1] ):
+		if close and not array_equal( controls[0], controls[-1] ):
 			print 'wrong num for closed controls: ', len(controls), ': ', controls
 	else:
-		if close == False:	
+		if not close:
 			debugger()
 			print 'wrong num for open controls: ', len(controls), ': ', controls
 	
 	num_segment = len( controls )//3
-	if close == True:
+	if close:
 		controls = concatenate( (controls[:num_segment*3], controls[0].reshape(1,2) ), axis=0 )
-	elif close == False and remain_num == 0:
+	elif not close and remain_num == 0:
 		num_segment -= 1
 
 	controls = controls[ :3*num_segment+1 ]			
@@ -183,7 +183,7 @@ def make_constraints_from_control_points( control_group, close=True ):
 				constraints[ (i+1)%num ][0] = 'C0'
 
 		
-	if close == False:
+	if not close:
 		constraints[0][0] = 'None'
 		constraints.append( ['None', False] )
 		
@@ -204,7 +204,7 @@ def split_cublic_beizer_curve( controls, partition ):
 	assert sum( partition ) == 1
 	assert partition.any() > 0
 	
-	num = len( partition )
+	# num = len( partition )
 	
 	ref = 1.0
 	for i in range( len(partition) ):

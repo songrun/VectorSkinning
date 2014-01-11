@@ -27,7 +27,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			if not binary:
 				from pprint import pprint
 				space = msg.find( ' ' )
-				print msg[ :space-1 ]
+				print msg[ :space ]
 				pprint( json.loads( msg[ space+1 : ] ) )
 		elif kVerbose >= 1:
 			if not binary:

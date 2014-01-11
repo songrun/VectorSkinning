@@ -1,0 +1,77 @@
+The ## specifies which SVG file was used.
+    'simple_closed' is a chain of four curves
+    'pebble' is the same with the word "pebble" outlined in the interior
+    'alligator' is alec's alligator
+
+The '======> G1-and-A:' line says whether G1-and-A constraints were used, or just C1 and C0 constraints. When G1-and-A constraints are off (False), we can prefactor or invert the system matrix and just perform back substitution or matrix multiplication. When G1-and-A constraints are on (True), they require an iterative solution that changes the system matrix, so we can't prefactor. In theory we only need to re-do the numeric factorization, but if e.g. the constraint directions align with 0 then the sparsity pattern does change. There's possibly a performance win to be had here, by getting a symbolic factorization for a system we know doesn't have extra zeros.
+
+The first column is the time it takes to solve given new handle transforms. This is literally just measuring back substitution or matrix multiplication time when G1-and-A constraints are off, and otherwise it is measuring rebuilding and refactoring the system each time. The array at the end is the raw data, which was three runs of 100 transform updates.
+The second column is which solver was used.
+    numpy-inv means the dense system matrix was inverted once, and then multiplied each time a solution was needed. For G1-and-A True, the solution was invalidated immediately.
+    numpy-solve means the dense system matrix was never inverted, and each time a solution was needed it was solved anew.
+    cvxopt used the sparse matrix solver umfpack. (It also has an interface to cholmod, but cholmod was throwing up arithmetic errors. I thought it could handle, via LDL^T, systems like ours with lagrange multipliers that are symmetric but not positive definite.) Anyhow, this solver exposes symbolic and numeric prefactoring.
+    scipy used scipy's sparse matrix solver. I just looked it up, and it's also using umfpack. I thought it was something else. Scipy exposes numeric but not sybmolic factorization.
+The third column is which data structure was used to build the system.
+    cvxopt is cvxopt's COO (triplet) matrix type
+    scipy is scipy's list-of-lists matrix type. (Whoops. It doesn't show up here because it's painfully slow.)
+    numpy is numpy's dense matrix type
+The fourth column is a repetition of the SVG file.
+
+## simple_closed
+======> G1-and-A: False
+time	solver		matrix	SVG				time-per-100-calls
+0.0 	numpy-inv	cvxopt	simple_closed	[0.07783293724060059,	0.07935810089111328,	0.04905104637145996]
+0.001	cvxopt		cvxopt	simple_closed	[0.07733488082885742,	0.09078502655029297,	0.08401989936828613]
+0.001	cvxopt		numpy	simple_closed	[0.08251595497131348,	0.08611011505126953,	0.05918622016906738]
+0.001	numpy-inv	numpy	simple_closed	[0.06652522087097168,	0.06857705116271973,	0.08096814155578613]
+0.001	numpy-solve	cvxopt	simple_closed	[0.09896397590637207,	0.08684897422790527,	0.0807960033416748]
+0.001	numpy-solve	numpy	simple_closed	[0.08080482482910156,	0.08743000030517578,	0.0890359878540039]
+0.001	scipy		cvxopt	simple_closed	[0.08698701858520508,	0.07944297790527344,	0.056127071380615234]
+0.001	scipy		numpy	simple_closed	[0.08130598068237305,	0.052951812744140625,	0.08111906051635742]
+======> G1-and-A: True
+0.007	cvxopt		cvxopt	simple_closed	[0.6962049007415771,	0.7154760360717773,	0.6778290271759033]
+0.007	cvxopt		numpy	simple_closed	[0.7251698970794678,	0.719174861907959,	0.6595580577850342]
+0.007	numpy-inv	numpy	simple_closed	[0.7941579818725586,	0.741077184677124,	0.7932639122009277]
+0.007	numpy-solve	cvxopt	simple_closed	[0.736987829208374,	0.7781929969787598,	0.7585239410400391]
+0.007	numpy-solve	numpy	simple_closed	[0.8797590732574463,	0.8671419620513916,	0.677678108215332]
+0.008	numpy-inv	cvxopt	simple_closed	[0.8465118408203125,	0.8896019458770752,	0.817986011505127]
+0.008	scipy		cvxopt	simple_closed	[0.8129358291625977,	0.8191499710083008,	0.8248050212860107]
+0.008	scipy		numpy	simple_closed	[0.8476839065551758,	0.8360919952392578,	0.7988297939300537]
+## pebble
+======> G1-and-A: False
+0.012	scipy		numpy	pebble			[1.25612211227417,	1.2434308528900146,	1.2595970630645752]
+0.013	numpy-inv	cvxopt	pebble			[1.349133014678955,	1.3879601955413818,	1.39329195022583]
+0.013	scipy		cvxopt	pebble			[1.3099989891052246,	1.343412160873413,	1.3857700824737549]
+0.014	cvxopt		cvxopt	pebble			[1.3999168872833252,	1.3877618312835693,	1.4258038997650146]
+0.014	cvxopt		numpy	pebble			[1.43001389503479,	1.4369838237762451,	1.4053490161895752]
+0.014	numpy-inv	numpy	pebble			[1.6629509925842285,	1.524629831314087,	1.3515679836273193]
+0.015	numpy-solve	cvxopt	pebble			[1.4989678859710693,	1.5552380084991455,	1.5785210132598877]
+0.015	numpy-solve	numpy	pebble			[1.5137279033660889,	1.5120491981506348,	1.4603259563446045]
+======> G1-and-A: True
+0.093	numpy-inv	numpy	pebble			[9.34548306465149,	9.47104787826538,	9.531228065490723]
+0.093	numpy-solve	numpy	pebble			[9.489488124847412,	9.335683107376099,	9.322704076766968]
+0.098	cvxopt		numpy	pebble			[9.839788913726807,	9.93151307106018,	9.893141031265259]
+0.101	numpy-inv	cvxopt	pebble			[10.194139003753662,	10.139120101928711,	10.208997964859009]
+0.101	numpy-solve	cvxopt	pebble			[10.312114953994751,	10.084908962249756,	10.17392897605896]
+0.102	cvxopt		cvxopt	pebble			[10.181634187698364,	10.39864993095398,	10.487616062164307]
+0.103	scipy		numpy	pebble			[10.353781938552856,	10.333940029144287,	10.534411907196045]
+0.11	scipy		cvxopt	pebble			[10.990092039108276,	10.963594913482666,	11.140691995620728]
+## alligator
+======> G1-and-A: False
+0.133	numpy-inv	numpy	alligator		[13.42264199256897,	13.29349398612976,	13.557415008544922]
+0.135	numpy-inv	cvxopt	alligator		[13.515178918838501,	13.590047121047974,	13.782171964645386]
+0.135	scipy		cvxopt	alligator		[13.611594915390015,	13.469750881195068,	13.500901937484741]
+0.138	cvxopt		cvxopt	alligator		[15.90613603591919,	14.633558988571167,	13.845948934555054]
+0.139	cvxopt		numpy	alligator		[13.858801126480103,	14.895719051361084,	13.918399095535278]
+0.171	scipy		numpy	alligator		[17.254880905151367,	17.212620973587036,	17.14645481109619]
+0.987	numpy-solve	cvxopt	alligator		[107.09119296073914,	99.4120090007782,	98.69100904464722]
+1.066	numpy-solve	numpy	alligator		[106.594153881073,	106.59965109825134,	109.74382400512695]
+======> G1-and-A: True
+0.834	scipy		numpy	alligator		[83.71959400177002,	83.6211678981781,	83.3764111995697]
+0.938	cvxopt		numpy	alligator		[99.21416521072388,	93.91251015663147,	93.75497913360596]
+1.076	cvxopt		cvxopt	alligator		[107.9592821598053,	107.60709977149963,	108.36577916145325]
+1.095	scipy		cvxopt	alligator		[109.5312569141388,	118.34042191505432,	112.53201580047607]
+2.24	numpy-solve	numpy	alligator		[224.2305510044098,	224.03840899467468,	225.1026120185852]
+2.497	numpy-solve	cvxopt	alligator		[258.0043079853058,	250.17277216911316,	249.70708203315735]
+2.546	numpy-inv	numpy	alligator		[254.61773800849915,	257.192586183548,	261.52481484413147]
+2.993	numpy-inv	cvxopt	alligator		[299.3175959587097,	300.16827607154846,	309.2676339149475]
