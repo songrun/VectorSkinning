@@ -305,7 +305,7 @@ def compute_error_metric( bbw_curve, spline_skin_curve, dts ):
 	
 	diffs = dot(diffs, dts)
 	
-	bbw_lengths = [mag(bbw_curve[i]-bbw_curve[i+1]) for i in xrange( len( bbw_curve )-1 )]
+	# bbw_lengths = [mag(bbw_curve[i]-bbw_curve[i+1]) for i in xrange( len( bbw_curve )-1 )]
 	spline_lengths = [mag(spline_skin_curve[i]-spline_skin_curve[i+1]) for i in xrange( len( spline_skin_curve )-1 )]
 	
 	scale = sum( spline_lengths )

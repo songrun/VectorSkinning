@@ -36,7 +36,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		### directions.
 		dofs_per_bundle = self.dofs_per_bundle
 		dirs_per_bundle = [bundle.directions for bundle in self.bundles]
-		num = len( dofs_per_bundle )
+		# num = len( dofs_per_bundle )
 		
 		if self.system_symbolic_factored is None:
 			#print 'even symbolic factoring'

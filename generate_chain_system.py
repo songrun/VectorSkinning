@@ -173,7 +173,7 @@ class Bundle( object ):
 class BezierConstraintSolver( object ):
 	def __init__( self, W_matrices, control_points, constraints, transforms, is_closed ):
 		## compute the weight of each segment according to its length
-		num = len(control_points)
+		# num = len(control_points)
 		control_points = asarray(control_points)
 		self.build_system( W_matrices, control_points, constraints, transforms, is_closed )
 

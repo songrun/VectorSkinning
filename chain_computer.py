@@ -159,7 +159,7 @@ class Engine:
 		
 
 ## The dimensions of a point represented in the homogeneous coordinates
-dim = 2
+# dim = 2
 
 def prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts ):
 	
