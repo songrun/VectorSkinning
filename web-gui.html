@@ -151,9 +151,8 @@ Constraint type:
 <div id="toggles" class="col-sm-3 col-sm-offset-1">
 <span class="lead">Toggles</span>
 
-<div class="checkbox">
-<label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label>
-</div>
+<div class="checkbox"><label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label></div>
+<div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox"/></label></div>
 
 <!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
 
@@ -169,7 +168,8 @@ Constraint type:
 var kDebugging = false;
 var kProfiling = false;
 // Whether to also save the SVG decorations to disk when the user clicks the save button.
-var kSaveDecorations = true;
+// UPDATE: Access this via: $('#kSaveDecorations').prop('checked')
+// var kSaveDecorations = true;
 // Whether to also save the global variables to disk when the user clicks the save button.
 var kSaveGlobals = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
@@ -682,7 +682,7 @@ function setupFileIO()
         }
         
         // Also save the decorations.
-        if( kSaveDecorations )
+        if( $('#kSaveDecorations').prop('checked') )
         {
             $('#svg-holder').children().each( function( index, child ) {
                 if( child.id === 'svg-file' ) return true;
