@@ -23,6 +23,7 @@ class Engine:
 		self.transforms = []
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
+		self.is_bbw_enabled = True
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
@@ -64,7 +65,7 @@ class Engine:
 		for i in range( num_adding ):
 			self.transforms.append( identity(3) )
 	
-	def precompute_configuration( self ):
+	def precompute_configuration( self, is_bbw_enabled=True ):
 		'''
 		precompute W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts
 		'''
@@ -72,7 +73,7 @@ class Engine:
 		all_controls = self.all_controls
 		boundary = all_controls[ self.boundary_index ]
 		
-		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles )		
+		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles, is_bbw_enabled )		
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
 		
@@ -121,6 +122,15 @@ class Engine:
 			
 		return result
 	
+	def set_enable_bbw( self, is_bbw_enabled ):
+		'''
+		set enable_bbw flag on/off
+		'''
+		if self.is_bbw_enabled != is_bbw_enabled:
+			self.precompute_configuration( is_bbw_enabled ) 
+			
+		self.is_bbw_enabled = is_bbw_enabled
+		
 			
 	def compute_tkinter_bbw_affected_curve_per_path( self, all_indices, all_vertices, transforms, all_weights ):
 		'''
@@ -266,7 +276,7 @@ def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves
 	return new_controls
 
 
-def precompute_all_when_configuration_change( controls_on_boundary, all_control_positions, skeleton_handle_vertices	 ):
+def precompute_all_when_configuration_change( controls_on_boundary, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True ):
 	'''
 	precompute everything when the configuration changes, in other words, when the number of control points and handles change.
 	W_matrices is the table contains all integral result corresponding to each sample point on the boundaries.
@@ -289,7 +299,7 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	boundary_pos = [ curve[0] for curve in boundary_pts ]
 	all_pos = [ [ pts[0] for pts in curve_pts ] for curve_pts in all_pts ]
 	
-	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pos, skeleton_handle_vertices, all_pos )
+	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pos, skeleton_handle_vertices, all_pos, is_bbw_enabled )
 	
 	print 'Precomputing W_i...'
 	W_matrices = []

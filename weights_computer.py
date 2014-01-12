@@ -3,7 +3,7 @@ from triangle import *
 import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
-kEnableBBW = False
+# kEnableBBW = True
 
 def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pts ):
 	'''
@@ -35,7 +35,7 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pt
 	## Return the original resolution points.
 	return [ tuple( pt ) for i, pt in unique_pts.itervalues() ], pts_map, boundary_map
 
-def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None):
+def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None, kEnableBBW=True):
 	'''
 	trianglue a region closed by a bunch of bezier curves, precompute the vertices at each sample point.
 	'''	

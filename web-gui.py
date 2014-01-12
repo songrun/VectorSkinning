@@ -11,7 +11,7 @@ import json
 from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 
-kVerbose = 2
+kVerbose = 1
 
 class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
@@ -84,7 +84,6 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 
 			tic( 'make_chain_from_control_groups' )
 			all_positions = make_chain_from_control_groups( all_paths )
-			print 'paths-positions ', all_positions
 			toc()
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 
@@ -114,6 +113,14 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			## Send the new positions to the GUI.
 			# self.sendMessage( json.dumps( new_positions ) )
 		
+		elif msg.startswith( 'enable-bbw ' ):
+			paths_info = json.loads( msg[ len( 'enable-bbw ' ): ] )
+			
+			self.engine.set_enable_bbw( paths_info )		
+			all_paths = self.engine.solve()	
+
+			all_positions = make_chain_from_control_groups( all_paths )
+			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 		else:
 			print 'Received unknown message:', msg
 
