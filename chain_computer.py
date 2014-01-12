@@ -2,6 +2,10 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
+class EngineError( Exception ): pass
+class NoControlPointsError( EngineError ): pass
+class NoHandlesError( EngineError ): pass
+
 class Engine:
 	'''
 	A data persistant that have all information needed to precompute and the system matrix of the previous state.
@@ -87,9 +91,9 @@ class Engine:
 		handles = self.handle_positions
 		transforms = self.transforms
 		if len( all_controls ) == 0:
-			return 'Error Message: No control points'
+			raise NoControlPointsError()
 		elif len( handles ) == 0:
-			return 'Error Message: No handles'
+			raise NoHandlesError()
 		elif len( self.precomputed_parameter_table ) == 0:
 			self.precompute_configuration()			
 		precomputed_parameters = self.precomputed_parameter_table[0]

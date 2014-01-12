@@ -170,6 +170,8 @@ var kDebugging = false;
 var kProfiling = false;
 // Whether to also save the SVG decorations to disk when the user clicks the save button.
 var kSaveDecorations = true;
+// Whether to also save the global variables to disk when the user clicks the save button.
+var kSaveGlobals = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
@@ -198,11 +200,18 @@ var gSocket = null;
 function isDroppable( evt )
 {
     var files = evt.dataTransfer.files;
-    if( files.length === 1 && files[0].type === 'image/svg+xml' )
+    
+    // We can handle one SVG and one JSON, alone or together.
+    
+    // How many SVG?
+    var countSVG = 0, countJSON = 0;
+    for( var i = 0; i < files.length; ++i )
     {
-        return true;
+        if( files[i].type === 'image/svg+xml' ) countSVG += 1;
+        if( files[i].type === 'application/json' ) countJSON += 1;
     }
-    return false;
+    
+    return countSVG <= 1 && countJSON <= 1 && files.length > 0 && files.length <= 2;
 }
 function displayDroppable( evt )
 {
@@ -524,9 +533,10 @@ function sendControlPointConstraintsChanged( path_index, segment_index )
     
     gSocket.send( "control-point-constraint " + JSON.stringify( [ path_index, segment_index, gPathsControlPointConstraints[ path_index ][ segment_index ] ] ) );
 }
-function sendWeightTypeChanged( is_bbw_enabled )
+function sendWeightTypeChanged()
 {
-	gSocket.send( "enable-bbw " + JSON.stringify( is_bbw_enabled ) );
+    "use strict";
+    gSocket.send( "enable-bbw " + JSON.stringify( $('#isBBWEnabled').prop('checked') ) );
 }
 function throttleHandleTransformationsUntilUpdate()
 {
@@ -578,6 +588,8 @@ function throttleHandleTransformationsUntilUpdate()
 
 function setupFileIO()
 {
+    "use strict";
+    
     // In order to use jQuery event handling with drag-and-drop events,
     // we have to tell jQuery to include it:
     jQuery.event.props.push( "dataTransfer" );
@@ -597,28 +609,52 @@ function setupFileIO()
         
         if( !isDroppable( evt ) ) return;
         
-        var file = evt.dataTransfer.files[0];
-        var reader = new FileReader();
-        
-        reader.onloadend = function(evt) {
-            if (evt.target.readyState == FileReader.DONE) {
-                var svg_text = reader.result;
+        // In the first pass, parse SVG.
+        for( var i = 0; i < evt.dataTransfer.files.length; ++i )
+        {
+            var file = evt.dataTransfer.files[i];
+            if( file.type === 'image/svg+xml' )
+            {
+                var reader = new FileReader();
+                reader.onloadend = function(evt) {
+                    if (evt.target.readyState == FileReader.DONE) {
+                        var svg_text = evt.target.result;
+                        
+                        $("#filename").text( file.name );
+                        $("#filename").removeClass( "text-muted" );
+                        
+                        loadSVG( svg_text );
+                        
+                        $("#save-button").prop( "disabled", false );
+                    }
+                    }
                 
-                $("#filename").text( file.name );
-                $("#filename").removeClass( "text-muted" );
-                
-                loadSVG( svg_text );
-                
-                $("#save-button").prop( "disabled", false );
+                reader.readAsBinaryString(file);
             }
-            }
+        }
         
-        reader.readAsBinaryString(file);
+        // In the second pass, load associated JSON.
+        for( var i = 0; i < evt.dataTransfer.files.length; ++i )
+        {
+            var file = evt.dataTransfer.files[i];
+            if( file.type === 'application/json' )
+            {
+                var reader = new FileReader();
+                reader.onloadend = function(evt) {
+                    if (evt.target.readyState == FileReader.DONE) {
+                        var globals = JSON.parse( evt.target.result );
+                        loadGlobals( globals );
+                    }
+                    }
+                
+                reader.readAsBinaryString(file);
+            }
+        }
         } );
     
     $("#save-button").click( function() {
         
-        function save_as( svg_to_save, filename )
+        function save_SVG_as( svg_to_save, filename )
         {
             if( svg_to_save.length === 0 )
             {
@@ -636,7 +672,14 @@ function setupFileIO()
         // Save the main SVG file.
         var svg = $("#svg-file > svg");
         var filename = $('#filename').text();
-        save_as( svg, filename );
+        save_SVG_as( svg, filename );
+        
+        // Also save the globals
+        if( kSaveGlobals )
+        {
+            var blob = new Blob([ globalsToJSON() ], {type: "application/json"});
+            saveAs( blob, filename.replace( /\.svg$/, "" ) + "-deformation.json" );
+        }
         
         // Also save the decorations.
         if( kSaveDecorations )
@@ -647,12 +690,58 @@ function setupFileIO()
                 var decorations = $(child).children("svg");
                 if( decorations.length === 0 ) return true;
                 
-                save_as( decorations, filename.replace( /\.svg$/, "" ) + "-" + child.id + ".svg" );
+                save_SVG_as( decorations, filename.replace( /\.svg$/, "" ) + "-" + child.id + ".svg" );
                 } );
         }
         } );
 }
 
+function globalsToJSON()
+{
+    "use strict";
+    
+    var globals = {};
+    globals.isBBWEnabled = $( "#isBBWEnabled" ).prop( "checked" );
+    globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
+    globals.gHandles = gHandles;
+    
+    return JSON.stringify( globals );
+}
+function loadGlobals( globals )
+{
+    /// Copy to globals.
+    $( "#isBBWEnabled" ).prop( "checked", globals.isBBWEnabled );
+    
+    // 0 Send BBW weight status already.
+    //   We send this first, because that way less re-computation has to be done.
+    sendWeightTypeChanged();
+    
+    gPathsControlPointConstraints = globals.gPathsControlPointConstraints;
+    
+    /// Now send the new data. The server should check whether anything really changed.
+    // 1 Send control point constraints.
+    for( var path_index = 0; path_index < gPathsControlPointConstraints.length; ++path_index )
+    {
+        var segments = gPathsControlPointConstraints[ path_index ];
+        for( var segment_index = 0; segment_index < segments.length; ++segment_index )
+        {
+            sendControlPointConstraintsChanged( path_index, segment_index );
+        }
+    }
+    
+    // 2 Send handles.
+    var all_indices = [];
+    for( var handle_index = 0; handle_index < globals.gHandles.length; ++handle_index )
+    {
+        var handle = globals.gHandles[ handle_index ];
+        createHandleAtPosition( handle.pos[0], handle.pos[1] );
+        setHandleTransform( handle_index, handle.transform )
+        
+        all_indices.push( handle_index );
+    }
+    sendHandlePositions();
+    sendHandleTransformations( all_indices );
+}
 function loadSVG( svg_text )
 {
     // Reset global variables.
@@ -915,69 +1004,87 @@ function createHandleUIForSVG()
         var x = evt.pageX - parent.offset().left;
         var y = evt.pageY - parent.offset().top;
         
-        var kHandleRectEdge = 10;
-        var kHandleRectRound = 2;
-        
-        // r0 represents the original position of the handle.
-        // This has the side effect that a duplicate handle can't be made,
-        // because the shape under this can't be clicked.
-        r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
-        r0.attr({
-            fill: "#da55da",
-            stroke: "#000",
-            strokeWidth: 2.,
-            opacity: .5
-            });
-        
-        r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
-        r.attr({
-            fill: "#da55da",
-            stroke: "#000",
-            strokeWidth: 2.
-            });
-        
-        var M = new Snap.Matrix();
-        var handle_index = gHandles.length;
-        gHandles.push( { 'pos': [ x, y ], 'transform': M } );
+        createHandleAtPosition( x, y );
         sendHandlePositions();
-        setupHandleControls( handle_index );
-        
-        // Make a drag handler for the handle.
-        var x0, y0, e0, f0;
-        r.drag(
-            // drag move
-            function( dx, dy ) {
-                M.e = dx + e0;
-                M.f = dy + f0;
-                
-                r.x = dx + x0;
-                r.y = dy + y0;
-                
-                sendHandleTransformation( handle_index );
-                // Update the table
-                setupHandleControls( handle_index );
-                
-                // This attr() call comes from the default drag handler.
-                // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
-                this.attr({
-                    transform: origTransform + (origTransform ? "T" : "t") + [dx, dy]
-                });
-            },
-            // drag start
-            function( x, y ) {
-                x0 = x;
-                y0 = y;
-                e0 = M.e;
-                f0 = M.f;
-                
-                // Setup the table when clicking on an already-created rect.
-                setupHandleControls( handle_index );
-                
-                // This origTransform comes from the default drag handler.
-                // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
-                origTransform = this.transform().local;
-            } );
         } );
+}
+// Creates a new handle. NOTE: It does not send the new handle position to the server.
+// Do that yourself afterwards with the global function:
+//     sendHandlePositions();
+function createHandleAtPosition( x, y )
+{
+    var ui = Snap( '#svg-overlay-handles > svg' );
+    
+    var kHandleRectEdge = 10;
+    var kHandleRectRound = 2;
+    
+    // r0 represents the original position of the handle.
+    // This has the side effect that a duplicate handle can't be made,
+    // because the shape under this can't be clicked.
+    r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+    r0.attr({
+        fill: "#da55da",
+        stroke: "#000",
+        strokeWidth: 2.,
+        opacity: .5
+        });
+    
+    r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+    r.attr({
+        fill: "#da55da",
+        stroke: "#000",
+        strokeWidth: 2.
+        });
+    
+    var M = new Snap.Matrix();
+    var handle_index = gHandles.length;
+    gHandles.push( { 'pos': [ x, y ], 'transform': M } );
+    setupHandleControls( handle_index );
+    
+    // Make a drag handler for the handle.
+    var x0, y0, e0, f0;
+    r.drag(
+        // drag move
+        function( dx, dy ) {
+            M.e = dx + e0;
+            M.f = dy + f0;
+            
+            r.x = dx + x0;
+            r.y = dy + y0;
+            
+            sendHandleTransformation( handle_index );
+            // Update the table
+            setupHandleControls( handle_index );
+            
+            // This attr() call comes from the default drag handler.
+            // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
+            this.attr({
+                transform: origTransform + (origTransform ? "T" : "t") + [dx, dy]
+            });
+        },
+        // drag start
+        function( x, y ) {
+            x0 = x;
+            y0 = y;
+            e0 = M.e;
+            f0 = M.f;
+            
+            // Setup the table when clicking on an already-created rect.
+            setupHandleControls( handle_index );
+            
+            // This origTransform comes from the default drag handler.
+            // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
+            origTransform = this.transform().local;
+        } );
+}
+// Sets the transform for a handle.
+// NOTE: This does not call sendHandleTransformation(). Call that yourself, afterwards.
+function setHandleTransform( handle_index, M )
+{
+    var matrix = new Snap.Matrix( M.a, M.b, M.c, M.d, M.e, M.f );
+    gHandles[ handle_index ].transform = matrix;
+    var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
+    Snap( rect ).transform( matrix );
 }
 
 function controlPointIsSelected( path_index, segment_index )
@@ -1071,15 +1178,15 @@ function setupGlobalUI()
         var M = gHandles[ handle_index ].transform;
         
         M[which] = parseFloat( $(this).val() );
+        setHandleTransform( handle_index, M );
+        
         sendHandleTransformation( handle_index );
-        var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
-        Snap( rect ).transform( M );
         } );
     
     
     /// Setup change callbacks for the toggles.
     $("#isBBWEnabled").change( function() {
-        sendWeightTypeChanged( this.checked );
+        sendWeightTypeChanged();
     } );
     
     
