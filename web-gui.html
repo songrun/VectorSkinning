@@ -103,8 +103,6 @@ From: http://stackoverflow.com/questions/19089384/twitter-bootstrap-3-two-column
 <div id="file-info" class="col-sm-12">
 <h1><span id="filename" class="tt">Drag an SVG file here.</span>
 <button type="button" id="save-button" class="btn btn-default" disabled>Save SVG</button>
-<button type="button" id="switch-weights" class="btn btn-default" disabled>Disable BBW</button>
-<!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
 </h1>
 </div>
 
@@ -150,8 +148,18 @@ Constraint type:
 </div>
 </div>
 
+<div id="toggles" class="col-sm-3 col-sm-offset-1">
+<span class="lead">Toggles</span>
+
+<div class="checkbox">
+<label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label>
 </div>
 
+<!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
+
+</div>
+
+</div>
 </div>
 
 <script type='text/javascript'>
@@ -180,7 +188,8 @@ var gHandles = [];
 // The WebSocket.
 var gSocket = null;
 // enable bbw
-var isBBWEnabled = true;
+// UPDATE: Access this via: $('#isBBWEnabled').prop('checked')
+// var isBBWEnabled = true;
 
 
 ///
@@ -475,7 +484,6 @@ function sendHandlePositions()
     }
     
     gSocket.send( "handle-positions " + JSON.stringify( handle_positions ) );
-    $("#switch-weights").prop( "disabled", false );
 }
 function sendHandleTransformation( handle_index )
 {
@@ -643,22 +651,6 @@ function setupFileIO()
                 } );
         }
         } );
-
-    $("#switch-weights").click( function() {
-        
-        isBBWEnabled = !isBBWEnabled
-//       if( $("#switch-weights").text() === "Enable BBW" )
-		if ( isBBWEnabled === true )
-        {
-         	$( "#switch-weights" ).text( "Disable BBW" );
-        }	
-        else
-        {
-         	$( "#switch-weights" ).text( "Enable BBW" );
-        }
-        sendWeightTypeChanged( isBBWEnabled )
-         	
-    } );
 }
 
 function loadSVG( svg_text )
@@ -667,8 +659,7 @@ function loadSVG( svg_text )
     gPathsControlPointConstraints = null;
     gLargestPath = null;
     gHandles = [];
-    isBBWEnabled = true;
-	$( "#switch-weights" ).text( "Disable BBW" );
+    $( "#isBBWEnabled" ).prop( "checked", true );
     
     // Attach the SVG to its node.
     $('#svg-file').html( svg_text );
@@ -1052,7 +1043,7 @@ function disableHandleControls()
 }
 function setupGlobalUI()
 {
-    // Change handlers for control point constraints.
+    /// Change handlers for control point constraints.
     $('#continuity').change( function() {
         
         var path_index = parseInt( $('#path_index').text() );
@@ -1073,7 +1064,7 @@ function setupGlobalUI()
         } );
     
     
-    // Change handler for handle transform inputs.
+    /// Change handler for handle transform inputs.
     $('#handle-widgets input').change( function() {
         var which = this.getAttribute( 'name' );
         var handle_index = parseInt( $('#handle_index').text() );
@@ -1086,7 +1077,13 @@ function setupGlobalUI()
         } );
     
     
-    // Switching modes between control point constraints and handles
+    /// Setup change callbacks for the toggles.
+    $("#isBBWEnabled").change( function() {
+        sendWeightTypeChanged( this.checked );
+    } );
+    
+    
+    /// Switching modes between control point constraints and handles
     $('#handle-widgets').click( function() {
         // Set highlight state.
         $('#handle-widgets').addClass( 'background-selected' );

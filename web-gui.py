@@ -12,6 +12,7 @@ from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 
 kVerbose = 1
+kStubOnly = False
 
 class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
@@ -31,8 +32,9 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				pprint( json.loads( msg[ space+1 : ] ) )
 		elif kVerbose >= 1:
 			if not binary:
-				print( msg[:72] ), '...'
+				print msg[:72] + ( ' ...' if len( msg ) > 72 else '' )
 		### END DEBUGGING
+		if kStubOnly: return
 		
 		if binary:
 			print 'Received unknown message: binary of length', len( msg )
@@ -161,7 +163,10 @@ if __name__ == '__main__':
 	setupWebSocket( "ws://localhost:9123", engine )
 	
 	## Maybe you find this convenient
-	if sys.argv[1:2] == ['open']:
+	if 'open' in sys.argv[1:]:
 		os.system( 'open web-gui.html' )
+	
+	if 'stub' in sys.argv[1:]:
+	    kStubOnly = True
 	
 	reactor.run()
