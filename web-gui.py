@@ -11,7 +11,7 @@ import json
 from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 
-kVerbose = 1
+kVerbose = 2
 
 class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
@@ -42,12 +42,9 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			boundary_path = max(paths_info, key=lambda e : e[u'bbox_area'])
 			boundary_index = paths_info.index( boundary_path )
 			
-# 			test_pushback = [ path[u'cubic_bezier_chain'] for path in paths_info ]
-# 			self.sendMessage( 'paths-positions ' + json.dumps( test_pushback ) )
-# 			debugger()
 			self.engine.set_control_positions( paths_info, boundary_index )
 			all_constraints = self.engine.all_constraints
-# 			print 'constraints: ', all_constraints
+
 			for i, constraints in enumerate( all_constraints ):
 				for j, constraint in enumerate( constraints ):
 	
@@ -56,13 +53,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 					
 					payload = [ i, j, { 'fixed': fixed, 'continuity': continuity} ]
 					self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
-			## Precompute something with the paths.
-			# self.engine ...
-			
-			## Report back assumed constraints.
-			# for constraint in constraints:
-			# payload = [ path_index, segment_index, { 'fixed': True|False, 'continuity': 'C0|C1|G1|A' } ]
-			# self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
+
 		
 		elif msg.startswith( 'handle-positions ' ):
 			paths_info = json.loads( msg[ len( 'handle-positions ' ): ] )
@@ -88,10 +79,12 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			tic( 'engine.solve()' )
 			all_paths = self.engine.solve_transform_change()	
+# 			debugger()
 			toc()
 
 			tic( 'make_chain_from_control_groups' )
 			all_positions = make_chain_from_control_groups( all_paths )
+			print 'paths-positions ', all_positions
 			toc()
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 

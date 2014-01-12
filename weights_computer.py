@@ -3,7 +3,7 @@ from triangle import *
 import bbw_wrapper.bbw as bbw
 from itertools import izip as zip
 
-kEnableBBW = True
+kEnableBBW = False
 
 def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pts ):
 	'''
