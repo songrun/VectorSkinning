@@ -1021,6 +1021,8 @@ function createHandleUIForSVG()
 //     sendHandlePositions();
 function createHandleAtPosition( x, y )
 {
+    "use strict";
+    
     var ui = Snap( '#svg-overlay-handles > svg' );
     
     var kHandleRectEdge = 10;
@@ -1029,7 +1031,7 @@ function createHandleAtPosition( x, y )
     // r0 represents the original position of the handle.
     // This has the side effect that a duplicate handle can't be made,
     // because the shape under this can't be clicked.
-    r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+    var r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r0.attr({
         fill: "#da55da",
         stroke: "#000",
@@ -1037,7 +1039,7 @@ function createHandleAtPosition( x, y )
         opacity: .5
         });
     
-    r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+    var r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r.attr({
         fill: "#da55da",
         stroke: "#000",
@@ -1059,7 +1061,11 @@ function createHandleAtPosition( x, y )
 			if( trans_type === "translation" ) 
 			{
 			    // Make a translated copy of the current transformation.
-				M = M0.clone().translate( dx, dy );
+			    // UPDATE: It's not so simple, because rotations and scales
+			    //         have already been applied.
+				// M = M0.clone().translate( dx, dy );
+				// M = M0.clone().translate( dx + (x - M0.x(x,y)), dy + (y - M0.y(x,y)) );
+				M = M0.clone().add( M0.invert() ).translate( dx, dy ).add( M0 );
 			}
 			else if( trans_type === "rotation" )
 			{
@@ -1079,7 +1085,7 @@ function createHandleAtPosition( x, y )
 			}
 			
             // Update the SVG element.
-            r.transform( M );
+            this.transform( M );
             
             // Update the global variable (and the HTML table).
             gHandles[ handle_index ].transform = M;
