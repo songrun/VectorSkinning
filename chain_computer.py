@@ -20,9 +20,11 @@ class Engine:
 		
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
+		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
 		
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
+		self.all_lengths = all_lengths
 		
 		self.transforms = []
 		self.handle_positions = []	
@@ -87,6 +89,7 @@ class Engine:
 		'''
 		all_controls = self.all_controls
 		all_constraints = self.all_constraints
+		all_lengths = self.all_lengths
 		
 		handles = self.handle_positions
 		transforms = self.transforms
@@ -100,7 +103,7 @@ class Engine:
 		
 		result = []
 		self.fast_update_functions = []
-		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
+		for i, controls, constraints, lengths in zip( range( len( all_controls ) ), all_controls, all_constraints, all_lengths ):
 			W_matrices = precomputed_parameters[0][i]
 # 			all_weights = precomputed_parameters[1]
 # 			all_vertices = precomputed_parameters[2]
@@ -108,7 +111,7 @@ class Engine:
 # 			all_pts = precomputed_parameters[4][i]
 # 			all_dts = precomputed_parameters[5][i]
 			
-			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices )
+			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices )
 			self.fast_update_functions.append( fast_update )
 			
 			result.append(	fast_update( transforms ) )
@@ -175,7 +178,7 @@ class Engine:
 ## The dimensions of a point represented in the homogeneous coordinates
 # dim = 2
 
-def prepare_approximate_beziers( controls, constraints, handles, transforms, W_matrices ):
+def prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices ):
 	
 	'''
 	### 1 construct and solve the linear system for the odd iteration. if the constraints don't contain fixed angle and G1, skip ### 2.
@@ -186,13 +189,13 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, W_m
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, is_closed )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, is_closed )
 	#print 'odd system size:', odd.system_size
 	last_solutions = solutions = odd.solve()
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
-		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, is_closed )
+		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, is_closed )
 		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms ):

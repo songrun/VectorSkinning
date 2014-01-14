@@ -184,6 +184,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 	
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
+		length = bundle.length
 
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
@@ -228,7 +229,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 			
-		return asarray( Left )
+		return asarray( Left )*length
 		
 		
 	def compute_dofs_per_curve( self, bundle ):
@@ -270,6 +271,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			R = sum(wi * T_i * P.T * M * tbar )
 			rhs(P1) = integral(R * M_hat, dt)
 		'''
+		length = bundle.length
 		W_matrices = bundle.W_matrices
 		dofs = self.compute_dofs_per_curve(bundle)
 		Right = zeros( sum(dofs) )
@@ -308,4 +310,4 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 
-		return Right
+		return Right*length

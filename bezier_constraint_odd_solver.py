@@ -185,6 +185,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		#		[ 1./5, 1./4,  1./3,  1./2], [1./4,	 1./3,	1./2,	1.]] )
 		## MAM is computed using Sage. MAM = M * A * M
 		'''
+		length = bundle.length
 		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,	3./35, 9./140,	1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,	1./35,	1./14,	 1./7]] )
 		dim = 2
 
@@ -194,7 +195,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			Left[ i*4:(i+1)*4, i*4:(i+1)*4 ] = MAM[:,:]
 		
 		
-		return Left
+		return Left*length
 		
 		
 	def compute_dofs_per_curve( self, bundle ):
@@ -237,6 +238,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		The rhs is computed according to the formula:
 			rhs = sum(Ti * P.T * M.T * W_i * M)
 		'''
+		length = bundle.length
+		
 #		W_matrices = bundle.W_matrices
 #		controls = bundle.control_points
 # 
@@ -267,4 +270,4 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		Right[:] = concatenate((R[0, :], R[1, :]))
 			
-		return Right
+		return Right*length
