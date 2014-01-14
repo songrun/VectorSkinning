@@ -12,6 +12,7 @@ from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 
 kVerbose = 1
+kStubOnly = False
 
 class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
@@ -31,8 +32,9 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				pprint( json.loads( msg[ space+1 : ] ) )
 		elif kVerbose >= 1:
 			if not binary:
-				print( msg[:72] ), '...'
+				print msg[:72] + ( ' ...' if len( msg ) > 72 else '' )
 		### END DEBUGGING
+		if kStubOnly: return
 		
 		if binary:
 			print 'Received unknown message: binary of length', len( msg )
@@ -61,7 +63,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.set_handle_positions( paths_info )
 			self.engine.precompute_configuration()
 			
-			all_paths = self.engine.solve()	
+			all_paths = self.engine.solve() 
 
 			all_positions = make_chain_from_control_groups( all_paths )
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
@@ -79,7 +81,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			tic( 'engine.solve()' )
 			all_paths = self.engine.solve_transform_change()	
-# 			debugger()
+#			debugger()
 			toc()
 
 			tic( 'make_chain_from_control_groups' )
@@ -98,14 +100,19 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			constraint = [None]*2
 			constraint[0] = str( paths_info[2][ u'continuity' ] )
-			constraint[1] = paths_info[w][ u'fixed' ]
-				
+			constraint[1] = paths_info[2][ u'fixed' ]
+			
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
 			
-			all_paths = self.engine.solve()	
-
-			all_positions = make_chain_from_control_groups( all_paths )
-			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			try:
+				all_paths = self.engine.solve() 
+	
+				all_positions = make_chain_from_control_groups( all_paths )
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			
+			except NoHandlesError:
+				## No handles yet, so nothing to do.
+				pass
 
 			## Solve for the new curve positions given the updated control point constraint.
 			# new_positions = self.engine ...
@@ -116,17 +123,21 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		elif msg.startswith( 'enable-bbw ' ):
 			paths_info = json.loads( msg[ len( 'enable-bbw ' ): ] )
 			
-			self.engine.set_enable_bbw( paths_info )		
-			all_paths = self.engine.solve()	
-
-			all_positions = make_chain_from_control_groups( all_paths )
-			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			self.engine.set_enable_bbw( paths_info )
+			
+			try:
+				all_paths = self.engine.solve()
+				all_positions = make_chain_from_control_groups( all_paths )
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			except NoHandlesError:
+				## No handles yet, so nothing to do.
+				pass
 		else:
 			print 'Received unknown message:', msg
 
 def make_chain_from_control_groups( all_paths ):
 	
-	all_positions = [] 	
+	all_positions = []	
 	for path in all_paths:
 		if len( path ) > 1:
 			new_positions = concatenate( asarray(path)[:-1, :-1] )
@@ -161,7 +172,10 @@ if __name__ == '__main__':
 	setupWebSocket( "ws://localhost:9123", engine )
 	
 	## Maybe you find this convenient
-	if sys.argv[1:2] == ['open']:
+	if 'open' in sys.argv[1:]:
 		os.system( 'open web-gui.html' )
+	
+	if 'stub' in sys.argv[1:]:
+		kStubOnly = True
 	
 	reactor.run()
