@@ -129,6 +129,14 @@ Constraint type:
 </div>
 <div id="handle-widgets" class="col-sm-4 text-muted equal-height">
 <span class="lead">Handle &lt;<span id="handle_index" class="tt">null</span>&gt;:</span>
+<div class="form-group">
+Transformation type:
+        <select id="transformation" disabled>
+        <option value="translation" selected>translation</option>
+        <option value="rotation">rotation</option>
+        <option value="scaling">scaling</option>
+        </select>
+</div>
 <div>
 <table class="table table-hover table-condensed table-bordered">
 <tr>
@@ -955,22 +963,41 @@ function createHandleUIForSVG()
         var x0, y0, e0, f0;
         r.drag(
             // drag move
+            var trans_type = $('#handle-widgets select').val();
             function( dx, dy ) {
-                M.e = dx + e0;
-                M.f = dy + f0;
+            	if( trans_type === "translation" ) 
+            	{
+					M.e = dx + e0;
+					M.f = dy + f0;
+				
+					r.x = dx + x0;
+					r.y = dy + y0;
+					
+					sendHandleTransformation( handle_index );
+					// Update the table
+					setupHandleControls( handle_index );
+				
+					// This attr() call comes from the default drag handler.
+					// https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
+					this.attr({
+						transform: origTransform + (origTransform ? "T" : "t") + [dx, dy]
+					});
+                }
+                else if( trans_type === "rotation" ) 
+				{
+					r.x = dx + x0;
+					r.y = dy + y0;
+					
+										
+				}
+				else if( trans_type === "scaling" ) 
+				{
+					console.log("scaling")
+				}			
+				else 
+					console.error("undefined transformation type is chosen.")
                 
-                r.x = dx + x0;
-                r.y = dy + y0;
-                
-                sendHandleTransformation( handle_index );
-                // Update the table
-                setupHandleControls( handle_index );
-                
-                // This attr() call comes from the default drag handler.
-                // https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
-                this.attr({
-                    transform: origTransform + (origTransform ? "T" : "t") + [dx, dy]
-                });
+
             },
             // drag start
             function( x, y ) {
@@ -1039,6 +1066,11 @@ function setupHandleControls( handle_index )
     inputs.eq(5).val( M.f );
     
     inputs.prop( "disabled", false );
+    
+    // At the same time enable the transformation type choices
+    var trans_choice = $('#handle-widgets select');
+    trans_choice.prop( "disabled", false );
+     
 }
 function disableHandleControls()
 {
@@ -1049,6 +1081,10 @@ function disableHandleControls()
     controls.addClass( 'text-muted' );
     controls.find( 'input' ).prop( 'disabled', true );
     controls.find( 'input' ).val( '?' );
+    
+    // At the same time disable the transformation type choices
+    var trans_choice = $('#handle-widgets select');
+    trans_choice.prop( "disabled", true );
 }
 function setupGlobalUI()
 {
