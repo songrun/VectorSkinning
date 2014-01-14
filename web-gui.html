@@ -183,7 +183,7 @@ var kSaveGlobals = true;
 // var kDragDropFeedbackSelector = "#svg-holder";
 var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
-var kFakeWebSocket = false;
+var kFakeWebSocket = true;
 
 
 ///
@@ -534,6 +534,10 @@ function sendHandleTransformations( handle_indices )
     }
     
     gSocket.send( "handle-transforms " + JSON.stringify( payload ) );
+}
+function sendHandleDragFinished()
+{
+    gSocket.send( "handle-transform-drag-finished" );
 }
 function sendControlPointConstraintsChanged( path_index, segment_index )
 {
@@ -1101,6 +1105,10 @@ function createHandleAtPosition( x, y )
 			
 			// Setup the table when clicking on an already-created rect.
 			setupHandleControls( handle_index );
+		},
+		function() {
+		    // Let the backend know it can do some processing.
+		    sendHandleDragFinished();
 		} );
 }
 // Sets the transform for a handle.
