@@ -535,6 +535,10 @@ function sendHandleTransformations( handle_indices )
     
     gSocket.send( "handle-transforms " + JSON.stringify( payload ) );
 }
+function sendHandleDragFinished()
+{
+    gSocket.send( "handle-transform-drag-finished" );
+}
 function sendControlPointConstraintsChanged( path_index, segment_index )
 {
     "use strict";
@@ -1021,6 +1025,8 @@ function createHandleUIForSVG()
 //     sendHandlePositions();
 function createHandleAtPosition( x, y )
 {
+    "use strict";
+    
     var ui = Snap( '#svg-overlay-handles > svg' );
     
     var kHandleRectEdge = 10;
@@ -1029,7 +1035,7 @@ function createHandleAtPosition( x, y )
     // r0 represents the original position of the handle.
     // This has the side effect that a duplicate handle can't be made,
     // because the shape under this can't be clicked.
-    r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+    var r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r0.attr({
         fill: "#da55da",
         stroke: "#000",
@@ -1037,71 +1043,72 @@ function createHandleAtPosition( x, y )
         opacity: .5
         });
     
-    r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
+    var r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r.attr({
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.
         });
     
-    var M = new Snap.Matrix();
     var handle_index = gHandles.length;
-    gHandles.push( { 'pos': [ x, y ], 'transform': M } );
+    gHandles.push( { 'pos': [ x, y ], 'transform': new Snap.Matrix() } );
     setupHandleControls( handle_index );
     
 	// Make a drag handler for the handle.
-	var x0, y0, e0, f0;
+	// A variable for the mouse-down matrix.
+	var M0;
 	r.drag(
 		// drag move
 		function( dx, dy ) {
+		    var M;
 			var trans_type = $('#handle-widgets select').val();
 			if( trans_type === "translation" ) 
 			{
-				M.e = dx + e0;
-				M.f = dy + f0;
-			
-				r.x = dx + x0;
-				r.y = dy + y0;
-				
-				sendHandleTransformation( handle_index );
-				// Update the table
-				setupHandleControls( handle_index );
-			
-				// This attr() call comes from the default drag handler.
-				// https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
-				this.attr({
-					transform: origTransform + (origTransform ? "T" : "t") + [dx, dy]
-				});
+			    // Make a translated copy of the current transformation.
+			    // UPDATE: It's not so simple, because rotations and scales
+			    //         have already been applied.
+				// M = M0.clone().translate( dx, dy );
+				// M = M0.clone().translate( dx + (x - M0.x(x,y)), dy + (y - M0.y(x,y)) );
+				M = M0.clone().add( M0.invert() ).translate( dx, dy ).add( M0 );
 			}
-			else if( trans_type === "rotation" ) 
+			else if( trans_type === "rotation" )
 			{
-				r.x = dx + x0;
-				r.y = dy + y0;
-				
-									
+                // Rotate according to horizontal motion.
+				var degrees = dx;
+			    M = M0.clone().rotate( degrees, x, y );
 			}
-			else if( trans_type === "scaling" ) 
+			else if( trans_type === "scaling" )
 			{
-				console.log("scaling")
-			}			
-			else 
+			    // Scale according to horizontal motion.
+			    var s = Math.exp( dx/100. );
+			    M = M0.clone().scale( s, s, x, y );
+			}
+			else
+			{
 				console.error("undefined transformation type is chosen.")
+			}
 			
-
+            // Update the SVG element.
+            this.transform( M );
+            
+            // Update the global variable (and the HTML table).
+            gHandles[ handle_index ].transform = M;
+            setupHandleControls( handle_index );
+            
+            // Send the transform over the network.
+            sendHandleTransformation( handle_index );
 		},
 		// drag start
-		function( x, y ) {
-			x0 = x;
-			y0 = y;
-			e0 = M.e;
-			f0 = M.f;
+		function() {
+			// Store the current transform state.
+			M0 = this.transform().localMatrix;
 			
 			// Setup the table when clicking on an already-created rect.
 			setupHandleControls( handle_index );
-			
-			// This origTransform comes from the default drag handler.
-			// https://github.com/adobe-webplatform/Snap.svg/blob/master/src/mouse.js#L459
-			origTransform = this.transform().local;
+		},
+		function() {
+		    // Let the backend know it can do some processing.
+		    sendHandleDragFinished();
 		} );
 }
 // Sets the transform for a handle.
