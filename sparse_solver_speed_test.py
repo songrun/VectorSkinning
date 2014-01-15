@@ -4,10 +4,9 @@ setup = '''
 print "===> Starting setup"
 import sys
 excepthook = sys.excepthook
-import generate_chain_system_config
-generate_chain_system_config.kSystemSolvePackage = '%s'
-generate_chain_system_config.kBuildDense = '%s'
-import chain_computer, bezier_utility, generate_chain_system
+import chain_computer, bezier_utility, generate_chain_system, systems_and_solvers
+systems_and_solvers.kDefaultSystemSolvePackage = '%s'
+systems_and_solvers.kDefaultBuildType = '%s'
 bezier_utility.kG1andAconstraints = %s
 
 sys.excepthook = excepthook
@@ -24,11 +23,13 @@ try:
     engine.precompute_configuration()
     engine.solve()
 except Exception as e:
-    print 'Setup died:'
+    print '++++++++++++++++++++++++++ Setup died: ++++++++++++++++++++++++++'
     print e
     
     import time
     class Engine( object ):
+        def transform_change( self, *args ):
+            pass
         def solve_transform_change( self ):
             return None
     engine = Engine()
@@ -69,9 +70,9 @@ for g1 in ( False, True ):
                     os.wait()
                     continue
                 
-                print '=======> Running', solve, 'build-dense', dense, which, 'G1-and-A', g1, 'with repeat', R, 'and number', N
+                print '=======> Running', 'solver:', solve, 'build-type:', dense, 'shape:', which, 'G1-and-A:', g1, 'with repeat:', R, 'and number:', N
                 durations = timeit.repeat( statement, setup = setup % ( solve, dense, g1, which ), repeat = 3, number = N )
                 durations.sort()
                 seconds_per_calls = (array(durations)/N).tolist()
-                print '=======>', round( min( seconds_per_calls ), 3 ), 'Duration of', solve, 'build-dense', dense, which, 'G1-and-A', g1, 'was', durations, 'aka', seconds_per_calls, 'seconds per call'
+                print '=======>', round( min( seconds_per_calls ), 3 ), 'Duration of', 'solver:', solve, 'build-type:', dense, 'shape:', which, 'G1-and-A:', g1, 'was', durations, 'aka', seconds_per_calls, 'seconds per call'
                 sys.exit()

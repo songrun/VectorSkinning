@@ -40,13 +40,13 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		if self.system_symbolic_factored is None:
 			#print 'odd symbolic factoring'
-			system = to_system_solve_t( self.system )
-			self.system_symbolic_factored = compute_symbolic_factorization( system )
+			system = self.to_system_solve_t( self.system )
+			self.system_symbolic_factored = self.compute_symbolic_factorization( system )
 			self.system_factored = self.system_symbolic_factored( system )
 		
 		elif self.system_factored is None:
 			#print 'odd numeric factoring'
-			system = to_system_solve_t( self.system )
+			system = self.to_system_solve_t( self.system )
 			self.system_factored = self.system_symbolic_factored( system )
 		
 		#print 'odd solve'
