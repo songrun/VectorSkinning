@@ -324,23 +324,21 @@ def shepherd_w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def compute_error_metric( bbw_curve, spline_skin_curve, dts ):
+def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
+
+	path_dts = asarray( path_dts )
 	
-	bbw_curve = asarray(bbw_curve).reshape(-1,2)
-	spline_skin_curve = asarray(spline_skin_curve).reshape(-1,2)
+	assert len( bbw_curve ) == len( skin_spline_curve ) == len( path_dts ) == len( lengths )
+
+	energy = []
+	for bbw_samplings, spline_samplings, segment_dts, length in zip( bbw_curve, skin_spline_curve, path_dts, lengths ):
+		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
+		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
+		dists = ( ( spline_samplings - bbw_samplings )**2 ).sum( axis = 1 )
+		dists = (dists[:-1] + dists[1:])/2
 	
-	assert bbw_curve.shape == spline_skin_curve.shape
-	
-	diffs = ((spline_skin_curve - bbw_curve)**2 ).sum( axis = 1 )
-	diffs = (diffs[:-1] + diffs[1:])/2
-	
-	diffs = dot(diffs, dts)
-	
-	# bbw_lengths = [mag(bbw_curve[i]-bbw_curve[i+1]) for i in xrange( len( bbw_curve )-1 )]
-	spline_lengths = [mag(spline_skin_curve[i]-spline_skin_curve[i+1]) for i in xrange( len( spline_skin_curve )-1 )]
-	
-	scale = sum( spline_lengths )
+		energy.append( dot( dists, segment_dts )*length )
 	
 #	if diffs*scale > 100: debugger()
 	
-	return diffs*scale
+	return energy

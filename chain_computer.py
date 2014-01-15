@@ -22,6 +22,7 @@ class Engine:
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
 		
+		self.num_of_paths = len( all_controls )
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
 		self.all_lengths = all_lengths
@@ -115,7 +116,8 @@ class Engine:
 			self.fast_update_functions.append( fast_update )
 			
 			result.append(	fast_update( transforms ) )
-			
+		
+		self.solutions = result	
 		return result	
 		
 	
@@ -126,7 +128,8 @@ class Engine:
 		result = []
 		for fast_update in self.fast_update_functions:
 			result.append(	fast_update( self.transforms ) )
-			
+		
+		self.solutions = result	
 		return result
 	
 	def set_enable_bbw( self, is_bbw_enabled ):
@@ -139,13 +142,13 @@ class Engine:
 		self.is_bbw_enabled = is_bbw_enabled
 		
 			
-	def compute_tkinter_bbw_affected_curve_per_path( self, all_indices, all_vertices, transforms, all_weights ):
+	def compute_tkinter_bbw_affected_curve_per_path( self, path_indices, all_vertices, transforms, all_weights ):
 		'''
-		compute the bbw curves
+		compute the bbw curves for just one path.
 		'''
 		### 3 
 		bbw_curves = []
-		for indices in all_indices:
+		for indices in path_indices:
 			tps = []	
 			for i in indices:
 				m = zeros((3,3))
@@ -156,12 +159,12 @@ class Engine:
 				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
 				tps = tps + [p[0], p[1]]	
 			bbw_curves.append(tps)
-			
+	
 		return bbw_curves
 
-	def compute_tkinter_curve_per_path_solutions( self, solutions ):
+	def compute_tkinter_curve_per_path_solutions( self, solutions, all_pts ):
 		'''
-		compute all the points along the curves.
+		compute all the points along the curves for just one path.
 		'''
 		spline_skin_curves = []
 		for k, solution in enumerate(solutions):
@@ -174,7 +177,35 @@ class Engine:
 			
 		return spline_skin_curves		
 		
+	def compute_energy( self ):
+		'''
+		compute the error between the skinning spline and the bbw_affected position.
+		'''
+		all_controls = self.all_controls
+		transforms = self.transforms
+		precomputed_parameters = self.precomputed_parameter_table[0]
+		solutions = self.solutions
+		all_lengths = self.all_lengths
+		
+		all_weights = precomputed_parameters[1]
+		all_vertices = precomputed_parameters[2]
+			
+		energy = []
+		for i in range( self.num_of_paths ):
 
+			path_indices = precomputed_parameters[3][i]		
+			path_pts = precomputed_parameters[4][i]
+			path_dts = precomputed_parameters[5][i]
+
+			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
+
+			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_pts )
+			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, all_lengths[i] ) )
+		
+		print "energy: ", energy
+		return energy
+			
+				
 ## The dimensions of a point represented in the homogeneous coordinates
 # dim = 2
 
@@ -484,6 +515,8 @@ def main():
 		else:
 			chain = path[0]
 		print chain
+		
+ 	engine.compute_energy()	
 #	debugger()
 #	parameters = precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  )
 #	
