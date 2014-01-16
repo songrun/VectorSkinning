@@ -357,11 +357,13 @@ function updatePaths( new_paths_points )
 }
 function updateDeformedBezierOverlay()
 {
-    var bezier_overlay_circles = $( '#svg-overlay-beziers-deformed circle' );
-    var bezier_overlay_lines = $( '#svg-overlay-beziers-deformed line' );
+    var circle_inner = $( '#svg-overlay-beziers-deformed .control-point-inner' );
+    var circle_outer = $( '#svg-overlay-beziers-deformed .control-point-handle' );
+    var tangent_lines = $( '#svg-overlay-beziers-deformed .control-point-tangents' );
     
-    var circle_index = 0;
-    var line_index = 0;
+    var circle_inner_index = 0;
+    var circle_outer_index = 0;
+    var tangent_lines_index = 0;
     
     var paths = $( '#svg-file > svg path' );
     for( var svg_path_index = 0; svg_path_index < paths.length; ++svg_path_index )
@@ -376,13 +378,13 @@ function updateDeformedBezierOverlay()
             switch( pathSeg.pathSegType )
             {
                 case SVGPathSeg.PATHSEG_MOVETO_ABS:
-                    bezier_overlay_circles.eq( circle_index ).attr({
+                    circle_outer.eq( circle_outer_index ).attr({
                         cx: pathSeg.x,
                         cy: pathSeg.y
                         });
-                    circle_index += 1;
+                    circle_outer_index += 1;
                     
-                    bezier_overlay_lines.eq( line_index ).attr({
+                    tangent_lines.eq( tangent_lines_index ).attr({
                         x1: pathSeg.x,
                         y1: pathSeg.y
                         });
@@ -390,44 +392,44 @@ function updateDeformedBezierOverlay()
                     break;
                 
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
-                    bezier_overlay_circles.eq( circle_index ).attr({
+                    circle_inner.eq( circle_inner_index ).attr({
                         cx: pathSeg.x1,
                         cy: pathSeg.y1
                         });
-                    circle_index += 1;
+                    circle_inner_index += 1;
                     
-                    bezier_overlay_circles.eq( circle_index ).attr({
+                    circle_inner.eq( circle_inner_index ).attr({
                         cx: pathSeg.x2,
                         cy: pathSeg.y2
                         });
-                    circle_index += 1;
+                    circle_inner_index += 1;
                     
-                    bezier_overlay_circles.eq( circle_index ).attr({
+                    circle_outer.eq( circle_outer_index ).attr({
                         cx: pathSeg.x,
                         cy: pathSeg.y
                         });
-                    circle_index += 1;
+                    circle_outer_index += 1;
                     
-                    bezier_overlay_lines.eq( line_index ).attr({
+                    tangent_lines.eq( tangent_lines_index ).attr({
                         x2: pathSeg.x1,
                         y2: pathSeg.y1
                         });
-                    line_index += 1;
+                    tangent_lines_index += 1;
                     
-                    bezier_overlay_lines.eq( line_index ).attr({
+                    tangent_lines.eq( tangent_lines_index ).attr({
                         x1: pathSeg.x2,
                         y1: pathSeg.y2
                         });
-                    bezier_overlay_lines.eq( line_index ).attr({
+                    tangent_lines.eq( tangent_lines_index ).attr({
                         x2: pathSeg.x,
                         y2: pathSeg.y
                         });
-                    line_index += 1;
+                    tangent_lines_index += 1;
                     
                     // The first point of the next line.
-                    if( line_index < bezier_overlay_lines.length )
+                    if( tangent_lines_index < tangent_lines.length )
                     {
-                        bezier_overlay_lines.eq( line_index ).attr({
+                        tangent_lines.eq( tangent_lines_index ).attr({
                             x1: pathSeg.x,
                             y1: pathSeg.y
                             });
@@ -1162,11 +1164,9 @@ function createConstraintUIForSVG()
     // Bottom-to-top:
     $('.undeformed-curve').appendTo( '#svg-overlay-constraints > svg' );
     $('.control-point-tangents').appendTo( '#svg-overlay-constraints > svg' );
-    // UPDATE: Don't put the blue circle on top of the red ones,
-    //         or else I have to track them separately in updateDeformedBezierOverlay().
-    // $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
-    // $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
-    $( '#svg-overlay-constraints circle' ).appendTo( '#svg-overlay-constraints > svg' );
+    $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
+    $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
+    // $( '#svg-overlay-constraints circle' ).appendTo( '#svg-overlay-constraints > svg' );
 }
 function createDeformedBezierUIForSVG()
 {
