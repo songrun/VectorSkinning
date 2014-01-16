@@ -1,3 +1,14 @@
+## The new simple test solver is this:
+parallel -j 1 python sparse_solver_speed_test.py '{}' '|' grep Duration '>' sparse_solver_speed_test.py-raw_data/infinite'{}'.txt ::: 5 10 20 40 80
+
+## Check output with:
+sort -nr -t '[' -k 2 sparse_solver_speed_test.py-raw_data/infinite1.txt | cut -d ',' -f 1
+### or Filter G1 with
+sort -nr -t '[' -k 2 sparse_solver_speed_test.py-raw_data/infinite1.txt | cut -d ',' -f 1 | grep False
+sort -nr -t '[' -k 2 sparse_solver_speed_test.py-raw_data/infinite1.txt | cut -d ',' -f 1 | grep True
+
+---
+
 ## Run the timing tests.
 for TEST in "simple_closed" "pebble" "alligator"
 do

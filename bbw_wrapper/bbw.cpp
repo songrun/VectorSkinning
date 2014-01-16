@@ -102,9 +102,6 @@ int bbw(
         return 1;
     }
     
-    cout<<"b=["<<b<<"];"<<endl;
-    cout<<"bc=["<<bc<<"];"<<endl;
-    
     // compute BBW 
     // Default bbw data and flags
     BBWData bbw_data;
