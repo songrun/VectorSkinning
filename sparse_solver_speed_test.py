@@ -14,7 +14,7 @@ sys.excepthook = excepthook
 from random import randint
 
 try:
-    paths_info, skeleton_handle_vertices, constraint = chain_computer.get_test_%s()
+    paths_info, skeleton_handle_vertices, constraint = chain_computer.get_test_%s
     engine = chain_computer.Engine()
     boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
     boundary_index = paths_info.index( boundary_path )
@@ -50,6 +50,8 @@ solves = [ 'numpy-inv', 'numpy-solve', 'scipy', 'cvxopt' ]
 # denses = [ 'numpy', 'cvxopt', 'scipy' ]
 denses = [ 'numpy', 'cvxopt' ]
 
+G1s = ( False, True )
+
 #whichs = ( 'simple_closed', 'pebble', 'alligator' )
 #whichs = ( 'simple_closed', )
 whichs = sys.argv[1:]
@@ -58,7 +60,7 @@ from numpy import array
 
 N = 100
 R = 3
-for g1 in ( False, True ):
+for g1 in G1s:
     for which in whichs:
         for solve in solves:
             for dense in denses:
@@ -69,6 +71,13 @@ for g1 in ( False, True ):
                 if pid != 0:
                     os.wait()
                     continue
+                
+                ## If 'which' is a number, set it up for an arbitrary-length call.
+                ## Otherwise, add parentheses after it.
+                if which.isdigit():
+                    which = 'infinite( ' + which + ' )'
+                else:
+                    which = which + '()'
                 
                 print '=======> Running', 'solver:', solve, 'build-type:', dense, 'shape:', which, 'G1-and-A:', g1, 'with repeat:', R, 'and number:', N
                 durations = timeit.repeat( statement, setup = setup % ( solve, dense, g1, which ), repeat = 3, number = N )

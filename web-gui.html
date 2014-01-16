@@ -90,6 +90,8 @@ From: http://stackoverflow.com/questions/19089384/twitter-bootstrap-3-two-column
 
 <div id="svg-holder" class="text-center">
 <div id="svg-file" class="absolute0"></div>
+<div id="svg-overlay-beziers-deformed" class="absolute0"></div>
+<div id="svg-overlay-target" class="absolute0"></div>
 <div id="svg-overlay-constraints" class="absolute0"></div>
 <div id="svg-overlay-handles" class="absolute0"></div>
 </div>
@@ -161,6 +163,8 @@ Transformation type:
 
 <div class="checkbox"><label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox"/></label></div>
+<div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label></div>
+<div class="checkbox"><label>Show deformed control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 
 <!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
 
@@ -271,6 +275,10 @@ function receiveSocketMessage( data )
     {
         updatePaths( JSON.parse( data.substring( 'paths-positions '.length ) ) );
     }
+    else if( data.lastIndexOf( 'update-target-curve ', 0 ) === 0 )
+    {
+        updateTargetCurve( JSON.parse( data.substring( 'update-target-curve '.length ) ) );
+    }
     else
     {
         console.log( 'UNKNOWN MESSAGE RECEIVED: ' + data );
@@ -340,6 +348,55 @@ function updatePaths( new_paths_points )
     }
     
     // TODO: Update the circle widgets created by createConstraintUIForSVG().
+}
+// updateTargetCurve() updates the target curves in the SVG.
+// Its parameter is an array containing an array of dictionaries,
+// once for each path. Each dictionary contains two entries:
+// 'target-curve-polyline' which is an array of polyline points and
+// 'energy' which is the energy value for the polyline.
+function updateTargetCurve( new_paths_energies )
+{
+    // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
+    $( '#svg-overlay-target' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-overlay-target > svg' );
+    ui.clear();
+    
+    // Let's normalize by max energy. We need to take a pass in advance to get it.
+    var maxEnergy = 0.;
+    for( var path_index = 0; path_index < new_paths_energies.length; ++path_index )
+    {
+        for( var segment_index = 0; segment_index < new_paths_energies[path_index].length; ++segment_index )
+        {
+            maxEnergy = Math.max( maxEnergy, new_paths_energies[path_index][segment_index].energy );
+        }
+    }
+    if( maxEnergy === 0. ) maxEnergy = 1.;
+    
+    // Add a path for everything in the list.
+    for( var path_index = 0; path_index < new_paths_energies.length; ++path_index )
+    {
+        var path_info = new_paths_energies[ path_index ];
+        for( var segment_index = 0; segment_index < path_info.length; ++segment_index )
+        {
+            var target_curve_info = path_info[ segment_index ];
+            var pts = target_curve_info['target-curve-polyline'];
+            var energy = target_curve_info['energy'];
+            
+            var path_string = 'M' + pts[0][0] + ',' + pts[0][1];
+            for( var si = 1; si < pts.length; ++si )
+            {
+                path_string = path_string + 'L' + pts[si][0] + ',' + pts[si][1];
+            }
+            
+            var path = ui.path( path_string );
+            path.attr({
+                stroke: 'rgb( 100%, 0%, ' + ( 100 - Math.max( 0, Math.min( 100, Math.round( energy/maxEnergy ) ) ) ) + '% )',
+                strokeWidth: 3,
+                fillOpacity: 0.,
+                strokeDasharray: "20,10,5,5,5,10"
+                });
+        }
+    }
 }
 /*
 Given an array of [x,y] coordinates, returns the area of the axis-aligned bounding box
@@ -891,21 +948,53 @@ function createConstraintUIForSVG()
     var new_path_index = -1;
     var new_segment_index = 0;
     
+    // Get the paths from the original SVG.
     var paths = $( '#svg-file > svg path' );
+    
     // For each path, make a small clickable circle that brings up a popup menu.
     paths.each( function( index, path ) {
+        
+        // Add a dotted-line path.
+        var path_copy = ui.path( path.getAttribute('d') );
+        path_copy.attr({
+            class: 'undeformed-curve',
+            fillOpacity: 0.,
+            stroke: "#bbb",
+            strokeWidth: 3.,
+            strokeDasharray: "10,10"
+            });
         
         /// Adapted from: http://stackoverflow.com/questions/8053487/scripting-path-data-in-svg-reading-and-modifying
         // http://www.w3.org/TR/SVG/paths.html#__svg__SVGAnimatedPathData__normalizedPathSegList
         // See also path.pathSegList and path.animatedPathSegList and path.animatedNormalizedPathSegList
         var segments = path.pathSegList;
         
+        function createTangents( pathSeg, lastSeg )
+        {
+            var line_attrs = {
+                class: 'control-point-tangents',
+                stroke: "#000",
+                strokeWidth: 2.
+                };
+            ui.line( lastSeg.x, lastSeg.y, pathSeg.x1, pathSeg.y1 ).attr( line_attrs );
+            ui.line( pathSeg.x, pathSeg.y, pathSeg.x2, pathSeg.y2 ).attr( line_attrs );
+            
+            var circle_attrs = {
+                class: 'control-point-inner',
+                fill: "#da5555",
+                stroke: "#000",
+                strokeWidth: 2.
+                };
+            ui.circle( pathSeg.x1, pathSeg.y1, 5. ).attr( circle_attrs );
+            ui.circle( pathSeg.x2, pathSeg.y2, 5. ).attr( circle_attrs );
+        }
         function createControlPointHandle( path_index, segment_index, pathSeg )
         {
             gPathsControlPointConstraints[ path_index ][ segment_index ] = { 'fixed': false, 'continuity': 'C0' };
             
             var c = ui.circle( pathSeg.x, pathSeg.y, 10. );
             c.attr({
+                class: 'control-point-handle',
                 fill: "#5555da",
                 stroke: "#000",
                 strokeWidth: 2.
@@ -913,7 +1002,7 @@ function createConstraintUIForSVG()
             
             c.click( function() {
                 // Reset colors of all circles.
-                $('#svg-overlay-constraints circle').attr( "fill", '#5555da' );
+                $('#svg-overlay-constraints .control-point-handle').attr( "fill", '#5555da' );
                 
                 // If the point is currently selected, deselect it.
                 if( controlPointIsSelected( path_index, segment_index ) )
@@ -955,6 +1044,8 @@ function createConstraintUIForSVG()
                     break;
                 
                 case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
+                    createTangents( pathSeg, segments.getItem(i-1) );
+                    
                     new_segment_index += 1;
                     // A2: No. Skip the last curveTo point, so that indexing is easier.
                     // We have to check whether ( we are the last path OR the next path is a move-to ) AND the curveTo point matches the moveTo point.
@@ -972,6 +1063,13 @@ function createConstraintUIForSVG()
             }
         }
         } );
+    
+    // Let's set the z-order of our elements now.
+    // Bottom-to-top:
+    $('.undeformed-curve').appendTo( '#svg-overlay-constraints > svg' );
+    $('.control-point-tangents').appendTo( '#svg-overlay-constraints > svg' );
+    $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
+    $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
 }
 function createHandleUIForSVG()
 {
@@ -1232,6 +1330,13 @@ function setupGlobalUI()
         sendWeightTypeChanged();
     } );
     
+    // Set it up and trigger it.
+    $("#showTargetCurves").change( function() {
+        $('#svg-overlay-target').toggle( $(this).prop('checked') );
+    } ).change();
+    $("#showDeformedControlPoints").change( function() {
+        $('#svg-overlay-beziers-deformed').toggle( $(this).prop('checked') );
+    } ).change();
     
     /// Switching modes between control point constraints and handles
     $('#handle-widgets').click( function() {

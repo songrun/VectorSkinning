@@ -10,6 +10,7 @@ from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, 
 import json
 from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
+from itertools import izip as zip
 
 kVerbose = 1
 kStubOnly = False
@@ -140,9 +141,17 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			energy, polylines = self.engine.compute_energy()
 			
-			energy_and_polyline = [ [ { 'target-curve-polyline': points, 'energy': value } for points, value in zip( path_energy, path_points ) ] for path_energy, path_points in zip( energy, polylines ) ]
+			energy_and_polyline = [
+				[
+					{ 'target-curve-polyline': points.tolist(), 'energy': energy }
+					for energy, points in zip( path_energy, path_points )
+				]
+				for path_energy, path_points in zip( energy, polylines )
+				]
 			
-			debugger()
+			# import cPickle as pickle
+			# with open( 'debug.pickle', 'w' ) as f: pickle.dump( energy_and_polyline, f, pickle.HIGHEST_PROTOCOL )
+			
 			self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 			
 		else:

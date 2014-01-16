@@ -43,16 +43,20 @@ class BezierConstraintSolver( object ):
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
 		self.lambdas_per_joint = [ self.constraint_number_per_joint( constraint ) for constraint in constraints]
-						
+		
 		### 2
 		self.total_dofs = sum( self.dofs_per_bundle ) 
 		self.system_size = self.total_dofs + sum( self.lambdas_per_joint )
-		print 'system_size:', self.system_size
+		# print 'system_size:', self.system_size
 		'''
 		test
 		'''
 		
-		self.zeros_system_build_t, self.to_system_solve_t, self.compute_symbolic_factorization = systems_and_solvers.get_system_and_factor_funcs()
+		# self.zeros_system_build_t, self.to_system_solve_t, self.compute_symbolic_factorization = systems_and_solvers.get_system_and_factor_funcs()
+		smoothness = [ constraint[0] for constraint in constraints ]
+		G1orA = 'A' in smoothness or 'G1' in smoothness
+		del smoothness
+		self.zeros_system_build_t, self.to_system_solve_t, self.compute_symbolic_factorization = systems_and_solvers.get_system_and_factor_funcs_for_system_size( self.system_size, G1orA )
 		
 		# self.system = zeros( ( self.system_size, self.system_size ) )
 		self.system	 = self.zeros_system_build_t( ( self.system_size, self.system_size ) )
