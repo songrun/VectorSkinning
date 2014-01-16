@@ -486,7 +486,7 @@ function updateTargetCurve( new_paths_energies )
             var path = ui.path( path_string );
             path.attr({
                 class: 'target-curve-polyline',
-                stroke: 'rgb( 100%, 0%, ' + ( 100 - Math.max( 0, Math.min( 100, Math.round( energy/maxEnergy ) ) ) ) + '% )',
+                stroke: 'rgb( 100%, 0%, ' + ( 100 - Math.max( 0, Math.min( 100, Math.round( (100*energy)/maxEnergy ) ) ) ) + '% )',
                 strokeWidth: 3,
                 fillOpacity: 0.,
                 strokeDasharray: "20,10,5,5,5,10"
