@@ -135,6 +135,16 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
+				
+		elif msg.startswith( 'handle-transform-drag-finished' ):
+			
+			energy, polylines = self.engine.compute_energy()
+			
+			energy_and_polyline = [ [ { 'target-curve-polyline': points, 'energy': value } for points, value in zip( path_energy, path_points ) ] for path_energy, path_points in zip( energy, polylines ) ]
+			
+			debugger()
+			self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
+			
 		else:
 			print 'Received unknown message:', msg
 
