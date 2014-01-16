@@ -5,7 +5,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 	Fixed direction, magnitude free (for G1 or A).
 	'''
 	
-	def update_system_with_result_of_previous_iteration( self, solution ):
+	def update_system_with_result_of_previous_iteration( self, solution, enable_arc = False ):
 		### Iterate only over the parts of the matrix that will change,
 		### such as the system matrix involving fixed directions,
 		### lagrange multipliers across G1 or A edges, and the right-hand-side.	
@@ -17,7 +17,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		for i in range(num):
 			self.bundles[i].directions = directions[i]
 		
-		self._update_bundles()
+		self._update_bundles( kArclength = enable_arc )
 		self.system_factored = None
 		## UPDATE: Actually, if constrained directions align with coordinate axes
 		##         or have zero magnitude, then the systems may gain
@@ -311,3 +311,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			raise RuntimeError('bundle return wrong dofs.')
 
 		return Right*length
+		
+	def system_for_curve_with_arc_length( self, bundle ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+	def rhs_for_curve_with_arc_length( bundle, transforms ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )

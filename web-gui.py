@@ -139,7 +139,6 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			energy_and_polyline = [ [ { 'target-curve-polyline': points, 'energy': value } for points, value in zip( path_energy, path_points ) ] for path_energy, path_points in zip( energy, polylines ) ]
 			
-			debugger()
 			self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 			
 		else:

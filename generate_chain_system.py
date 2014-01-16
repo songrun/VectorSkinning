@@ -4,11 +4,12 @@ from weights_computer import *
 import systems_and_solvers
 
 class Bundle( object ):
-	def __init__( self, W_matrices, control_points, constraints, length, mags = None, dirs = None ):
+	def __init__( self, W_matrices, control_points, constraints, length, ds,  mags = None, dirs = None ):
 		self.W_matrices = W_matrices
 		self.control_points = control_points
 		self.constraints = constraints
 		self.length = length
+		self.ds = ds
 		controls = asarray(self.control_points)
 		if mags is None:
 			self.magnitudes = [mag(controls[1] - controls[0]), mag(controls[2] - controls[3])]
@@ -22,13 +23,13 @@ class Bundle( object ):
 
 
 class BezierConstraintSolver( object ):
-	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, is_closed ):
+	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, dss, is_closed ):
 		## compute the weight of each segment according to its length
 		# num = len(control_points)
 		control_points = asarray(control_points)
-		self.build_system( W_matrices, control_points, constraints, transforms, lengths, is_closed )
+		self.build_system( W_matrices, control_points, constraints, transforms, lengths, dss, is_closed )
 
-	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, is_closed ):
+	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, dss, is_closed ):
 		
 		### 1 Bundle all data for each bezier curve together
 		### 2 Allocate space for the system matrix
@@ -38,7 +39,7 @@ class BezierConstraintSolver( object ):
 		### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
-		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i] ) for i in xrange(len( control_points )) ]
+		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], dss[i] ) for i in xrange(len( control_points )) ]
 						
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
@@ -64,7 +65,7 @@ class BezierConstraintSolver( object ):
 		self._update_bundles()
 
 
-	def _update_bundles( self, lagrange_only = False ):
+	def _update_bundles( self, lagrange_only = False, kArcLength = False ):
 		## For convenience, set local variables from instance variables.
 		## WARNING: If you re-assign one of these, the instance variable will not be updated!
 		bundles = self.bundles
@@ -85,8 +86,8 @@ class BezierConstraintSolver( object ):
 			dofs = sum(dofs_per_bundle[i])
 			
 			if not lagrange_only:
-				small_system = self.system_for_curve( bundle )
-				small_rhs = self.rhs_for_curve(bundle, transforms)
+				small_system = self.system_for_curve( bundle, kArcLength )
+				small_rhs = self.rhs_for_curve( bundle, transforms, kArcLength )
 				### 4
 				system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
 				rhs[ dof_offset : dof_offset + dofs ] = small_rhs
@@ -140,13 +141,16 @@ class BezierConstraintSolver( object ):
 		# self.system_factored = None
 		
 	
-	def update_rhs_for_handles( self, transforms ):
+	def update_rhs_for_handles( self, transforms, kArcLength = False ):
 		dof_offset = 0
 		for i in range(len( self.bundles )):
 			bundle = self.bundles[i]
 			dofs = sum(self.dofs_per_bundle[i])
 	
-			small_rhs = self.rhs_for_curve( bundle, transforms )
+			if kArcLength:
+				small_rhs = self.rhs_for_curve_with_arc_length( bundle, transforms )
+			else:
+				small_rhs = self.rhs_for_curve( bundle, transforms )
 			### 4
 			self.rhs[ dof_offset : dof_offset + dofs ] = small_rhs
 	
@@ -174,7 +178,11 @@ class BezierConstraintSolver( object ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def rhs_for_curve( self, bundle, transforms ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
-
+	### solve by arc length parameterization
+	def system_for_curve_with_arc_length( self, bundle ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+	def rhs_for_curve_with_arc_length( bundle, transforms ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 
 
 

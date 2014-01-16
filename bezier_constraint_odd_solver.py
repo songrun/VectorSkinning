@@ -5,7 +5,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	Free direction, magnitude fixed (for G1 or A).
 	'''
 	
-	def update_system_with_result_of_previous_iteration( self, solution ):
+	def update_system_with_result_of_previous_iteration( self, solution, enable_arc = False ):
 		### Iterate only over the parts of the matrix that will change,
 		### such as the lagrange multipliers across G1 or A edges and the right-hand-side.
 		solution = asarray(solution)
@@ -17,7 +17,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			self.bundles[i].magnitudes = magnitudes[i]
 		
 		## The lagrange multipliers changed, but not the locations of the zeros.
-		self._update_bundles( lagrange_only = True )
+		self._update_bundles( lagrange_only = True, kArclength = enable_arc )
 		self.system_factored = None
 		## UPDATE: Actually, if fixed angles are parallel or perpendicular,
 		##         then the lagrange multiplier systems may gain
@@ -197,7 +197,31 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		return Left*length
 		
+	def system_for_curve_with_arc_length( self, bundle ):
+		'''
+		## Solve the same integral as system__for_curve only with dt replaced by ds
+		'''
+		dss = bundle.dss
 		
+		Left = zeros( ( 8, 8 ) )
+		tbar = ones( ( 4, 1 ) )
+		MAM = zeros( ( 4, 4 ) )
+		for t, ds in zip( linspace( 0, 1, len( dss )*2 + 1 )[ 1: :2 ], dss ):
+			### take the mid point of each ds
+			
+			tbar[0] = t**3
+			tbar[1] = t**2
+			tbar[2] = t
+	
+			Mtbar = dot( M.T, tbar )
+			MAM = dot( Mtbar, Mtbar.T )*ds
+			
+		for i in range( dim ):		
+			Left[ i*4:( i+1 )*4, i*4:( i+1 )*4 ] = MAM[:,:]
+		
+		return Left
+			
+			
 	def compute_dofs_per_curve( self, bundle ):
 	
 		dofs = zeros( 2, dtype = int )
@@ -271,3 +295,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		Right[:] = concatenate((R[0, :], R[1, :]))
 			
 		return Right*length
+		
+
+	def rhs_for_curve_with_arc_length( bundle, transforms ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
