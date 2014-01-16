@@ -21,7 +21,7 @@ class Engine:
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 # 		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
-		
+
 		self.num_of_paths = len( all_controls )
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
@@ -91,21 +91,26 @@ class Engine:
 		'''
 		send back all groups of controls
 		'''
-		all_controls = self.all_controls
-		all_constraints = self.all_constraints
-		all_lengths = self.all_lengths
+		try:
+			all_controls = self.all_controls
+			all_constraints = self.all_constraints
+			all_lengths = self.all_lengths
 		
-		handles = self.handle_positions
-		transforms = self.transforms
-		if len( all_controls ) == 0:
-			raise NoControlPointsError()
-		elif len( handles ) == 0:
-			raise NoHandlesError()
-		elif len( self.precomputed_parameter_table ) == 0:
-			self.precompute_configuration()			
-		precomputed_parameters = self.precomputed_parameter_table[0]
+			handles = self.handle_positions
+			transforms = self.transforms
+			if len( all_controls ) == 0:
+				raise NoControlPointsError()
+			elif len( handles ) == 0:
+				raise NoHandlesError()
+			elif len( self.precomputed_parameter_table ) == 0:
+				self.precompute_configuration()			
+			precomputed_parameters = self.precomputed_parameter_table[0]
 		
-		arc_length_enabled = self.arc_length_enabled
+			arc_length_enabled = self.arc_length_enabled
+			
+		except RuntimeException:
+			print 'Engine not ready yet.'
+			return
 		
 		result = []
 		self.fast_update_functions = []
@@ -496,9 +501,10 @@ def main():
 	else:
 		# paths_info, skeleton_handle_vertices, constraint = get_test1()
 		# paths_info, skeleton_handle_vertices, constraint = get_test2()
-		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
+		paths_info, skeleton_handle_vertices, constraint = get_test_box()
 	
 	engine = Engine()
 	boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 

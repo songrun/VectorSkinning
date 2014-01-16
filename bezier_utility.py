@@ -155,8 +155,19 @@ def make_constraints_from_control_points( control_group, close=True ):
 	constraints = [ ['C0', False] for i in range( num ) ]
 	
 	for i in range( num ):
-		dir1 = dir_allow_zero( control_group[i,-1] - control_group[i,-2] )
-		dir2 = dir_allow_zero( control_group[(i+1)%num,1] - control_group[(i+1)%num,0] )
+# 		dir1 = dir_allow_zero( control_group[i,-1] - control_group[i,-2] )
+# 		dir2 = dir_allow_zero( control_group[(i+1)%num,1] - control_group[(i+1)%num,0] )
+		## find the first control point in the same segment that has a different value with the first and last ones
+		dir1, dir2 = zeros( 2 ), zeros( 2 )
+		for j in range( 2, 5 ):
+			if not array_equal( control_group[i, -1], control_group[i,-j] ):
+				dir1 = dir( control_group[i,-1] - control_group[i,-j] )
+				break
+				
+		for j in range( 1, 4 ):
+			if not array_equal( control_group[(i+1)%num,j], control_group[(i+1)%num,0 ] ):
+				dir2 = dir( control_group[(i+1)%num,j] - control_group[(i+1)%num,0 ] )
+				break
 		
 		if allclose( dir1, dir2, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			if kG1andAconstraints:

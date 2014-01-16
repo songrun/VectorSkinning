@@ -12,7 +12,7 @@ from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 from itertools import izip as zip
 
-kVerbose = 1
+kVerbose = 2
 kStubOnly = False
 
 class WebGUIServerProtocol( WebSocketServerProtocol ):

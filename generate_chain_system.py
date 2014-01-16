@@ -17,7 +17,20 @@ class Bundle( object ):
 			self.magnitudes = mags
 		
 		if dirs is None:
-			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
+		
+			dir0, dir1 = zeros( 2 ), zeros( 2 )
+			for j in range( 1, 4 ):
+				if not array_equal( controls[j], controls[0] ):
+					dir0 = dir( (controls[j]-controls[0])[:2] )
+					break
+		
+			for j in range( 2, 5 ):
+				if not array_equal( controls[-j], controls[3] ):
+					dir1 = dir( (controls[-j]-controls[3])[:2] )
+					break
+			self.directions = [ dir0, dir1 ]
+			
+# 			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
 		else:
 			self.directions = dirs
 
@@ -91,8 +104,8 @@ class BezierConstraintSolver( object ):
 			dofs = sum(dofs_per_bundle[i])
 			
 			if not lagrange_only:
-				small_system = self.system_for_curve( bundle, kArcLength )
-				small_rhs = self.rhs_for_curve( bundle, transforms, kArcLength )
+				small_system = self.system_for_curve( bundle )
+				small_rhs = self.rhs_for_curve( bundle, transforms)
 				### 4
 				system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
 				rhs[ dof_offset : dof_offset + dofs ] = small_rhs

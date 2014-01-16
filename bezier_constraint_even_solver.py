@@ -17,7 +17,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		for i in range(num):
 			self.bundles[i].directions = directions[i]
 		
-		self._update_bundles( kArclength = enable_arc )
+		self._update_bundles( kArcLength = enable_arc )
 		self.system_factored = None
 		## UPDATE: Actually, if constrained directions align with coordinate axes
 		##         or have zero magnitude, then the systems may gain
