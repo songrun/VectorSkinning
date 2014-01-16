@@ -17,7 +17,7 @@ class Bundle( object ):
 			self.magnitudes = mags
 		
 		if dirs is None:
-		
+			## search out for the first control point making non-zero directions
 			dir0, dir1 = zeros( 2 ), zeros( 2 )
 			for j in range( 1, 4 ):
 				if not array_equal( controls[j], controls[0] ):
@@ -28,12 +28,53 @@ class Bundle( object ):
 				if not array_equal( controls[-j], controls[3] ):
 					dir1 = dir( (controls[-j]-controls[3])[:2] )
 					break
-			self.directions = [ dir0, dir1 ]
 			
-# 			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
+			if  mag(dir0)*mag(dir1) != 0:
+				cos_theta = dot(dir0, dir1)/( mag(dir0)*mag(dir1) )
+				sin_theta = (1.-cos_theta**2) ** 0.5		
+			else:
+				cos_theta = 1.0
+				sin_theta = 0.0
+				
+			
+ 			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
 		else:
 			self.directions = dirs
+			
+			if  mag(dirs[0])*mag(dirs[1]) != 0:
+				cos_theta = dot(dirs[0], dirs[1])/( mag(dirs[0])*mag(dirs[1]) )
+				sin_theta = (1.-cos_theta**2) ** 0.5		
+			else:
+				cos_theta = 1.0
+				sin_theta = 0.0
+				
+		self.cos_theta = cos_theta
+		self.sin_theta = sin_theta		
 
+def compute_angle( bundle0, bundle1 ):
+
+		vec0, vec1 = zeros( 2 ), zeros( 2 )
+		for j in range( 2, 5 ):
+			if not array_equal( bundle0.control_points[-j], bundle0.control_points[3] ):
+				vec0 = (bundle0.control_points[-j]-bundle0.control_points[3])[:2]
+				break
+				
+		for j in range( 1, 4 ):
+			if not array_equal( bundle1.control_points[j], bundle1.control_points[0] ):
+				vec1 = (bundle1.control_points[j]-bundle1.control_points[0])[:2]
+				break
+		
+		if  mag(vec0)*mag(vec1) != 0:
+			cos_theta = dot(vec0, vec1)/( mag(vec0)*mag(vec1) )
+			sin_theta = (1.-cos_theta**2) ** 0.5
+		else:
+			cos_theta = 1.0
+			sin_theta = 0.0
+			
+		if cross(vec0, vec1) < 0:	
+			sin_theta = -sin_theta
+			
+		return [ cos_theta, sin_theta ]
 
 class BezierConstraintSolver( object ):
 	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, dss, is_closed ):
@@ -53,6 +94,11 @@ class BezierConstraintSolver( object ):
 
 		### 1
 		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], dss[i] ) for i in xrange(len( control_points )) ]
+		
+		if is_closed:
+			self.angles = [ compute_angle( self.bundles[i], self.bundles[(i+1)%len( self.bundles ) ] ) for i in xrange( len( self.bundles ) ) ]
+		else:
+			self.angles = [ compute_angle( self.bundles[i], self.bundles[i+1] ) for i in xrange( len( self.bundles )-1 ) ]
 						
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
@@ -92,6 +138,7 @@ class BezierConstraintSolver( object ):
 		total_dofs = self.total_dofs
 		system_size = self.system_size
 		system = self.system
+		angles = self.angles
 		# system = self.system
 		rhs = self.rhs
 		transforms = self.transforms
@@ -123,7 +170,7 @@ class BezierConstraintSolver( object ):
 			dofs_next = sum(dofs_per_bundle[i+1])
 			constraint_eqs = lambdas_per_joint[i+1]
 	
-			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[i], bundles[i+1] )
+			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[i], bundles[i+1], angles[i] )
 			
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs + dofs_next ] = small_lagrange_system
@@ -138,7 +185,7 @@ class BezierConstraintSolver( object ):
 			dofs_next = sum(dofs_per_bundle[0])
 			constraint_eqs = lambdas_per_joint[0]
 	
-			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[-1], bundles[0] )
+			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[-1], bundles[0], angles[-1] )
 	
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = small_lagrange_system[ :, :dofs ]
@@ -186,7 +233,7 @@ class BezierConstraintSolver( object ):
 		### even if some of the variables were substituted in the actual system matrix.
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 
-	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1):
+	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def system_for_curve( self, bundle ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )

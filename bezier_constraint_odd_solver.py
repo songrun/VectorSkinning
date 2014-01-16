@@ -63,30 +63,10 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		return result	
 	
-	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
+	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
-		
-		
-		vec0, vec1 = zeros( 2 ), zeros( 2 )
-		for j in range( 2, 5 ):
-			if not array_equal( bundle0.control_points[-j], bundle0.control_points[3] ):
-				vec0 = (bundle0.control_points[-j]-bundle0.control_points[3])[:2]
-				break
-				
-		for j in range( 1, 4 ):
-			if not array_equal( bundle1.control_points[j], bundle1.control_points[0] ):
-				vec1 = (bundle1.control_points[j]-bundle1.control_points[0])[:2]
-				break
-				
-# 		vec0 = (bundle0.control_points[2]-bundle0.control_points[3])[:2]
-# 		vec1 = (bundle1.control_points[1]-bundle1.control_points[0])[:2]
-		
-		if  mag(vec0)*mag(vec1) != 0:
-			cos_theta = dot(vec0, vec1)/( mag(vec0)*mag(vec1) )
-			sin_theta = (1.-cos_theta**2) ** 0.5
-		else:
-			cos_theta = 1.0
-			sin_theta = 0.0
+		cos_theta = angle[0]
+		sin_theta = angle[1]
 		
 		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
@@ -122,12 +102,12 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[i*4+2, i+dim] = -1
 				
 				## tell the angle from vec0 to vec1 is positive or negative.
-				if cross(vec0, vec1) >= 0:
-					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
-					R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
-				else:
-					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, -sin_theta], [cos_theta, sin_theta]])
-					R[-dim*2:-dim, dim:] = asarray([[sin_theta, -cos_theta], [-sin_theta, cos_theta]])
+# 				if cross(vec0, vec1) >= 0:
+				R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
+				R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
+# 				else:
+# 					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, -sin_theta], [cos_theta, sin_theta]])
+# 					R[-dim*2:-dim, dim:] = asarray([[sin_theta, -cos_theta], [-sin_theta, cos_theta]])
 			## add weights to lambda	 
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
