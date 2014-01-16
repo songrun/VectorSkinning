@@ -47,6 +47,7 @@ class BezierConstraintSolver( object ):
 		### 2
 		self.total_dofs = sum( self.dofs_per_bundle ) 
 		self.system_size = self.total_dofs + sum( self.lambdas_per_joint )
+		print 'system_size:', self.system_size
 		'''
 		test
 		'''

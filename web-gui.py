@@ -28,8 +28,11 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			if not binary:
 				from pprint import pprint
 				space = msg.find( ' ' )
-				print msg[ :space ]
-				pprint( json.loads( msg[ space+1 : ] ) )
+				if space == -1:
+					print msg
+				else:
+					print msg[ :space ]
+					pprint( json.loads( msg[ space+1 : ] ) )
 		elif kVerbose >= 1:
 			if not binary:
 				print msg[:72] + ( ' ...' if len( msg ) > 72 else '' )
@@ -165,6 +168,15 @@ def setupWebSocket( address, engine ):
 if __name__ == '__main__':
 	import os, sys
 	
+	if 'stub' in sys.argv[1:]:
+		kStubOnly = True
+	
+	if 'verbose' in sys.argv[1:]:
+		kVerbose = int( sys.argv[ sys.argv.index( 'verbose' ) + 1 ] )
+	
+	print 'Verbosity level:', kVerbose
+	print 'Stub only:', kStubOnly
+	
 	## Create engine:
 	# engine = ...
 	engine = Engine()
@@ -174,8 +186,5 @@ if __name__ == '__main__':
 	## Maybe you find this convenient
 	if 'open' in sys.argv[1:]:
 		os.system( 'open web-gui.html' )
-	
-	if 'stub' in sys.argv[1:]:
-		kStubOnly = True
 	
 	reactor.run()

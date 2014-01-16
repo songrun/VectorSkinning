@@ -452,6 +452,8 @@ def main():
 	
 	if len( argv ) == 1:
 		paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
+	elif len( argv ) == 2:
+		paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '(' + argv[1] + ')' )
 	else:
 		# paths_info, skeleton_handle_vertices, constraint = get_test1()
 		# paths_info, skeleton_handle_vertices, constraint = get_test2()
