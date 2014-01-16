@@ -347,7 +347,100 @@ function updatePaths( new_paths_points )
         }
     }
     
-    // TODO: Update the circle widgets created by createConstraintUIForSVG().
+    // Update the circle widgets for the deformed curve overlay.
+    // UPDATE: Only do it if they're visible.
+    // From: http://stackoverflow.com/questions/178325/testing-if-something-is-hidden-with-jquery
+    if( $('#svg-overlay-beziers-deformed').is(":visible") )
+    {
+        updateDeformedBezierOverlay();
+    }
+}
+function updateDeformedBezierOverlay()
+{
+    var bezier_overlay_circles = $( '#svg-overlay-beziers-deformed circle' );
+    var bezier_overlay_lines = $( '#svg-overlay-beziers-deformed line' );
+    
+    var circle_index = 0;
+    var line_index = 0;
+    
+    var paths = $( '#svg-file > svg path' );
+    for( var svg_path_index = 0; svg_path_index < paths.length; ++svg_path_index )
+    {
+        var path = paths[svg_path_index];
+        var segments = path.pathSegList;
+        
+        for( var i = 0; i < segments.numberOfItems; ++i )
+        {
+            var pathSeg = segments.getItem(i);
+            // http://www.w3.org/TR/SVG/paths.html#InterfaceSVGPathSeg
+            switch( pathSeg.pathSegType )
+            {
+                case SVGPathSeg.PATHSEG_MOVETO_ABS:
+                    bezier_overlay_circles.eq( circle_index ).attr({
+                        cx: pathSeg.x,
+                        cy: pathSeg.y
+                        });
+                    circle_index += 1;
+                    
+                    bezier_overlay_lines.eq( line_index ).attr({
+                        x1: pathSeg.x,
+                        y1: pathSeg.y
+                        });
+                    
+                    break;
+                
+                case SVGPathSeg.PATHSEG_CURVETO_CUBIC_ABS:
+                    bezier_overlay_circles.eq( circle_index ).attr({
+                        cx: pathSeg.x1,
+                        cy: pathSeg.y1
+                        });
+                    circle_index += 1;
+                    
+                    bezier_overlay_circles.eq( circle_index ).attr({
+                        cx: pathSeg.x2,
+                        cy: pathSeg.y2
+                        });
+                    circle_index += 1;
+                    
+                    bezier_overlay_circles.eq( circle_index ).attr({
+                        cx: pathSeg.x,
+                        cy: pathSeg.y
+                        });
+                    circle_index += 1;
+                    
+                    bezier_overlay_lines.eq( line_index ).attr({
+                        x2: pathSeg.x1,
+                        y2: pathSeg.y1
+                        });
+                    line_index += 1;
+                    
+                    bezier_overlay_lines.eq( line_index ).attr({
+                        x1: pathSeg.x2,
+                        y1: pathSeg.y2
+                        });
+                    bezier_overlay_lines.eq( line_index ).attr({
+                        x2: pathSeg.x,
+                        y2: pathSeg.y
+                        });
+                    line_index += 1;
+                    
+                    // The first point of the next line.
+                    if( line_index < bezier_overlay_lines.length )
+                    {
+                        bezier_overlay_lines.eq( line_index ).attr({
+                            x1: pathSeg.x,
+                            y1: pathSeg.y
+                            });
+                    }
+                    
+                    break;
+                
+                default:
+                    console.log( "We shouldn't see pathSeg.pathSegType: " + pathSeg.pathSegType );
+                    break;
+            }
+        }
+    }
 }
 // updateTargetCurve() updates the target curves in the SVG.
 // Its parameter is an array containing an array of dictionaries,
@@ -932,6 +1025,7 @@ function createUIForSVG()
     
     createConstraintUIForSVG();
     createHandleUIForSVG();
+    createDeformedBezierUIForSVG();
 }
 function createConstraintUIForSVG()
 {
@@ -1068,8 +1162,22 @@ function createConstraintUIForSVG()
     // Bottom-to-top:
     $('.undeformed-curve').appendTo( '#svg-overlay-constraints > svg' );
     $('.control-point-tangents').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
+    // UPDATE: Don't put the blue circle on top of the red ones,
+    //         or else I have to track them separately in updateDeformedBezierOverlay().
+    // $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
+    // $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
+    $( '#svg-overlay-constraints circle' ).appendTo( '#svg-overlay-constraints > svg' );
+}
+function createDeformedBezierUIForSVG()
+{
+    // This is fragile but should work.
+    $( '#svg-overlay-beziers-deformed' ).html( $('#svg-overlay-constraints > svg').clone() );
+    
+    // Remove the dotted lines.
+    $( '#svg-overlay-beziers-deformed .undeformed-curve' ).remove();
+    
+    // Change the size of the blue dots.
+    $( '#svg-overlay-beziers-deformed circle.control-point-handle' ).attr('r',5);
 }
 function createHandleUIForSVG()
 {
@@ -1335,7 +1443,13 @@ function setupGlobalUI()
         $('#svg-overlay-target').toggle( $(this).prop('checked') );
     } ).change();
     $("#showDeformedControlPoints").change( function() {
-        $('#svg-overlay-beziers-deformed').toggle( $(this).prop('checked') );
+        var visible = $(this).prop('checked');
+        if( visible )
+        {
+            // Update them in case they've changed.
+            updateDeformedBezierOverlay();
+        }
+        $('#svg-overlay-beziers-deformed').toggle( visible );
     } ).change();
     
     /// Switching modes between control point constraints and handles
