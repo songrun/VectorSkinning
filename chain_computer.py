@@ -20,12 +20,12 @@ class Engine:
 		
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
-		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
+# 		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
 		
 		self.num_of_paths = len( all_controls )
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
-		self.all_lengths = all_lengths
+# 		self.all_lengths = all_lengths
 		
 		self.transforms = []
 		self.handle_positions = []	
@@ -83,6 +83,8 @@ class Engine:
 		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles, is_bbw_enabled )		
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
+		all_dss = layer1[-1]
+		self.all_lengths = [ [ sum( segment_dss ) for segment_dss in path_dss ] for path_dss in all_dss ]
 		
 	def solve( self ):
 		'''
@@ -162,14 +164,14 @@ class Engine:
 	
 		return bbw_curves
 
-	def compute_tkinter_curve_per_path_solutions( self, solutions, all_pts ):
+	def compute_tkinter_curve_per_path_solutions( self, solutions, all_ts ):
 		'''
 		compute all the points along the curves for just one path.
 		'''
 		spline_skin_curves = []
 		for k, solution in enumerate(solutions):
 			tps = []
-			for t in asarray(all_pts)[k, 1]:
+			for t in asarray(all_ts)[k]:
 				tbar = asarray([t**3, t**2, t, 1.])
 				p = dot(tbar, asarray( M * solution ) )
 				tps = tps + [p[0], p[1]]
@@ -191,19 +193,23 @@ class Engine:
 		all_vertices = precomputed_parameters[2]
 			
 		energy = []
+		bbw_curves = []
 		for i in range( self.num_of_paths ):
 
 			path_indices = precomputed_parameters[3][i]		
 			path_pts = precomputed_parameters[4][i]
 			path_dts = precomputed_parameters[5][i]
+			path_ts = precomputed_parameters[6][i]
 
 			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
 
-			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_pts )
+			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )
 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, all_lengths[i] ) )
+			
+			bbw_curves.append( asarray( bbw_curve ).reshape( len( bbw_curve ), -1, 2 ) )
 		
 		print "energy: ", energy
-		return energy
+		return energy, bbw_curves
 			
 				
 ## The dimensions of a point represented in the homogeneous coordinates
@@ -327,17 +333,19 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 	num_samples = 100
 	all_pts = []
 	all_dts = []
+	all_ts = []
+	all_dss = []
 	for control_pos in all_control_positions:
-		pts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples ) 
+		pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples ) 
 		all_pts.append( pts )
-		all_dts.append( dts )	
+		all_dts.append( dts )
+		all_ts.append( ts )
+		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
+		all_dss.append( dss )
 	
-	boundary_pts, boundary_dts = sample_cubic_bezier_curve_chain( controls_on_boundary, num_samples )
+	boundary_pts, boundary_ts, boundary_dts = sample_cubic_bezier_curve_chain( controls_on_boundary, num_samples )
 	
-	boundary_pos = [ curve[0] for curve in boundary_pts ]
-	all_pos = [ [ pts[0] for pts in curve_pts ] for curve_pts in all_pts ]
-	
-	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pos, skeleton_handle_vertices, all_pos, is_bbw_enabled )
+	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pts, skeleton_handle_vertices, all_pts, is_bbw_enabled )
 	
 	print 'Precomputing W_i...'
 	W_matrices = []
@@ -347,12 +355,12 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k][0], all_pts[j][k][1], all_dts[j][k])
+				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
 	print '...finished.'
 
-	return [W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts]
+	return [ W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts, all_ts, all_dss ]
 
 	
 

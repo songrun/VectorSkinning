@@ -28,25 +28,19 @@ def sample_cubic_bezier_curve_chain( Cset, num_samples = 100 ):
 	
 	if curves are open, add samples of the straight line that connect the begin and the end.
 	'''
-	result = []
+	all_pts = []
+	all_ts = []
 	all_dts = []
 	
 	for P in Cset:
-		samples, ts, dts = sample_cubic_bezier_curve_with_dt( P, num_samples )
-		result.append( ( samples, ts ) )
+		samples, ts, dts = sample_cubic_bezier_curve( P, num_samples )
+		all_pts.append( samples )
+		all_ts.append( ts )
 		all_dts.append( dts )
-		
-#	if array_equal(Cset[0][0], Cset[-1][-1]) == False:
-#		samples, ts, dts = sample_cubic_bezier_curve_with_dt( Cset[-1][-1], Cset[0][0], num_samples )	
-#		result.append( ( samples, ts ) )
-#		all_dts.append( dts )
 
-	## result in the shape of n by num_samples by dim, n is the number of bezier curves, dim is dimensions
-	#result = asarray( result )[:,:,:2]
+	return all_pts, all_ts, all_dts
 
-	return result, all_dts
-
-def sample_cubic_bezier_curve_with_dt( P, num_samples = 100 ):
+def sample_cubic_bezier_curve( P, num_samples = 100 ):
 	'''
 	a 4-by-k numpy.array P containing the positions of the control points as the rows,
 	return two lists: sample points of the bezier curve denoted in P, and corresponding t values
@@ -72,9 +66,6 @@ def sample_cubic_bezier_curve_with_dt( P, num_samples = 100 ):
 		
 	return asarray( result ), asarray( ts ), asarray( dts )
 	
-	
-def sample_cubic_bezier_curve_with_ds( P, num_samples = 100 ):	
-	pass
 	
 def sample_straight_line( begin, end, num_samples = 100 ):
 
