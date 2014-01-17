@@ -43,7 +43,7 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	a sequence of pairs of indices into 'vertices' corresponding to the
 	boundary edges of the mesh,
 	a sequence of (not necessarily scalar-valued) values 'weights', one for each vertex in 'vs',
-	and a sequence of points
+	and a sequence of points 'pts'
 	returns
 		a sequence of uniqified points from 'pts',
 		a corresponding interpolated weight for the uniqified points,
@@ -86,6 +86,10 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	for bi, ( e0, e1 ) in enumerate( boundary_edges ):
 		edges[ bi ] = vs[ e0 ], vs[ e1 ]
 	
+	## Using vertex positions as weights should lead to the
+	## identity transformation. (See comment d987dsa98d7h below.)
+	# weights = array( vs )
+	
 	misses = 0
 	misses_total_distance = 0.
 	misses_max_distance = -31337.
@@ -95,14 +99,34 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 		## Did we hit the mesh?
 		if bary is not None:
 			fi, ( b0, b1, b2 ) = bary
+			assert abs( b0 + b1 + b2 - 1 ) < 1e-5
+			assert b0 > -1e-5
+			assert b1 > -1e-5
+			assert b2 > -1e-5
+			assert b0 < 1+1e-5
+			assert b1 < 1+1e-5
+			assert b2 < 1+1e-5
 			unique_weights[pi] = b0*weights[ faces[ fi ][0] ] + b1*weights[ faces[ fi ][1] ] + b2*weights[ faces[ fi ][2] ]
 		else:
 			dist, ei, t = raytri.closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt )
+			assert t > -1e-5
+			assert t < 1+1e-5
 			dist = sqrt( dist )
 			misses += 1
 			misses_total_distance += dist
 			misses_max_distance = max( misses_max_distance, dist )
 			unique_weights[pi] = (1-t)*weights[ boundary_edges[ ei ][0] ] + t*weights[ boundary_edges[ ei ][1] ]
+	
+	## And indeed it does come out the nearly identical? (See comment d987dsa98d7h above.)
+	# assert ( unique_weights - pts ).allclose()
+	
+	assert unique_weights.min() > -1e-4
+	assert unique_weights.max() < 1 + 1e-4
+	## Clip the weights?
+	# unique_weights = unique_weights.clip( 0, 1 )
+	
+	## Re-normalize the weights?
+	unique_weights *= 1./unique_weights.sum( axis = 1 )[...,newaxis]
 	
 	if misses == 0:
 		print 'Barycentric projection: No one missed the mesh.'

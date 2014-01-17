@@ -253,6 +253,7 @@ def point2d_in_mesh2d_barycentric( point2d, vertices2d, faces ):
     ## Otherwise, return the intersection with the largest smallest barycentric coordinate,
     ## so the "most" inside the triangle. This should give a reasonable result
     ## with regards to negative epsilon issues.
+    # if len( intersections ) > 1: print 'more than 1 intersection. ts are:', [ t for t, fi, uv in intersections ]
     intersections = [ ( fi, ( 1.-u-v, u, v ) ) for ( t, fi, ( u,v ) ) in intersections ]
     smallest = asarray([ bary for fi, bary in intersections ]).min( axis = 1 ).argmax()
     return intersections[ smallest ]
