@@ -167,6 +167,7 @@ Transformation type:
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div>
 </div>
 <div class="checkbox"><label>Deformed control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
+<div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 
 <!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
 
@@ -710,6 +711,11 @@ function sendWeightTypeChanged()
 {
     "use strict";
     gSocket.send( "enable-bbw " + JSON.stringify( $('#isBBWEnabled').prop('checked') ) );
+}
+function sendIfUsingArcLengthParameterization()
+{
+    "use strict";
+    gSocket.send( "enable-arc-length " + JSON.stringify( $('#usingArcLengthParameterization').prop('checked') ) );
 }
 function throttleHandleTransformationsUntilUpdate()
 {
@@ -1462,6 +1468,12 @@ function setupGlobalUI()
         }
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
+    $("#usingArcLengthParameterization").change( function() {
+        var checked = $(this).prop('checked');
+        sendIfUsingArcLengthParameterization();
+        
+    } );
+    
     
     /// Switching modes between control point constraints and handles
     $('#handle-widgets').click( function() {

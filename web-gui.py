@@ -136,6 +136,18 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
+		
+		elif msg.startswith( 'enable-arc-length ' ):
+			paths_info = json.loads( msg[ len( 'enable-arc-length ' ): ] )
+			
+			self.engine.set_enable_arc_length( paths_info )
+			try:
+				all_paths = self.engine.solve()
+				all_positions = make_chain_from_control_groups( all_paths )
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			except NoHandlesError:
+				## No handles yet, so nothing to do.
+				pass
 				
 		elif msg.startswith( 'handle-transform-drag-finished' ):
 			

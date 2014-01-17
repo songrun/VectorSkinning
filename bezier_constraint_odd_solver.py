@@ -5,7 +5,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	Free direction, magnitude fixed (for G1 or A).
 	'''
 	
-	def update_system_with_result_of_previous_iteration( self, solution, enable_arc = False ):
+	def update_system_with_result_of_previous_iteration( self, solution ):
 		### Iterate only over the parts of the matrix that will change,
 		### such as the lagrange multipliers across G1 or A edges and the right-hand-side.
 		solution = asarray(solution)
@@ -17,7 +17,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			self.bundles[i].magnitudes = magnitudes[i]
 		
 		## The lagrange multipliers changed, but not the locations of the zeros.
-		self._update_bundles( lagrange_only = True, kArcLength = enable_arc )
+		self._update_bundles( lagrange_only = True )
 		self.system_factored = None
 		## UPDATE: Actually, if fixed angles are parallel or perpendicular,
 		##         then the lagrange multiplier systems may gain
@@ -101,13 +101,9 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[i*4+3, i+dim] = 1
 				R[i*4+2, i+dim] = -1
 				
-				## tell the angle from vec0 to vec1 is positive or negative.
-# 				if cross(vec0, vec1) >= 0:
 				R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
 				R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
-# 				else:
-# 					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, -sin_theta], [cos_theta, sin_theta]])
-# 					R[-dim*2:-dim, dim:] = asarray([[sin_theta, -cos_theta], [-sin_theta, cos_theta]])
+
 			## add weights to lambda	 
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
@@ -191,27 +187,30 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range(dim):		
 			Left[ i*4:(i+1)*4, i*4:(i+1)*4 ] = MAM[:,:]
 		
-		
 		return Left*length
 		
 	def system_for_curve_with_arc_length( self, bundle ):
 		'''
 		## Solve the same integral as system__for_curve only with dt replaced by ds
 		'''
+		ts = bundle.ts
 		dss = bundle.dss
-		
+		dim = 2
 		Left = zeros( ( 8, 8 ) )
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
-		for t, ds in zip( linspace( 0, 1, len( dss )*2 + 1 )[ 1: :2 ], dss ):
-			### take the mid point of each ds
+		
+		for i in range(len(dss)):
+			t = (ts[i] + ts[i+1])/2
+			ds = dss[i]
 			
-			tbar[0] = t**3
-			tbar[1] = t**2
+			tbar[0] = t*t*t
+			tbar[1] = t*t
 			tbar[2] = t
-	
+			
 			Mtbar = dot( M.T, tbar )
-			MAM = dot( Mtbar, Mtbar.T )*ds
+
+			MAM += dot( Mtbar, Mtbar.T )*ds
 			
 		for i in range( dim ):		
 			Left[ i*4:( i+1 )*4, i*4:( i+1 )*4 ] = MAM[:,:]
@@ -261,19 +260,19 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		'''
 		length = bundle.length
 		
-#		W_matrices = bundle.W_matrices
-#		controls = bundle.control_points
+# 		W_matrices = bundle.W_matrices
+# 		controls = bundle.control_points
+#  
+# 		Right = zeros( (3, 4) )
+# 		for i in range( len( transforms ) ):
 # 
-#		Right = zeros( (3, 4) )
-#		for i in range( len( transforms ) ):
+# 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
+# 			W_i = W_matrices[i,0]	
 # 
-#			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-#			W_i = W_matrices[i,0]	
+# 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
 # 
-#			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
-# 
-#		Right = asarray(Right).reshape(-1)
-#		Right = Right[:8]	
+# 		Right = asarray(Right).reshape(-1)
+# 		Right = Right[:8]	
 
 		W_matrices = bundle.W_matrices
 		controls = bundle.control_points
@@ -290,8 +289,11 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		R = temp[:2,:]
 		
 		Right[:] = concatenate((R[0, :], R[1, :]))
-			
-		return Right*length
+		
+		if self.kArcLength:
+			return Right
+		else:		
+			return Right*length
 		
 
 	def rhs_for_curve_with_arc_length( bundle, transforms ):

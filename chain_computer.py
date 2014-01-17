@@ -6,6 +6,8 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
+kArcLength = False
+
 class Engine:
 	'''
 	A data persistant that have all information needed to precompute and the system matrix of the previous state.
@@ -31,7 +33,7 @@ class Engine:
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
 		self.is_bbw_enabled = True
-		self.arc_length_enabled = False
+		self.is_arc_enabled = kArcLength
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
@@ -73,15 +75,17 @@ class Engine:
 		for i in range( num_adding ):
 			self.transforms.append( identity(3) )
 	
-	def precompute_configuration( self, is_bbw_enabled=True ):
+	def precompute_configuration( self ):
 		'''
 		precompute W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts
 		'''
 		handles = self.handle_positions
 		all_controls = self.all_controls
+		is_bbw_enabled = self.is_bbw_enabled
+		is_arc_enabled = self.is_arc_enabled
 		boundary = all_controls[ self.boundary_index ]
 		
-		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles, is_bbw_enabled )		
+		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles, is_bbw_enabled, is_arc_enabled )		
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
 		all_dss = layer1[-1]
@@ -106,7 +110,7 @@ class Engine:
 				self.precompute_configuration()			
 			precomputed_parameters = self.precomputed_parameter_table[0]
 		
-			arc_length_enabled = self.arc_length_enabled
+			is_arc_enabled = self.is_arc_enabled
 			
 		except RuntimeException:
 			print 'Engine not ready yet.'
@@ -116,9 +120,10 @@ class Engine:
 		self.fast_update_functions = []
 		for i, controls, constraints, lengths in zip( range( len( all_controls ) ), all_controls, all_constraints, all_lengths ):
 			W_matrices = precomputed_parameters[0][i]
-			dss = precomputed_parameters[-1][i]
+			ts = precomputed_parameters[6][i]
+			dss = precomputed_parameters[7][i]
 			
-			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, dss, arc_length_enabled )
+			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dss, is_arc_enabled )
 			self.fast_update_functions.append( fast_update )
 			
 			result.append(	fast_update( transforms ) )
@@ -143,10 +148,19 @@ class Engine:
 		set enable_bbw flag on/off
 		'''
 		if self.is_bbw_enabled != is_bbw_enabled:
-			self.precompute_configuration( is_bbw_enabled ) 
-			
-		self.is_bbw_enabled = is_bbw_enabled
+			self.is_bbw_enabled = is_bbw_enabled
+			self.precompute_configuration( ) 
 		
+	
+	def set_enable_arc_length( self, is_arc_enabled ):
+		'''
+		set enable_bbw flag on/off
+		'''
+		if self.is_arc_enabled != is_arc_enabled:
+			self.is_arc_enabled = is_arc_enabled
+			self.precompute_configuration() 
+			
+			
 			
 	def compute_tkinter_bbw_affected_curve_per_path( self, path_indices, all_vertices, transforms, all_weights ):
 		'''
@@ -219,7 +233,7 @@ class Engine:
 ## The dimensions of a point represented in the homogeneous coordinates
 # dim = 2
 
-def prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, dss, kArcLength=False ):
+def prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dss, kArcLength=False ):
 	
 	'''
 	### 1 construct and solve the linear system for the odd iteration. if the constraints don't contain fixed angle and G1, skip ### 2.
@@ -230,28 +244,28 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, dss, is_closed )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
 	#print 'odd system size:', odd.system_size
 	last_solutions = solutions = odd.solve()
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
-		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, dss, is_closed )
+		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
 		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms ):
-		odd.update_rhs_for_handles( transforms, kArcLength )
+		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
 		
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
-			even.update_rhs_for_handles( transforms, kArcLength )
+			even.update_rhs_for_handles( transforms )
 	
 			for iter in xrange( 10 ):
 				#print 'iteration', iter
-				even.update_system_with_result_of_previous_iteration( solutions, kArcLength )
+				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
 				solutions = even.solve()
 			
@@ -259,7 +273,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 					break
 			
 				## Check if error is low enough and terminate
-				odd.update_system_with_result_of_previous_iteration( solutions, kArcLength )
+				odd.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
 				solutions = odd.solve()
 			
@@ -324,7 +338,7 @@ def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves
 	return new_controls
 
 
-def precompute_all_when_configuration_change( controls_on_boundary, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True ):
+def precompute_all_when_configuration_change( controls_on_boundary, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True, kArcLength=False ):
 	'''
 	precompute everything when the configuration changes, in other words, when the number of control points and handles change.
 	W_matrices is the table contains all integral result corresponding to each sample point on the boundaries.
@@ -359,7 +373,12 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
+				if kArcLength:
+					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dss[j][k])
+				else:
+					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
+# 				debugger()
+# 				print 'debugging'	
 				
 	W_matrices = asarray( W_matrices )
 	print '...finished.'

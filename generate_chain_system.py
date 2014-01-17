@@ -4,12 +4,13 @@ from weights_computer import *
 import systems_and_solvers
 
 class Bundle( object ):
-	def __init__( self, W_matrices, control_points, constraints, length, ds,  mags = None, dirs = None ):
+	def __init__( self, W_matrices, control_points, constraints, length, ts, dss,  mags = None, dirs = None ):
 		self.W_matrices = W_matrices
 		self.control_points = control_points
 		self.constraints = constraints
 		self.length = length
-		self.ds = ds
+		self.ts = ts
+		self.dss = dss
 		controls = asarray(self.control_points)
 		if mags is None:
 			self.magnitudes = [mag(controls[1] - controls[0]), mag(controls[2] - controls[3])]
@@ -17,42 +18,14 @@ class Bundle( object ):
 			self.magnitudes = mags
 		
 		if dirs is None:
-			## search out for the first control point making non-zero directions
-			dir0, dir1 = zeros( 2 ), zeros( 2 )
-			for j in range( 1, 4 ):
-				if not array_equal( controls[j], controls[0] ):
-					dir0 = dir( (controls[j]-controls[0])[:2] )
-					break
-		
-			for j in range( 2, 5 ):
-				if not array_equal( controls[-j], controls[3] ):
-					dir1 = dir( (controls[-j]-controls[3])[:2] )
-					break
-			
-			if  mag(dir0)*mag(dir1) != 0:
-				cos_theta = dot(dir0, dir1)/( mag(dir0)*mag(dir1) )
-				sin_theta = (1.-cos_theta**2) ** 0.5		
-			else:
-				cos_theta = 1.0
-				sin_theta = 0.0
-				
-			
+					
  			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
 		else:
 			self.directions = dirs
-			
-			if  mag(dirs[0])*mag(dirs[1]) != 0:
-				cos_theta = dot(dirs[0], dirs[1])/( mag(dirs[0])*mag(dirs[1]) )
-				sin_theta = (1.-cos_theta**2) ** 0.5		
-			else:
-				cos_theta = 1.0
-				sin_theta = 0.0
 				
-		self.cos_theta = cos_theta
-		self.sin_theta = sin_theta		
 
 def compute_angle( bundle0, bundle1 ):
-
+		## search out for the first control point making non-zero directions
 		vec0, vec1 = zeros( 2 ), zeros( 2 )
 		for j in range( 2, 5 ):
 			if not array_equal( bundle0.control_points[-j], bundle0.control_points[3] ):
@@ -77,13 +50,13 @@ def compute_angle( bundle0, bundle1 ):
 		return [ cos_theta, sin_theta ]
 
 class BezierConstraintSolver( object ):
-	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, dss, is_closed ):
+	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength ):
 		## compute the weight of each segment according to its length
 		# num = len(control_points)
 		control_points = asarray(control_points)
-		self.build_system( W_matrices, control_points, constraints, transforms, lengths, dss, is_closed )
+		self.build_system( W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
 
-	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, dss, is_closed ):
+	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength ):
 		
 		### 1 Bundle all data for each bezier curve together
 		### 2 Allocate space for the system matrix
@@ -93,7 +66,7 @@ class BezierConstraintSolver( object ):
 		### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
-		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], dss[i] ) for i in xrange(len( control_points )) ]
+		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], ts[i], dss[i] ) for i in xrange(len( control_points )) ]
 		
 		if is_closed:
 			self.angles = [ compute_angle( self.bundles[i], self.bundles[(i+1)%len( self.bundles ) ] ) for i in xrange( len( self.bundles ) ) ]
@@ -125,11 +98,12 @@ class BezierConstraintSolver( object ):
 		self.rhs = zeros( self.system_size )
 		self.transforms = transforms
 		self.is_closed = is_closed
+		self.kArcLength = kArcLength
 		
-		self._update_bundles()
+		self._update_bundles( )
 
 
-	def _update_bundles( self, lagrange_only = False, kArcLength = False ):
+	def _update_bundles( self, lagrange_only = False ):
 		## For convenience, set local variables from instance variables.
 		## WARNING: If you re-assign one of these, the instance variable will not be updated!
 		bundles = self.bundles
@@ -139,6 +113,7 @@ class BezierConstraintSolver( object ):
 		system_size = self.system_size
 		system = self.system
 		angles = self.angles
+		kArcLength = self.kArcLength
 		# system = self.system
 		rhs = self.rhs
 		transforms = self.transforms
@@ -151,7 +126,10 @@ class BezierConstraintSolver( object ):
 			dofs = sum(dofs_per_bundle[i])
 			
 			if not lagrange_only:
-				small_system = self.system_for_curve( bundle )
+				if kArcLength:
+					small_system = self.system_for_curve_with_arc_length( bundle )
+				else:
+					small_system = self.system_for_curve( bundle )
 				small_rhs = self.rhs_for_curve( bundle, transforms)
 				### 4
 				system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
@@ -206,16 +184,13 @@ class BezierConstraintSolver( object ):
 		# self.system_factored = None
 		
 	
-	def update_rhs_for_handles( self, transforms, kArcLength = False ):
+	def update_rhs_for_handles( self, transforms ):
 		dof_offset = 0
 		for i in range(len( self.bundles )):
 			bundle = self.bundles[i]
 			dofs = sum(self.dofs_per_bundle[i])
 	
-			if kArcLength:
-				small_rhs = self.rhs_for_curve_with_arc_length( bundle, transforms )
-			else:
-				small_rhs = self.rhs_for_curve( bundle, transforms )
+			small_rhs = self.rhs_for_curve( bundle, transforms )
 			### 4
 			self.rhs[ dof_offset : dof_offset + dofs ] = small_rhs
 	
