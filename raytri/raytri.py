@@ -256,6 +256,27 @@ def point2d_in_mesh2d_barycentric( point2d, vertices2d, faces ):
     smallest = asarray([ bary for fi, bary in intersections ]).min( axis = 1 ).argmax()
     return intersections[ smallest ]
 
+def closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt ):
+    '''
+    Given a sequence of edges (pairs of points) 'edges' and n-dimensional point 'pt',
+    returns the tuple (
+        squared distance to the closest edge on 'line_strip',
+        index of edge in 'edges' which contains the closest point,
+        t along the edge such that the closest point is (1-t)*edges[index][0] + t*(edges[index][1])
+        ).
+    
+    tested (see test_line_strip_and_loop_distances())
+    '''
+    
+    assert len( edges ) > 0
+    
+    from edge_distances import min_distanceSqr_edge_t_to_edges
+    ## This function takes a sequence of points, so we have to pack 'pt' into a length-1 list.
+    ## It also takes edges as pairs of points, not as a line loop, so we have to duplicate points.
+    result = min_distanceSqr_edge_t_to_edges( [ pt ], edges )
+    ## Unpack the result, since we passed a length-1 list containing 'pt'.
+    return result[0][0], result[1][0], result[2][0]
+
 def closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt ):
     '''
     Given a line strip (sequence of n-dimensional points) 'linestrip' and n-dimensional point 'pt',
@@ -268,14 +289,12 @@ def closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt 
     tested (see test_line_strip_and_loop_distances())
     '''
     
-    assert len( line_strip ) > 0
+    assert len( line_strip ) >= 2
     
-    from edge_distances import min_distanceSqr_edge_t_to_edges
-    ## This function takes a sequence of points, so we have to pack 'pt' into a length-1 list.
-    ## It also takes edges as pairs of points, not as a line loop, so we have to duplicate points.
-    result = min_distanceSqr_edge_t_to_edges( [ pt ], list( zip( line_strip[:-1], line_strip[1:] ) ) )
-    ## Unpack the result, since we passed a length-1 list containing 'pt'.
-    return result[0][0], result[1][0], result[2][0]
+    return closest_distsqr_and_edge_index_and_t_on_edges_to_point(
+        list( zip( line_strip[:-1], line_strip[1:] ) ),
+        pt
+        )
 
 def closest_distsqr_and_edge_index_and_t_on_line_loop_to_point( line_loop, pt ):
     '''
@@ -286,6 +305,9 @@ def closest_distsqr_and_edge_index_and_t_on_line_loop_to_point( line_loop, pt ):
     
     tested (see test_line_strip_and_loop_distances())
     '''
+    
+    assert len( line_loop ) >= 3
+    
     ## Append the first point to the end to turn the line loop into a line strip.
     return closest_distsqr_and_edge_index_and_t_on_line_strip_to_point(
         list( line_loop ) + [line_loop[0]], pt
