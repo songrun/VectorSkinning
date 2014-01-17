@@ -234,7 +234,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
-			
+		
 		return asarray( Left )*length
 		
 	def system_for_curve_with_arc_length( self, bundle ):
@@ -247,58 +247,93 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
+		length = bundle.length
 		
+		tbar = ones( ( 4, 1 ) )
+		MAM = zeros( ( 4, 4 ) )
+		for i in range(len(dss)):
+			t = (ts[i] + ts[i+1])/2
+			ds = dss[i]
 		
+			tbar[0] = t**3
+			tbar[1] = t**2
+			tbar[2] = t
+		
+			Mtbar = dot( M.T, tbar )
+			MAM += dot( Mtbar, Mtbar.T )*ds
+		
+# 		debugger()
+# 		print 'hello'
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
-			Left = zeros( ( 8, 8 ) )
-			tbar = ones( ( 4, 1 ) )
-			MAM = zeros( ( 4, 4 ) )
-			for i in range(len(dss)):
-				t = (ts[i] + ts[i+1])/2
-				ds = dss[i]
-			
-				tbar[0] = t**3
-				tbar[1] = t**2
-				tbar[2] = t
-			
-				Mtbar = dot( M.T, tbar )
-				MAM += dot( Mtbar, Mtbar.T )*ds		
+			Left = zeros( ( 8, 8 ) )	
 			Left[ : : 2, : : 2 ] = MAM
+			Left[ 1: : 2, 1: : 2 ] = MAM
 
 		## p1x, p1y, s, p3x, p3y, p4x, p4y
 		elif array_equal(dofs, (3,4)):
-			Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
-					[0., 13./35, 11./70*dirs[0,1], 0., 13./140, 0., 1./28],
-					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 1./35*dirs[0,0], 1./35*dirs[0,1]],
-					[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
-					[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
-					[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
-					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]
+			Left = zeros( ( 7,  7 ) )
+			## right bottom
+			Left[ 3: : 2, 3: : 2 ] = MAM[-2:,-2:]
+			Left[ 4: : 2, 4: : 2 ] = MAM[-2:,-2:]
+			## left botton
+			Left[ 3: : 2, 0 ] = Left[ 4: : 2, 1 ] = MAM[-2:,0] + MAM[-2:,1]
+			Left[ 3: : 2, 2 ] = MAM[-2:, 1]*dirs[0,0]
+			Left[ 4: : 2, 2 ] = MAM[-2:, 1]*dirs[0,1]
+			## right top
+			Left[ :3, 3: ] = Left[ 3:, :3 ].T
+			## left top
+			Left[0,0] = Left[1,1] = MAM[0,0] + MAM[0,1] + MAM[1,0] + MAM[1,1]
+			Left[2,0] = Left[0,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,0]
+			Left[2,1] = Left[1,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,1]
+			Left[2,2] = MAM[1,1]*mag2(dirs[0])
 						
 		## p1x, p1y, p2x, p2y, p4x, p4y, u
 		elif array_equal(dofs, (4,3)):
-			Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
-					[0., 1./7, 0., 1./14, 0., 1./28, 1./35*dirs[1,1]],
-					[1./14, 0., 3./35, 0., 13./140, 0., 9./140*dirs[1,0]],
-					[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
-					[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
-					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
-					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]
+			Left = zeros( ( 7,  7 ) )
+			## left top
+			Left[ :4 : 2, :4 : 2 ] = MAM[:2, :2]
+			Left[ 1:4 : 2, 1:4 : 2 ] = MAM[:2, :2]
+			## right top
+			Left[ :4 : 2, -3 ] = Left[ 1:4 : 2, -2 ] = MAM[:2,-2] + MAM[:2,-1]
+			Left[ :4 : 2, -1 ] = MAM[:2, -2]*dirs[1,0]
+			Left[ 1:4 : 2, -1 ] = MAM[:2, -2]*dirs[1,1]
+			## left bottom
+			Left[ 3:, :3 ] = Left[ :3, 3: ].T
+			## right bottom
+			Left[-3,-3] = Left[-2,-2] = MAM[-1,-1] + MAM[-1,-2] + MAM[-2,-1] + MAM[-2,-2]
+			Left[-1,-3] = Left[-3,-1] = ( MAM[-1,-1] + MAM[-2,-1] ) * dirs[1,0]
+			Left[-1,-2] = Left[-2,-1] = ( MAM[-1,-1] + MAM[-2,-1] ) * dirs[1,1]
+			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
 					
 		## p1x, p1y, s, p4x, p4y, u
 		elif array_equal(dofs, (3,3)):
-			Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
-					[0., 13./35, 11./70*dirs[0,1], 0., 9./70, 13./140*dirs[1,1]],
-					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
-					[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
-					[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
-					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]
+			Left = zeros( ( 6,  6 ) )
+			## left top
+			Left[0,0] = Left[1,1] = MAM[0,0] + MAM[0,1] + MAM[1,0] + MAM[1,1]
+			Left[2,0] = Left[0,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,0]
+			Left[2,1] = Left[1,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,1]
+			Left[2,2] = MAM[1,1]*mag2(dirs[0])
+			## right top
+			Left[0,-3] = Left[1,-2] = MAM[0,-2] + MAM[0,-1] + MAM[1,-2] + MAM[1,-1]
+			Left[2,-3] = ( MAM[0,-2] + MAM[1,-2] ) * dirs[0,0]
+			Left[2,-2] = ( MAM[0,-2] + MAM[1,-2] ) * dirs[0,1]
+			Left[0,-1] = ( MAM[1,-2] + MAM[1,-1] ) * dirs[1,0]
+			Left[1,-1] = ( MAM[1,-2] + MAM[1,-1] ) * dirs[1,1]
+			Left[2,-1] = MAM[1,-2] * dot(dirs[0], dirs[1])
+			## left bottom
+			Left[ 3:, :3 ] = Left[ :3, 3: ].T
+			## right bottom
+			Left[-3,-3] = Left[-2,-2] = MAM[-1,-1] + MAM[-1,-2] + MAM[-2,-1] + MAM[-2,-2]
+			Left[-1,-3] = Left[-3,-1] = ( MAM[-1,-1] + MAM[-2,-1] ) * dirs[1,0]
+			Left[-1,-2] = Left[-2,-1] = ( MAM[-1,-1] + MAM[-2,-1] ) * dirs[1,1]
+			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
+	
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 		
-		
+		print 'arc Length: ', Left
 		return Left
 		
 		

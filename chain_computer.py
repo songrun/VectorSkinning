@@ -268,7 +268,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 			even.update_rhs_for_handles( transforms )
 	
-			for iter in xrange( 10 ):
+			for iter in xrange( 1 ):
 				#print 'iteration', iter
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
@@ -277,13 +277,13 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 			
-				## Check if error is low enough and terminate
-				odd.update_system_with_result_of_previous_iteration( solutions )
-				last_solutions = solutions
-				solutions = odd.solve()
-			
-				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-					break
+# 				## Check if error is low enough and terminate
+# 				odd.update_system_with_result_of_previous_iteration( solutions )
+# 				last_solutions = solutions
+# 				solutions = odd.solve()
+# 			
+# 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
+# 					break
 		
 		return solutions
 	
