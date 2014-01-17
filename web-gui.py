@@ -4,7 +4,12 @@
 from twisted.internet import reactor
 
 ## For WebSockets
-from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, listenWS
+try:
+	## New style autobahn
+	from autobahn.twisted.websocket import WebSocketServerFactory, WebSocketServerProtocol, listenWS
+except ImportError:
+	## Old style autobahn
+	from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, listenWS
 
 ## All payloads are JSON-formatted.
 import json
