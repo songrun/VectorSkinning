@@ -81,16 +81,10 @@ class Engine:
 		'''
 		handles = self.handle_positions
 		all_controls = self.all_controls
-<<<<<<< HEAD
 		
-		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, is_bbw_enabled )
-=======
 		is_bbw_enabled = self.is_bbw_enabled
 		is_arc_enabled = self.is_arc_enabled
-		boundary = all_controls[ self.boundary_index ]
-		
-		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles, is_bbw_enabled, is_arc_enabled )		
->>>>>>> 52332eac88688f25ac99cfa80b29f1b9a0715ce0
+		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, is_bbw_enabled, is_arc_enabled )
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
 		all_dss = layer1[-1]
