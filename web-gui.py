@@ -11,6 +11,7 @@ import json
 from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 from itertools import izip as zip
+from numpy import argmax
 
 kVerbose = 2
 kStubOnly = False
@@ -45,8 +46,10 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		elif msg.startswith( 'paths-info ' ):	   
 			paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
-			boundary_path = max(paths_info, key=lambda e : e[u'bbox_area'])
-			boundary_index = paths_info.index( boundary_path )
+			try:
+				boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+			except ValueError:
+				boundary_index = -1
 			
 			self.engine.set_control_positions( paths_info, boundary_index )
 			all_constraints = self.engine.all_constraints

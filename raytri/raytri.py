@@ -1,5 +1,6 @@
 from math import *
 from numpy import *
+import os
 
 '''
 gcc raytri.c raytri_wrapper.cpp -lstdc++ -fkeep-inline-functions \
@@ -11,7 +12,7 @@ try:
     import ctypes
 except:
     print '''
-ERROR: ctypes not installed properly. (ctypes needed for laplacian_editing_1d())
+ERROR: ctypes not installed properly. (ctypes needed for libraytri())
         '''
     import sys
     sys.exit()
@@ -24,7 +25,7 @@ def platform_shared_library_suffix():
     if 'darwin' in sys.platform.lower(): result = 'dylib'
     return result
 
-libraytri = ctypes.cdll.LoadLibrary( 'libraytri.' + platform_shared_library_suffix() )
+libraytri = ctypes.cdll.LoadLibrary( os.path.join( os.path.dirname( __file__ ), 'libraytri.' + platform_shared_library_suffix() ) )
 real_t = ctypes.c_float
 #real_t = ctypes.c_double
 
@@ -252,9 +253,33 @@ def point2d_in_mesh2d_barycentric( point2d, vertices2d, faces ):
     ## Otherwise, return the intersection with the largest smallest barycentric coordinate,
     ## so the "most" inside the triangle. This should give a reasonable result
     ## with regards to negative epsilon issues.
+    # if len( intersections ) > 1: print 'more than 1 intersection. ts are:', [ t for t, fi, uv in intersections ]
     intersections = [ ( fi, ( 1.-u-v, u, v ) ) for ( t, fi, ( u,v ) ) in intersections ]
     smallest = asarray([ bary for fi, bary in intersections ]).min( axis = 1 ).argmax()
     return intersections[ smallest ]
+
+def closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt ):
+    '''
+    Given a sequence of edges (pairs of points) 'edges' and n-dimensional point 'pt',
+    returns the tuple (
+        squared distance to the closest edge on 'line_strip',
+        index of edge in 'edges' which contains the closest point,
+        t along the edge such that the closest point is (1-t)*edges[index][0] + t*(edges[index][1])
+        ).
+    
+    tested (see test_line_strip_and_loop_distances())
+    '''
+    
+    assert len( edges ) > 0
+    
+    from edge_distances import min_distanceSqr_edge_t_to_edges
+    ## This function takes a sequence of points, so we have to pack 'pt' into a length-1 list.
+    ## It also takes edges as pairs of points, not as a line loop, so we have to duplicate points.
+    result = min_distanceSqr_edge_t_to_edges( [ pt ], edges )
+    ## Unpack the result, since we passed a length-1 list containing 'pt'.
+    ## Also, since min_distanceSqr_edge_t_to_edges supports arbitrary outer dimensions,
+    ## squeeze() everything.
+    return result[0][0].squeeze(), result[1][0].squeeze(), result[2][0].squeeze()
 
 def closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt ):
     '''
@@ -268,14 +293,12 @@ def closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt 
     tested (see test_line_strip_and_loop_distances())
     '''
     
-    assert len( line_strip ) > 0
+    assert len( line_strip ) >= 2
     
-    from edge_distances import min_distanceSqr_edge_t_to_edges
-    ## This function takes a sequence of points, so we have to pack 'pt' into a length-1 list.
-    ## It also takes edges as pairs of points, not as a line loop, so we have to duplicate points.
-    result = min_distanceSqr_edge_t_to_edges( [ pt ], list( zip( line_strip[:-1], line_strip[1:] ) ) )
-    ## Unpack the result, since we passed a length-1 list containing 'pt'.
-    return result[0][0], result[1][0], result[2][0]
+    return closest_distsqr_and_edge_index_and_t_on_edges_to_point(
+        list( zip( line_strip[:-1], line_strip[1:] ) ),
+        pt
+        )
 
 def closest_distsqr_and_edge_index_and_t_on_line_loop_to_point( line_loop, pt ):
     '''
@@ -286,6 +309,9 @@ def closest_distsqr_and_edge_index_and_t_on_line_loop_to_point( line_loop, pt ):
     
     tested (see test_line_strip_and_loop_distances())
     '''
+    
+    assert len( line_loop ) >= 3
+    
     ## Append the first point to the end to turn the line loop into a line strip.
     return closest_distsqr_and_edge_index_and_t_on_line_strip_to_point(
         list( line_loop ) + [line_loop[0]], pt

@@ -16,8 +16,10 @@ from random import randint
 try:
     paths_info, skeleton_handle_vertices, constraint = chain_computer.get_test_%s
     engine = chain_computer.Engine()
-    boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
-    boundary_index = paths_info.index( boundary_path )
+    try:
+        boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+    except ValueError:
+        boundary_index = -1
     engine.set_control_positions( paths_info, boundary_index )
     engine.set_handle_positions( skeleton_handle_vertices )
     engine.precompute_configuration()

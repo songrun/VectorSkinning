@@ -1,13 +1,15 @@
 from bezier_utility import *
 from triangle import *
-import bbw_wrapper.bbw as bbw
+from bbw_wrapper import bbw
 from itertools import izip as zip
 
 # kEnableBBW = True
+kBarycentricProjection = False
 
-def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pts ):
+def uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 0 ):
 	'''
 	Given a sequence of N points 'pts',
+	and an optional 'threshold' indicating how many decimal places of accuracy (default: 0)
 	returns two items:
 	   a sequence of all the unique elements in 'pts'
 	   and
@@ -15,109 +17,333 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, boundary_pt
 	   pts[i] can be found in the unique elements.
 	'''
 	
-	kRound = 0
 	from collections import OrderedDict
 	unique_pts = OrderedDict()
 	pts_map = []
 	## Add rounded points to a dictionary and set the key to
 	## ( the index into the ordered dictionary, the non-rounded point )
-	for i, ( pt, rounded_pt ) in enumerate( zip( pts, map( tuple, asarray( pts ).round( kRound ) ) ) ):
+	for i, ( pt, rounded_pt ) in enumerate( zip( pts, map( tuple, asarray( pts ).round( threshold ) ) ) ):
 		index = unique_pts.setdefault( rounded_pt, ( len( unique_pts ), pt ) )[0]
+		## For fancier schemes:
+		# index = unique_pts.setdefault( rounded_pt, ( len( unique_pts ), [] ) )[0]
+		# unique_pts[ rounded_pt ][1].append( pt )
 		pts_map.append( index )
 	
-	boundary_map = []
-	for rounded_pt in map( tuple, asarray( boundary_pts ).round( kRound ) ):
-	    ## Extract the index for the rounded point.
-		boundary_map.append( unique_pts[ rounded_pt ][0] )
-		## The above will raise a KeyError if boundary_pts contains points not in all_pts.
-		# raise RuntimeError('boundary_pts contains points not in all_pts')
-	
 	## Return the original resolution points.
-	return [ tuple( pt ) for i, pt in unique_pts.itervalues() ], pts_map, boundary_map
+	## The average of all points that round:
+	# return [ tuple( average( pt, axis = 0 ) ) for i, pt in unique_pts.itervalues() ], pts_map
+	## The closest point to the rounded point:
+	# return [ tuple( pt[ abs( asarray( pt ).round( threshold ) - asarray( pt ) ).sum(axis=1).argmin() ] ) for i, pt in unique_pts.itervalues() ], pts_map
+	## Simplest, the first rounded point:
+	return [ tuple( pt ) for i, pt in unique_pts.itervalues() ], pts_map
 
-def triangulate_and_compute_weights(boundary_pts, skeleton_handle_vertices, all_pts=None, kEnableBBW=True):
+def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	'''
-	trianglue a region closed by a bunch of bezier curves, precompute the vertices at each sample point.
-	'''	
-	if all_pts is None:
-		all_pts = [boundary_pts]
+	Given a sequence 'vertices' and 'faces' representing a 2D triangle mesh,
+	a sequence of pairs of indices into 'vertices' corresponding to the
+	boundary edges of the mesh,
+	a sequence of (not necessarily scalar-valued) values 'weights', one for each vertex in 'vs',
+	and a sequence of points 'pts'
+	returns
+		a sequence of uniqified points from 'pts',
+		a corresponding interpolated weight for the uniqified points,
+		and map from each element of 'pts' to the uniqified sequence.
 	
-	boundary_pts = asarray( boundary_pts )
+	
+	tested:
+	vs = [ (0,0), (1,0), (1,1), (0,1) ]
+	faces = [ ( 0,1,2 ), ( 2, 3, 0 ) ]
+	boundary_edges = [ ( 0,1 ), ( 1,2 ), ( 2,3 ), ( 3, 0 ) ]
+	weights = asarray([ [ 1,0,0,0 ], [ 0,1,0,0 ], [ 0,0,1,0 ], [ 0,0,0,1 ] ])
+	pts = [ (0,0), (1,0), (1,1), (0,1), (.2,.1), (.9,.8), (.8,.9), ( -1, -1 ), ( -1, 1 ) ]
+	unique_pts, unique_weights, pts_map = barycentric_projection( vs, faces, boundary_edges, weights, pts )
+	out: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.20000000000000001, 0.10000000000000001), (0.90000000000000002, 0.80000000000000004), (0.80000000000000004, 0.90000000000000002), (-1.0, -1.0), (-1.0, 1.0)]
+	out: array([[ 1. ,	0. ,  0. ,	0. ],
+	   [ 0. ,  1. ,	 0. ,  0. ],
+	   [ 0. ,  0. ,	 1. ,  0. ],
+	   [ 0. ,  0. ,	 0. ,  1. ],
+	   [ 0.8,  0.1,	 0.1,  0. ],
+	   [ 0.1,  0.1,	 0.8,  0. ],
+	   [ 0.1,  0. ,	 0.8,  0.1],
+	   [ 1. ,  0. ,	 0. ,  0. ],
+	   [ 0. ,  0. ,	 0. ,  1. ]])
+	out: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+	'''
+	
+	print 'Barycentric projection...'
+	
+	from raytri import raytri
+	
+	pts = asarray( pts )
+	
+	print 'Removing duplicate points...'
+	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
+	## points.
+	unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
+	print '...finished.'
+	
+	edges = zeros( ( len( boundary_edges ), 2, len( vs[0] ) ) )
+	for bi, ( e0, e1 ) in enumerate( boundary_edges ):
+		edges[ bi ] = vs[ e0 ], vs[ e1 ]
+	
+	## Using vertex positions as weights should lead to the
+	## identity transformation. (See comment d987dsa98d7h below.)
+	# weights = array( vs )
+	
+	misses = 0
+	misses_total_distance = 0.
+	misses_max_distance = -31337.
+	unique_weights = zeros( ( len( pts ), len( weights[0] ) ) )
+	for pi, pt in enumerate( pts ):
+		bary = raytri.point2d_in_mesh2d_barycentric( pt, vs, faces )
+		## Did we hit the mesh?
+		if bary is not None:
+			fi, ( b0, b1, b2 ) = bary
+			assert abs( b0 + b1 + b2 - 1 ) < 1e-5
+			assert b0 > -1e-5
+			assert b1 > -1e-5
+			assert b2 > -1e-5
+			assert b0 < 1+1e-5
+			assert b1 < 1+1e-5
+			assert b2 < 1+1e-5
+			unique_weights[pi] = b0*weights[ faces[ fi ][0] ] + b1*weights[ faces[ fi ][1] ] + b2*weights[ faces[ fi ][2] ]
+		else:
+			dist, ei, t = raytri.closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt )
+			assert t > -1e-5
+			assert t < 1+1e-5
+			dist = sqrt( dist )
+			misses += 1
+			misses_total_distance += dist
+			misses_max_distance = max( misses_max_distance, dist )
+			unique_weights[pi] = (1-t)*weights[ boundary_edges[ ei ][0] ] + t*weights[ boundary_edges[ ei ][1] ]
+	
+	## And indeed it does come out the nearly identical? (See comment d987dsa98d7h above.)
+	# assert ( unique_weights - pts ).allclose()
+	
+	assert unique_weights.min() > -1e-4
+	assert unique_weights.max() < 1 + 1e-4
+	## Clip the weights?
+	# unique_weights = unique_weights.clip( 0, 1 )
+	
+	## Re-normalize the weights?
+	unique_weights *= 1./unique_weights.sum( axis = 1 )[...,newaxis]
+	
+	if misses == 0:
+		print 'Barycentric projection: No one missed the mesh.'
+	else:
+		print 'Barycentric projection:', misses, 'points missed the mesh. Average distance was', misses_total_distance/misses, ' and maximum distance was', misses_max_distance
+	
+	print '...finished.'
+	
+	return unique_pts, unique_weights, unique_map
+
+def flatten_paths( all_pts ):
+	'''
+	Given a sequence of paths, each of which is a sequence of chains, each of which is a sequence of points,
+	return the points as a flat sequence with a list of chain shapes (length of chain, number of points in each piece of chain).
+	'''
+	
 	all_pts = asarray( all_pts )
 	all_shapes = [ asarray( pts ).shape[:-1] for pts in all_pts ]
 	
-	boundary_pts = concatenate( boundary_pts )
 	all_pts = concatenate( [ concatenate( curve_pts ) for curve_pts in all_pts ] )
-	
-	print 'Removing duplicate points...'
-	all_clean_pts, pts_maps, boundary_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, boundary_pts )
-	print '...finished.'
-	
-	boundary_edges = [ ( i, (i+1) % len( set(boundary_maps) ) ) for i in xrange(len( set(boundary_maps) )) ]
-	
+	return all_pts, all_shapes
+
+def unflatten_data( flattened, all_shapes ):
+	'''
+	Given a flat sequence of data 'flattened' and
+	an 'all_shapes' list of shapes as returned by flatten_paths(),
+	returns the data from flattened after "unflattening"
+	to have the same shape as 'all_shapes'.
+	'''
 	all_maps = []
 	pos = 0
 	for shape in all_shapes:
 		maps = []
 		for j in range( shape[0] ):
-			maps.append( pts_maps[ pos : pos + shape[1] ] )
+			maps.append( flattened[ pos : pos + shape[1] ] )
 			pos += shape[1]
 		all_maps.append( maps )
 	
+	return all_maps
+	
+	all_clean_pts = asarray( all_clean_pts )[:, :2]
+
+def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, which = None ):
+	'''
+	triangulate a region closed by a bunch of bezier curves if needed, and precompute the vertices at each sample point.
+	
+	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
+	a sequence of M skeleton handle vertices, and
+	the index into 'all_pts' of the boundary_curve (may be -1 for no boundary),
+	a parameter 'which' specifying the style of weights ('bbw' or 'shepherd'),
+	returns
+		a sequence of vertices,
+		a M-dimensional weight for each vertex,
+		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
+	'''
+	
+	## To try shepherd no matter what:
+	# which = 'shepherd'
+	
+	if which is None: which = 'bbw'
+	
+	if 'bbw' == which:
+		try:
+			return compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
+		except bbw.BBWError as e:
+			print 'BBW Computation failed:', e
+			print 'Falling back to Shepherd weights.'
+			which = 'shepherd'
+	
+	if 'shepherd' == which:
+		return compute_all_weights_shepherd( all_pts, skeleton_handle_vertices )
+	
+	raise RuntimeError( "Unknown weight type" )
+
+def compute_all_weights_shepherd( all_pts, skeleton_handle_vertices ):
+	'''
+	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
+	and a sequence of M skeleton handle vertices
+	returns
+		a sequence of vertices,
+		a M-dimensional weight for each vertex,
+		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
+	'''
+	
+	all_pts, all_shapes = flatten_paths( all_pts )
+	
+	print 'Removing duplicate points...'
+	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
+	## points.
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
+	print '...finished.'
+	
+	all_maps = unflatten_data( pts_maps, all_shapes )
+	
+	all_clean_pts = asarray( all_clean_pts )[:, :2]
+	print 'Computing Shepherd weights...'
+	all_weights = shepherd( all_clean_pts, skeleton_handle_vertices )
+	print '...finished.'
+	
+	return all_clean_pts, all_weights, all_maps
+
+def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index ):
+	'''
+	triangulate a region closed by a bunch of bezier curves if needed, and precompute the vertices at each sample point.
+	
+	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
+	a sequence of M skeleton handle vertices, and
+	the index into 'all_pts' of the boundary_curve (may be -1 for no boundary),
+	a parameter 'which' specifying the style of weights ('bbw' or 'shepherd'),
+	returns
+		a sequence of vertices,
+		a M-dimensional weight for each vertex,
+		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
+	'''
+	
+	if boundary_index < 0 or boundary_index >= len( all_pts ):
+		raise RuntimeError( "compute_all_weights_bbw() got an invalid boundary curve" )
+	
+	all_pts, all_shapes = flatten_paths( all_pts )
+	
+	print 'Removing duplicate points...'
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts )
+	print '...finished.'
+	
+	all_maps = unflatten_data( pts_maps, all_shapes )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
+	## This will store a sequence of tuples ( edge_start_index, edge_end_index ).
+	## UPDATE: We need to make sure that this boundary loop stays manifold.
+	##		   That means: no vertex index should be the start index more than once,
+	##		   and no vertex index should be the end index more than once.
+	boundary_edges = []
+	for curve in all_maps[ boundary_index ]:
+		for vi in curve:
+			## An edge in progress isn't a tuple, it's directly edge_start_index.
+			if len( boundary_edges ) == 0:
+				boundary_edges.append( vi )
+			## Skip repeated points
+			elif boundary_edges[-1] == vi:
+				## This happens a lot.
+				# print 'Skipping a collapsed boundary edge'
+				pass
+			## UPDATE: And skip a point that would make us fold back on ourselves!
+			##		   It's possible due to rounding that the two points on the
+			##		   bottom of a ^ sticking out of the mesh collapses, leading
+			##		   us with a | shape and a duplicate (undirected) edge.
+			##		   It's easy to check for that here.
+			##		   If it comes up again, though, just wait until the
+			##		   end of the loop and filter boundary_edges like so:
+			##			   boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
+			##		   For now, just check for immediately collapsed edges.
+			##		   NOTE: This came up with the alligator.
+			## UPDATE 2: Filtering at the end still might not work in weird cases.
+			##			 If it comes up again, we'll need to make sure that
+			##			 the boundary loop stays manifold, which means:
+			##			 no vertex index should be the start index more than once,
+			##			 and no vertex index should be the end index more than once.
+			elif len( boundary_edges ) > 1 and boundary_edges[-2][0] == vi:
+				print 'Skipping a boundary foldback'
+				pass
+			else:
+				## Replace the edge-in-progress with a proper tuple.
+				boundary_edges[-1] = ( boundary_edges[-1], vi )
+				boundary_edges.append( vi )
+	## We don't need to do anything to close the curve, because a closed curve
+	## will have its last and first points overlapping.
+	assert boundary_edges[-1] == boundary_edges[0][0]
+	del boundary_edges[-1]
+	
+	## The list of handles.
 	if len( skeleton_handle_vertices ) > 0:
 		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	try:
-		print 'Computing triangulation...'
-		vs, faces = triangles_for_points( registered_pts, boundary_edges )
-		print '...finished.'
+	print 'Computing triangulation...'
+	vs, faces = triangles_for_points( registered_pts, boundary_edges )
+	print '...finished.'
 	
-		vs = asarray(vs)[:, :2] 
-		faces = asarray(faces)
+	vs = asarray(vs)[:, :2] 
+	faces = asarray(faces)
 	
-		if kEnableBBW:
-			print 'Computing BBW...'
-			all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
-			print '...finished.'
-		else:
-			print 'Computing Shepherd...'
-			all_weights = shepherd( vs, skeleton_handle_vertices, skeleton_point_handles )
-			print '...finished.'
+	print 'Computing BBW...'
+	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+	print '...finished.'
+	
+	if kBarycentricProjection:
+		if __debug__: old_weights = asarray([ all_weights[i] for i in pts_maps ])
 		
-	except RuntimeError:
-		print 'Computing triangulation fails, using shepherd weights instead.'
-		print 'Computing Shepherd...'
-		all_weights = shepherd( all_clean_pts, skeleton_handle_vertices, skeleton_point_handles )
-		print '...finished.'
+		vs, all_weights, pts_maps = barycentric_projection( vs, faces, boundary_edges, all_weights, all_pts )
+		all_maps = unflatten_data( pts_maps, all_shapes )
 		
-		return all_clean_pts, all_weights, all_maps
-		
+		if __debug__:
+			new_weights = asarray([ all_weights[i] for i in pts_maps ])
+			total_weight_change = abs(old_weights-new_weights).sum()
+			print 'Barycentric projection led to an average change in weights of', total_weight_change/prod( new_weights.shape ), 'and a total change of', total_weight_change
+	
 	return vs, all_weights, all_maps
 
-def shepherd( vs, skeleton_handle_vertices, skeleton_point_handles ):
+def shepherd( vs, skeleton_handle_vertices ):
 	'''
-	M-by-k numpy.array 'sampling' containing sampled positions,
-	an optional length-M numpy.array of dt values corresponding to each sample in 'sampling',
-	If 'dts' is not given, it defaults to 1/len(sampling).
+	Given an N-by-(2 or 3) sequence 'vs' of 2D or 3D vertices and
+	an H-by-(2 or 3) sequence 'skeleton_handle_vertices' of 2D or 3D vertices,
+	returns a N-by-H numpy.array of weights per vertex per handle.
 	'''
+	
 	vs = asarray( vs )
-	skeleton_point_handles = asarray( skeleton_point_handles )
 	
 	assert len( vs.shape ) == 2
 	assert vs.shape[1] == 2
-	assert len( skeleton_handle_vertices ) == len( skeleton_point_handles )
-	assert skeleton_point_handles.any() in range( len( skeleton_point_handles ) )
 	
-	weights = ones( ( len( vs ), len( skeleton_point_handles ) ) )
-	for j, p in enumerate( vs ):
-		for i in range( len( skeleton_handle_vertices ) ):
-			weights[ j, skeleton_point_handles[ i ] ] = shepherd_w_i( skeleton_handle_vertices, i, p)
-			
-	return weights		
+	weights = ones( ( len( vs ), len( skeleton_handle_vertices ) ) )
+	for vi, p in enumerate( vs ):
+		for hi, p in enumerate( skeleton_handle_vertices ):
+			weights[ vi, hi ] = shepherd_w_i( skeleton_handle_vertices, hi, p )
+	
+	return weights
 
 
 def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, dts = None ):
@@ -262,17 +488,17 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	return R
 
 # def ts_and_dts_for_num_samples( a, b, num_samples ):
-# 	'''
-# 	Given two endpoints of integration 'a' and 'b',
-# 	and positive integer 'num_samples' determining how many samples to use to compute
-# 	the integral,
-# 	returns two same-length arrays for numerical integration 'ts' and 'dts',
-# 	where 'ts' contains the points at which to integrate and 'dts' contains
-# 	the weight of the corresponding sample.
-# 	'''
-# 	dts = ( float(b-a)/num_samples ) * ones( len( num_samples ) )
-# 	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
-# 	return ts, dts
+#	'''
+#	Given two endpoints of integration 'a' and 'b',
+#	and positive integer 'num_samples' determining how many samples to use to compute
+#	the integral,
+#	returns two same-length arrays for numerical integration 'ts' and 'dts',
+#	where 'ts' contains the points at which to integrate and 'dts' contains
+#	the weight of the corresponding sample.
+#	'''
+#	dts = ( float(b-a)/num_samples ) * ones( len( num_samples ) )
+#	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
+#	return ts, dts
 
 def shepherd_w_i( handle_positions, i, p ):	  
 	'''
