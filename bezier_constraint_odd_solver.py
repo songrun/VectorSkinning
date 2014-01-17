@@ -36,7 +36,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	def solve( self ):
 		dim = 2
 		num = len(self.bundles)
-#		debugger()
+# 		debugger()
 		
 		if self.system_symbolic_factored is None:
 			#print 'odd symbolic factoring'
@@ -211,7 +211,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			Mtbar = dot( M.T, tbar )
 
 			MAM += dot( Mtbar, Mtbar.T )*ds
-			
+	
 		for i in range( dim ):		
 			Left[ i*4:( i+1 )*4, i*4:( i+1 )*4 ] = MAM[:,:]
 		

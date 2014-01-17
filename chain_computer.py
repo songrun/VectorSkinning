@@ -6,7 +6,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLength = False
+kArcLength = True
 
 class Engine:
 	'''
@@ -248,9 +248,8 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
+	odd = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
 	#print 'odd system size:', odd.system_size
-	last_solutions = solutions = odd.solve()
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
@@ -378,9 +377,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 				if kArcLength:
 					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dss[j][k])
 				else:
-					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
-# 				debugger()
-# 				print 'debugging'	
+					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])	
 				
 	W_matrices = asarray( W_matrices )
 	print '...finished.'
@@ -522,10 +519,10 @@ def main():
 	else:
 		# paths_info, skeleton_handle_vertices, constraint = get_test1()
 		# paths_info, skeleton_handle_vertices, constraint = get_test2()
-		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
-		paths_info, skeleton_handle_vertices, constraint = get_test_box()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
 	
 	engine = Engine()
 	
@@ -557,11 +554,7 @@ def main():
 		print chain
 		
  	engine.compute_energy()	
-#	debugger()
-#	parameters = precompute_all_when_configuration_change( control_pos, skeleton_handle_vertices  )
-#	
-#	trans = [array([ 1.,  0.,  0.,	0.,	 1.,  0.,  0.,	0.,	 1.]), array([ 1.,	0.,	 0.,  0.,  1., 0., 0., 0., 1.])]	  
-#						   
+						   
 	
 	print 'HAHA ~ '
 	
