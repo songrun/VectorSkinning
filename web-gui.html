@@ -933,6 +933,7 @@ function loadSVG( svg_text )
     gLargestPath = null;
     gHandles = [];
     $( "#isBBWEnabled" ).prop( "checked", true );
+    $( "#usingArcLengthParameterization" ).prop( "checked", false );
     
     // Attach the SVG to its node.
     $('#svg-file').html( svg_text );
