@@ -4,7 +4,7 @@ from bbw_wrapper import bbw
 from itertools import izip as zip
 
 # kEnableBBW = True
-kBarycentricProjection = True
+kBarycentricProjection = False
 
 def uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 0 ):
 	'''
@@ -58,16 +58,16 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	pts = [ (0,0), (1,0), (1,1), (0,1), (.2,.1), (.9,.8), (.8,.9), ( -1, -1 ), ( -1, 1 ) ]
 	unique_pts, unique_weights, pts_map = barycentric_projection( vs, faces, boundary_edges, weights, pts )
 	out: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.20000000000000001, 0.10000000000000001), (0.90000000000000002, 0.80000000000000004), (0.80000000000000004, 0.90000000000000002), (-1.0, -1.0), (-1.0, 1.0)]
-	out: array([[ 1. ,  0. ,  0. ,  0. ],
-       [ 0. ,  1. ,  0. ,  0. ],
-       [ 0. ,  0. ,  1. ,  0. ],
-       [ 0. ,  0. ,  0. ,  1. ],
-       [ 0.8,  0.1,  0.1,  0. ],
-       [ 0.1,  0.1,  0.8,  0. ],
-       [ 0.1,  0. ,  0.8,  0.1],
-       [ 1. ,  0. ,  0. ,  0. ],
-       [ 0. ,  0. ,  0. ,  1. ]])
-    out: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+	out: array([[ 1. ,	0. ,  0. ,	0. ],
+	   [ 0. ,  1. ,	 0. ,  0. ],
+	   [ 0. ,  0. ,	 1. ,  0. ],
+	   [ 0. ,  0. ,	 0. ,  1. ],
+	   [ 0.8,  0.1,	 0.1,  0. ],
+	   [ 0.1,  0.1,	 0.8,  0. ],
+	   [ 0.1,  0. ,	 0.8,  0.1],
+	   [ 1. ,  0. ,	 0. ,  0. ],
+	   [ 0. ,  0. ,	 0. ,  1. ]])
+	out: [0, 1, 2, 3, 4, 5, 6, 7, 8]
 	'''
 	
 	print 'Barycentric projection...'
@@ -231,6 +231,9 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
 	## This will store a sequence of tuples ( edge_start_index, edge_end_index ).
+	## UPDATE: We need to make sure that this boundary loop stays manifold.
+	##		   That means: no vertex index should be the start index more than once,
+	##		   and no vertex index should be the end index more than once.
 	boundary_edges = []
 	for curve in all_maps[ boundary_index ]:
 		for vi in curve:
@@ -238,29 +241,43 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 			if len( boundary_edges ) == 0:
 				boundary_edges.append( vi )
 			## Skip repeated points
-			elif boundary_edges[-1] != vi:
+			elif boundary_edges[-1] == vi:
+				## This happens a lot.
+				# print 'Skipping a collapsed boundary edge'
+				pass
+			## UPDATE: And skip a point that would make us fold back on ourselves!
+			##		   It's possible due to rounding that the two points on the
+			##		   bottom of a ^ sticking out of the mesh collapses, leading
+			##		   us with a | shape and a duplicate (undirected) edge.
+			##		   It's easy to check for that here.
+			##		   If it comes up again, though, just wait until the
+			##		   end of the loop and filter boundary_edges like so:
+			##			   boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
+			##		   For now, just check for immediately collapsed edges.
+			##		   NOTE: This came up with the alligator.
+			## UPDATE 2: Filtering at the end still might not work in weird cases.
+			##			 If it comes up again, we'll need to make sure that
+			##			 the boundary loop stays manifold, which means:
+			##			 no vertex index should be the start index more than once,
+			##			 and no vertex index should be the end index more than once.
+			elif len( boundary_edges ) > 1 and boundary_edges[-2][0] == vi:
+				print 'Skipping a boundary foldback'
+				pass
+			else:
 				## Replace the edge-in-progress with a proper tuple.
 				boundary_edges[-1] = ( boundary_edges[-1], vi )
-				## UPDATE: It's possible due to rounding that the two points on the
-				##		   bottom of a ^ sticking out of the mesh collapses, leading
-				##		   us with a | shape and a duplicate (undirected) edge.
-				##		   It's easy to check for that here.
-				##		   If it comes up again, though, just wait until the
-				##		   end of the loop and filter boundary_edges like so:
-				##			   boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
-				##		   For now, just check for immediately collapsed edges.
-				##		   NOTE: This came up with the alligator.
-				if len( boundary_edges ) > 1 and boundary_edges[-1] == boundary_edges[-2][::-1]:
-					print 'Removing a collapsed boundary edge'
-					del boundary_edges[-1]
 				boundary_edges.append( vi )
 	## We don't need to do anything to close the curve, because a closed curve
 	## will have its last and first points overlapping.
 	assert boundary_edges[-1] == boundary_edges[0][0]
 	del boundary_edges[-1]
 	
-	## UPDATE 2: It happened again, even with the above on.
-	boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
+	#boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
+	boundary_edges = set([ frozenset(e) for e in boundary_edges ])
+	print boundary_edges
+	#boundary_edges.remove( frozenset([1651, 1653]) )
+	#boundary_edges.add( frozenset([1652, 1653]) )
+	#boundary_edges = [ tuple( edge ) for edge in boundary_edges ]
 	
 	## The list of handles.
 	if len( skeleton_handle_vertices ) > 0:
