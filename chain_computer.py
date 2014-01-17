@@ -248,7 +248,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
 	#print 'odd system size:', odd.system_size
 
 	smoothness = [ constraint[0] for constraint in constraints ]
@@ -258,6 +258,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
+		debugger()
 		last_solutions = solutions = odd.solve()
 		
 		### 2
@@ -270,6 +271,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				#print 'iteration', iter
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
+				debugger()
 				solutions = even.solve()
 			
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):

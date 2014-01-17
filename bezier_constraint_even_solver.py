@@ -185,7 +185,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 		
 	def system_for_curve( self, bundle ):
-	
+		print 'build even normal system.'
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
@@ -240,6 +240,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		'''
 		## Solve the same integral as system__for_curve only with dt replaced by ds
 		'''
+		print 'build even system with arc length'
 		ts = bundle.ts
  		dss = bundle.dss
 # 		dss = ones( len( ts )-1 ) * (1./(len(ts)-1) )
