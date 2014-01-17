@@ -4,6 +4,7 @@ from bbw_wrapper import bbw
 from itertools import izip as zip
 
 # kEnableBBW = True
+kBarycentricProjection = True
 
 def uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 0 ):
 	'''
@@ -23,10 +24,74 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold =
 	## ( the index into the ordered dictionary, the non-rounded point )
 	for i, ( pt, rounded_pt ) in enumerate( zip( pts, map( tuple, asarray( pts ).round( threshold ) ) ) ):
 		index = unique_pts.setdefault( rounded_pt, ( len( unique_pts ), pt ) )[0]
+		## For fancier schemes:
+		# index = unique_pts.setdefault( rounded_pt, ( len( unique_pts ), [] ) )[0]
+		# unique_pts[ rounded_pt ][1].append( pt )
 		pts_map.append( index )
 	
 	## Return the original resolution points.
+	## The average of all points that round:
+	# return [ tuple( average( pt, axis = 0 ) ) for i, pt in unique_pts.itervalues() ], pts_map
+	## The closest point to the rounded point:
+	# return [ tuple( pt[ abs( asarray( pt ).round( threshold ) - asarray( pt ) ).sum(axis=1).argmin() ] ) for i, pt in unique_pts.itervalues() ], pts_map
+	## Simplest, the first rounded point:
 	return [ tuple( pt ) for i, pt in unique_pts.itervalues() ], pts_map
+
+def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
+	'''
+	Given a sequence 'vertices' and 'faces' representing a 2D triangle mesh,
+	a sequence of pairs of indices into 'vertices' corresponding to the
+	boundary edges of the mesh,
+	a sequence of (not necessarily scalar-valued) values 'weights', one for each vertex in 'vs',
+	and a sequence of points
+	returns
+		a sequence of uniqified points from 'pts',
+		a corresponding interpolated weight for the uniqified points,
+		and map from each element of 'pts' to the uniqified sequence.
+	'''
+	
+	print 'Barycentric projection...'
+	
+	from raytri import raytri
+	
+	pts = asarray( pts )
+	
+	print 'Removing duplicate points...'
+	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
+	## points.
+	unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
+	print '...finished.'
+	
+	edges = zeros( ( len( boundary_edges ), 2, len( vs[0] ) ) )
+	for bi, ( e0, e1 ) in enumerate( boundary_edges ):
+		edges[ bi ] = vs[ e0 ], vs[ e1 ]
+	
+	misses = 0
+	misses_total_distance = 0.
+	misses_max_distance = -31337.
+	unique_weights = zeros( pts.shape )
+	for pi, pt in enumerate( pts ):
+		bary = raytri.point2d_in_mesh2d_barycentric( pt, vs, faces )
+		## Did we hit the mesh?
+		if bary is not None:
+			fi, ( b0, b1, b2 ) = bary
+			unique_weights[pi] = b0*weights[ faces[ fi ][0] ] + b1*weights[ faces[ fi ][1] ] + b2*weights[ faces[ fi ][2] ]
+		else:
+			dist, ei, t = raytri.closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt )
+			dist = sqrt( dist )
+			misses += 1
+			misses_total_distance += dist
+			misses_max_distance = max( misses_max_distance, dist )
+			unique_weights[pi] = (1-t)*weights[ boundary_edges[ ei ][0] ] + t*weights[ boundary_edges[ ei ][1] ]
+	
+	if misses == 0:
+		print 'Barycentric projection: No one missed the mesh.'
+	else:
+		print 'Barycentric projection:', misses, 'points missed the mesh. Average distance was', misses_total_distance/misses, ' and maximum distance was', misses_max_distance
+	
+	print '...finished.'
+	
+	return unique_pts, unique_weights, unique_map
 
 def flatten_paths( all_pts ):
 	'''
@@ -74,7 +139,7 @@ def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, whic
 		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
 	'''
 	
-	## Debugging shepherd.
+	## To try shepherd no matter what:
 	# which = 'shepherd'
 	
 	if which is None: which = 'bbw'
@@ -156,12 +221,25 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 			elif boundary_edges[-1] != vi:
 				## Replace the edge in progress with a proper tuple.
 				boundary_edges[-1] = ( boundary_edges[-1], vi )
+				## UPDATE: It's possible due to rounding that the two points on the
+				##		   bottom of a ^ sticking out of the mesh collapses, leading
+				##		   us with a | shape and a duplicate (undirected) edge.
+				##		   It's easy to check for that here.
+				##		   If it comes up again, though, just wait until the
+				##		   end of the loop and filter boundary_edges like so:
+				##			   boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
+				##		   For now, just check for immediately collapsed edges.
+				##		   NOTE: This came up with the alligator.
+				if len( boundary_edges ) > 1 and boundary_edges[-1] == boundary_edges[-2][::-1]:
+					print 'Removing a collapsed boundary edge'
+					del boundary_edges[-1]
 				boundary_edges.append( vi )
 	## We don't need to do anything to close the curve, because a closed curve
 	## will have its last and first points overlapping.
 	assert boundary_edges[-1] == boundary_edges[0][0]
 	del boundary_edges[-1]
 	
+	## The list of handles.
 	if len( skeleton_handle_vertices ) > 0:
 		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
@@ -177,6 +255,17 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	print 'Computing BBW...'
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
 	print '...finished.'
+	
+	if kBarycentricProjection:
+		if __debug__: old_weights = asarray([ all_weights[i] for i in pts_maps ])
+		
+		vs, all_weights, pts_maps = barycentric_projection( vs, faces, boundary_edges, all_weights, all_pts )
+		all_maps = unflatten_data( pts_maps, all_shapes )
+		
+		if __debug__:
+			new_weights = asarray([ all_weights[i] for i in pts_maps ])
+			total_weight_change = abs(old_weights-new_weights).sum()
+			print 'Barycentric projection led to an average change in weights of', total_weight_change/prod( new_weights.shape ), 'and a total change of', total_weight_change
 	
 	return vs, all_weights, all_maps
 
