@@ -272,13 +272,6 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	assert boundary_edges[-1] == boundary_edges[0][0]
 	del boundary_edges[-1]
 	
-	#boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
-	boundary_edges = set([ frozenset(e) for e in boundary_edges ])
-	print boundary_edges
-	#boundary_edges.remove( frozenset([1651, 1653]) )
-	#boundary_edges.add( frozenset([1652, 1653]) )
-	#boundary_edges = [ tuple( edge ) for edge in boundary_edges ]
-	
 	## The list of handles.
 	if len( skeleton_handle_vertices ) > 0:
 		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
