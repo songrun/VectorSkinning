@@ -48,6 +48,26 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 		a sequence of uniqified points from 'pts',
 		a corresponding interpolated weight for the uniqified points,
 		and map from each element of 'pts' to the uniqified sequence.
+	
+	
+	tested:
+	vs = [ (0,0), (1,0), (1,1), (0,1) ]
+	faces = [ ( 0,1,2 ), ( 2, 3, 0 ) ]
+	boundary_edges = [ ( 0,1 ), ( 1,2 ), ( 2,3 ), ( 3, 0 ) ]
+	weights = asarray([ [ 1,0,0,0 ], [ 0,1,0,0 ], [ 0,0,1,0 ], [ 0,0,0,1 ] ])
+	pts = [ (0,0), (1,0), (1,1), (0,1), (.2,.1), (.9,.8), (.8,.9), ( -1, -1 ), ( -1, 1 ) ]
+	unique_pts, unique_weights, pts_map = barycentric_projection( vs, faces, boundary_edges, weights, pts )
+	out: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.20000000000000001, 0.10000000000000001), (0.90000000000000002, 0.80000000000000004), (0.80000000000000004, 0.90000000000000002), (-1.0, -1.0), (-1.0, 1.0)]
+	out: array([[ 1. ,  0. ,  0. ,  0. ],
+       [ 0. ,  1. ,  0. ,  0. ],
+       [ 0. ,  0. ,  1. ,  0. ],
+       [ 0. ,  0. ,  0. ,  1. ],
+       [ 0.8,  0.1,  0.1,  0. ],
+       [ 0.1,  0.1,  0.8,  0. ],
+       [ 0.1,  0. ,  0.8,  0.1],
+       [ 1. ,  0. ,  0. ,  0. ],
+       [ 0. ,  0. ,  0. ,  1. ]])
+    out: [0, 1, 2, 3, 4, 5, 6, 7, 8]
 	'''
 	
 	print 'Barycentric projection...'
@@ -69,7 +89,7 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	misses = 0
 	misses_total_distance = 0.
 	misses_max_distance = -31337.
-	unique_weights = zeros( pts.shape )
+	unique_weights = zeros( ( len( pts ), len( weights[0] ) ) )
 	for pi, pt in enumerate( pts ):
 		bary = raytri.point2d_in_mesh2d_barycentric( pt, vs, faces )
 		## Did we hit the mesh?
@@ -219,7 +239,7 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 				boundary_edges.append( vi )
 			## Skip repeated points
 			elif boundary_edges[-1] != vi:
-				## Replace the edge in progress with a proper tuple.
+				## Replace the edge-in-progress with a proper tuple.
 				boundary_edges[-1] = ( boundary_edges[-1], vi )
 				## UPDATE: It's possible due to rounding that the two points on the
 				##		   bottom of a ^ sticking out of the mesh collapses, leading
@@ -238,6 +258,9 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	## will have its last and first points overlapping.
 	assert boundary_edges[-1] == boundary_edges[0][0]
 	del boundary_edges[-1]
+	
+	## UPDATE 2: It happened again, even with the above on.
+	boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
 	
 	## The list of handles.
 	if len( skeleton_handle_vertices ) > 0:
