@@ -166,7 +166,7 @@ Transformation type:
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div>
 </div>
-<div class="checkbox"><label>Deformed control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
+<div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 
 <!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
@@ -196,6 +196,7 @@ var kFakeWebSocket = false;
 ///
 /// Global variables.
 ///
+var gInputSVGText = null;
 // For each path, for each cubic end point, a dictionary { 'fixed': true|false, 'continuity': 'C0|C1|G1|A' }
 var gPathsControlPointConstraints = null;
 // The index of the largest path.
@@ -880,6 +881,7 @@ function globalsToJSON()
     "use strict";
     
     var globals = {};
+    globals.gInputSVGText = gInputSVGText;
     globals.isBBWEnabled = $( "#isBBWEnabled" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
@@ -888,6 +890,8 @@ function globalsToJSON()
 }
 function loadGlobals( globals )
 {
+    if( globals.gInputSVGText !== undefined ) loadSVG( globals.gInputSVGText );
+    
     /// Copy to globals.
     $( "#isBBWEnabled" ).prop( "checked", globals.isBBWEnabled );
     
@@ -924,6 +928,7 @@ function loadGlobals( globals )
 function loadSVG( svg_text )
 {
     // Reset global variables.
+    gInputSVGText = svg_text;
     gPathsControlPointConstraints = null;
     gLargestPath = null;
     gHandles = [];
