@@ -94,26 +94,22 @@ class Engine:
 		'''
 		send back all groups of controls
 		'''
-		try:
-			all_controls = self.all_controls
-			all_constraints = self.all_constraints
-			all_lengths = self.all_lengths
+		if len( self.all_controls ) == 0:
+			raise NoControlPointsError()
+		elif len( self.handle_positions ) == 0:
+			raise NoHandlesError()
+		elif len( self.precomputed_parameter_table ) == 0:
+			self.precompute_configuration()			
 		
-			handles = self.handle_positions
-			transforms = self.transforms
-			if len( all_controls ) == 0:
-				raise NoControlPointsError()
-			elif len( handles ) == 0:
-				raise NoHandlesError()
-			elif len( self.precomputed_parameter_table ) == 0:
-				self.precompute_configuration()			
-			precomputed_parameters = self.precomputed_parameter_table[0]
-		
-			is_arc_enabled = self.is_arc_enabled
-			
-		except RuntimeException:
-			print 'Engine not ready yet.'
-			return
+		all_controls = self.all_controls
+		all_constraints = self.all_constraints
+		all_lengths = self.all_lengths
+	
+		handles = self.handle_positions
+		transforms = self.transforms
+		precomputed_parameters = self.precomputed_parameter_table[0]
+	
+		is_arc_enabled = self.is_arc_enabled
 		
 		result = []
 		self.fast_update_functions = []
@@ -149,15 +145,26 @@ class Engine:
 		if self.is_bbw_enabled != is_bbw_enabled:
 			self.is_bbw_enabled = is_bbw_enabled
 			self.precompute_configuration( ) 
-		
+	
+	def get_enable_bbw( self ):
+		'''
+		gets enable_bbw flag
+		'''
+		return self.is_bbw_enabled
 	
 	def set_enable_arc_length( self, is_arc_enabled ):
 		'''
-		set enable_bbw flag on/off
+		set is_arc_enabled flag on/off
 		'''
 		if self.is_arc_enabled != is_arc_enabled:
 			self.is_arc_enabled = is_arc_enabled
 			self.precompute_configuration() 
+	
+	def get_enable_arc_length( self ):
+		'''
+		get is_arc_enabled flag
+		'''
+		return self.is_arc_enabled
 			
 			
 			
@@ -200,6 +207,9 @@ class Engine:
 		'''
 		compute the error between the skinning spline and the bbw_affected position.
 		'''
+		if len( self.precomputed_parameter_table ) == 0:
+			raise EngineError( "compute_energy() can't be called before solve()" )
+		
 		all_controls = self.all_controls
 		transforms = self.transforms
 		precomputed_parameters = self.precomputed_parameter_table[0]

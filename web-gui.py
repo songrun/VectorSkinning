@@ -128,31 +128,40 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			# self.sendMessage( json.dumps( new_positions ) )
 		
 		elif msg.startswith( 'enable-bbw ' ):
-			paths_info = json.loads( msg[ len( 'enable-bbw ' ): ] )
+			enable_bbw = json.loads( msg[ len( 'enable-bbw ' ): ] )
 			
-			self.engine.set_enable_bbw( paths_info )
+			## Do nothing if this would do nothing.
+			if self.engine.get_enable_bbw() == enable_bbw: return
+			
+			self.engine.set_enable_bbw( enable_bbw )
 			
 			try:
 				all_paths = self.engine.solve()
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+				self.retrieve_energy()
+				
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
-			self.retrieve_energy()	
 		
 		elif msg.startswith( 'enable-arc-length ' ):
-			paths_info = json.loads( msg[ len( 'enable-arc-length ' ): ] )
+			enable_arc_length = json.loads( msg[ len( 'enable-arc-length ' ): ] )
 			
-			self.engine.set_enable_arc_length( paths_info )
+			## Do nothing if this would do nothing.
+			if self.engine.get_enable_arc_length() == enable_arc_length: return
+			
+			self.engine.set_enable_arc_length( enable_arc_length )
+			
 			try:
 				all_paths = self.engine.solve()
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+				self.retrieve_energy()
+				
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
-			self.retrieve_energy()	
 				
 		elif msg.startswith( 'handle-transform-drag-finished' ):
 			
