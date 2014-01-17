@@ -4,11 +4,13 @@ from weights_computer import *
 import systems_and_solvers
 
 class Bundle( object ):
-	def __init__( self, W_matrices, control_points, constraints, length, mags = None, dirs = None ):
+	def __init__( self, W_matrices, control_points, constraints, length, ts, dss,  mags = None, dirs = None ):
 		self.W_matrices = W_matrices
 		self.control_points = control_points
 		self.constraints = constraints
 		self.length = length
+		self.ts = ts
+		self.dss = dss
 		controls = asarray(self.control_points)
 		if mags is None:
 			self.magnitudes = [mag(controls[1] - controls[0]), mag(controls[2] - controls[3])]
@@ -16,19 +18,45 @@ class Bundle( object ):
 			self.magnitudes = mags
 		
 		if dirs is None:
-			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
+					
+ 			self.directions = [ dir_allow_zero((controls[1] - controls[0])[:2]), dir_allow_zero((controls[2] - controls[3])[:2]) ]
 		else:
 			self.directions = dirs
+				
 
+def compute_angle( bundle0, bundle1 ):
+		## search out for the first control point making non-zero directions
+		vec0, vec1 = zeros( 2 ), zeros( 2 )
+		for j in range( 2, 5 ):
+			if not array_equal( bundle0.control_points[-j], bundle0.control_points[3] ):
+				vec0 = (bundle0.control_points[-j]-bundle0.control_points[3])[:2]
+				break
+				
+		for j in range( 1, 4 ):
+			if not array_equal( bundle1.control_points[j], bundle1.control_points[0] ):
+				vec1 = (bundle1.control_points[j]-bundle1.control_points[0])[:2]
+				break
+		
+		if  mag(vec0)*mag(vec1) != 0:
+			cos_theta = dot(vec0, vec1)/( mag(vec0)*mag(vec1) )
+			sin_theta = (1.-cos_theta**2) ** 0.5
+		else:
+			cos_theta = 1.0
+			sin_theta = 0.0
+			
+		if cross(vec0, vec1) < 0:	
+			sin_theta = -sin_theta
+			
+		return [ cos_theta, sin_theta ]
 
 class BezierConstraintSolver( object ):
-	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, is_closed ):
+	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength ):
 		## compute the weight of each segment according to its length
 		# num = len(control_points)
 		control_points = asarray(control_points)
-		self.build_system( W_matrices, control_points, constraints, transforms, lengths, is_closed )
+		self.build_system( W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
 
-	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, is_closed ):
+	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength ):
 		
 		### 1 Bundle all data for each bezier curve together
 		### 2 Allocate space for the system matrix
@@ -38,7 +66,12 @@ class BezierConstraintSolver( object ):
 		### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
-		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i] ) for i in xrange(len( control_points )) ]
+		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], ts[i], dss[i] ) for i in xrange(len( control_points )) ]
+		
+		if is_closed:
+			self.angles = [ compute_angle( self.bundles[i], self.bundles[(i+1)%len( self.bundles ) ] ) for i in xrange( len( self.bundles ) ) ]
+		else:
+			self.angles = [ compute_angle( self.bundles[i], self.bundles[i+1] ) for i in xrange( len( self.bundles )-1 ) ]
 						
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
@@ -65,8 +98,9 @@ class BezierConstraintSolver( object ):
 		self.rhs = zeros( self.system_size )
 		self.transforms = transforms
 		self.is_closed = is_closed
+		self.kArcLength = kArcLength
 		
-		self._update_bundles()
+		self._update_bundles( )
 
 
 	def _update_bundles( self, lagrange_only = False ):
@@ -78,6 +112,8 @@ class BezierConstraintSolver( object ):
 		total_dofs = self.total_dofs
 		system_size = self.system_size
 		system = self.system
+		angles = self.angles
+		kArcLength = self.kArcLength
 		# system = self.system
 		rhs = self.rhs
 		transforms = self.transforms
@@ -90,8 +126,11 @@ class BezierConstraintSolver( object ):
 			dofs = sum(dofs_per_bundle[i])
 			
 			if not lagrange_only:
-				small_system = self.system_for_curve( bundle )
-				small_rhs = self.rhs_for_curve(bundle, transforms)
+				if kArcLength:
+					small_system = self.system_for_curve_with_arc_length( bundle )
+				else:
+					small_system = self.system_for_curve( bundle )
+				small_rhs = self.rhs_for_curve( bundle, transforms)
 				### 4
 				system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
 				rhs[ dof_offset : dof_offset + dofs ] = small_rhs
@@ -109,7 +148,7 @@ class BezierConstraintSolver( object ):
 			dofs_next = sum(dofs_per_bundle[i+1])
 			constraint_eqs = lambdas_per_joint[i+1]
 	
-			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[i], bundles[i+1] )
+			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[i], bundles[i+1], angles[i] )
 			
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs + dofs_next ] = small_lagrange_system
@@ -124,7 +163,7 @@ class BezierConstraintSolver( object ):
 			dofs_next = sum(dofs_per_bundle[0])
 			constraint_eqs = lambdas_per_joint[0]
 	
-			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[-1], bundles[0] )
+			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_curve_constraints( bundles[-1], bundles[0], angles[-1] )
 	
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = small_lagrange_system[ :, :dofs ]
@@ -169,7 +208,7 @@ class BezierConstraintSolver( object ):
 		### even if some of the variables were substituted in the actual system matrix.
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 
-	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1):
+	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def system_for_curve( self, bundle ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
@@ -179,7 +218,11 @@ class BezierConstraintSolver( object ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def rhs_for_curve( self, bundle, transforms ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
-
+	### solve by arc length parameterization
+	def system_for_curve_with_arc_length( self, bundle ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+	def rhs_for_curve_with_arc_length( bundle, transforms ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 
 
 

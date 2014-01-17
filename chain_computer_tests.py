@@ -1,3 +1,36 @@
+def get_test_box():
+	paths_info = [{u'bbox_area': 22500,
+  u'closed': True,
+  u'cubic_bezier_chain': [[33, 69],
+                          [33, 69],
+                          [33, 119],
+                          [33, 144],
+                          [33, 169],
+                          [33, 219],
+                          [33, 219],
+                          [33, 219],
+                          [83, 219],
+                          [108, 219],
+                          [133, 219],
+                          [183, 219],
+                          [183, 219],
+                          [183, 219],
+                          [183, 169],
+                          [183, 144],
+                          [183, 119],
+                          [183, 69],
+                          [183, 69],
+                          [183, 69],
+                          [133, 69],
+                          [108, 69],
+                          [83, 69],
+                          [33, 69],
+                          [33, 69]]}]
+
+	handle_positions = [[85, 179], [137, 112]]
+	constraint = None
+	return paths_info, handle_positions, constraint
+
 def get_test_simple_closed():
 	paths_info = [{u'bbox_area': 81583.4111926838,
   u'closed': True,

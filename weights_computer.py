@@ -405,7 +405,9 @@ def shepherd_w_i( handle_positions, i, p ):
 	return diff[i] / diff.sum()
 
 def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
-
+	'''
+	Total energy is the sum of each pair of points' square distance
+	'''
 	path_dts = asarray( path_dts )
 	
 	assert len( bbw_curve ) == len( skin_spline_curve ) == len( path_dts ) == len( lengths )

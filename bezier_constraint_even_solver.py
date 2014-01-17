@@ -12,12 +12,18 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		solution = asarray(solution)
 		num = len(self.bundles)
 		assert solution.shape == (num, 4, 2)
-		directions = [[dir_allow_zero( solution[i][1]-solution[i][0] ), dir_allow_zero( solution[i][2]-solution[i][3] )] for i in range(num) ]
+		
+		#directions = [[dir_allow_zero( solution[i][1]-solution[i][0] ), dir_allow_zero( solution[i][2]-solution[i][3] )] for i in range(num) ]
 	
 		for i in range(num):
-			self.bundles[i].directions = directions[i]
+			#self.bundles[i].directions = directions[i]
+			dir1 = dir_allow_zero( solution[i][1]-solution[i][0] )
+			dir2 = dir_allow_zero( solution[i][2]-solution[i][3] )
+			
+			if mag2( dir1 ) > 0: self.bundles[i].directions[0] = dir1
+			if mag2( dir2 ) > 0: self.bundles[i].directions[1] = dir2
 		
-		self._update_bundles()
+		self._update_bundles( )
 		self.system_factored = None
 		## UPDATE: Actually, if constrained directions align with coordinate axes
 		##         or have zero magnitude, then the systems may gain
@@ -83,7 +89,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 		return result	
 	
-	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
+	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
 		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
@@ -311,3 +317,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			raise RuntimeError('bundle return wrong dofs.')
 
 		return Right*length
+		
+	def system_for_curve_with_arc_length( self, bundle ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+	def rhs_for_curve_with_arc_length( bundle, transforms ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )

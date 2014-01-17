@@ -63,13 +63,10 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		return result	
 	
-	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1 ):
+	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
-		
-		vec0 = (bundle0.control_points[2]-bundle0.control_points[3])[:2]
-		vec1 = (bundle1.control_points[1]-bundle1.control_points[0])[:2]
-		cos_theta = dot(vec0, vec1)/( mag(vec0)*mag(vec1) )
-		sin_theta = (1.-cos_theta**2) ** 0.5
+		cos_theta = angle[0]
+		sin_theta = angle[1]
 		
 		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
@@ -104,13 +101,9 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R[i*4+3, i+dim] = 1
 				R[i*4+2, i+dim] = -1
 				
-				## tell the angle from vec0 to vec1 is positive or negative.
-				if cross(vec0, vec1) >= 0:
-					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
-					R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
-				else:
-					R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, -sin_theta], [cos_theta, sin_theta]])
-					R[-dim*2:-dim, dim:] = asarray([[sin_theta, -cos_theta], [-sin_theta, cos_theta]])
+				R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
+				R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
+
 			## add weights to lambda	 
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
@@ -194,10 +187,37 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range(dim):		
 			Left[ i*4:(i+1)*4, i*4:(i+1)*4 ] = MAM[:,:]
 		
-		
 		return Left*length
 		
+	def system_for_curve_with_arc_length( self, bundle ):
+		'''
+		## Solve the same integral as system__for_curve only with dt replaced by ds
+		'''
+		ts = bundle.ts
+		dss = bundle.dss
+		dim = 2
+		Left = zeros( ( 8, 8 ) )
+		tbar = ones( ( 4, 1 ) )
+		MAM = zeros( ( 4, 4 ) )
 		
+		for i in range(len(dss)):
+			t = (ts[i] + ts[i+1])/2
+			ds = dss[i]
+			
+			tbar[0] = t*t*t
+			tbar[1] = t*t
+			tbar[2] = t
+			
+			Mtbar = dot( M.T, tbar )
+
+			MAM += dot( Mtbar, Mtbar.T )*ds
+			
+		for i in range( dim ):		
+			Left[ i*4:( i+1 )*4, i*4:( i+1 )*4 ] = MAM[:,:]
+		
+		return Left
+			
+			
 	def compute_dofs_per_curve( self, bundle ):
 	
 		dofs = zeros( 2, dtype = int )
@@ -240,19 +260,19 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		'''
 		length = bundle.length
 		
-#		W_matrices = bundle.W_matrices
-#		controls = bundle.control_points
+# 		W_matrices = bundle.W_matrices
+# 		controls = bundle.control_points
+#  
+# 		Right = zeros( (3, 4) )
+# 		for i in range( len( transforms ) ):
 # 
-#		Right = zeros( (3, 4) )
-#		for i in range( len( transforms ) ):
+# 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
+# 			W_i = W_matrices[i,0]	
 # 
-#			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-#			W_i = W_matrices[i,0]	
+# 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
 # 
-#			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
-# 
-#		Right = asarray(Right).reshape(-1)
-#		Right = Right[:8]	
+# 		Right = asarray(Right).reshape(-1)
+# 		Right = Right[:8]	
 
 		W_matrices = bundle.W_matrices
 		controls = bundle.control_points
@@ -269,5 +289,12 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		R = temp[:2,:]
 		
 		Right[:] = concatenate((R[0, :], R[1, :]))
-			
-		return Right*length
+		
+		if self.kArcLength:
+			return Right
+		else:		
+			return Right*length
+		
+
+	def rhs_for_curve_with_arc_length( bundle, transforms ):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
