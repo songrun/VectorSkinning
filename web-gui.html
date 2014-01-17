@@ -800,12 +800,7 @@ function setupFileIO()
                     if (evt.target.readyState == FileReader.DONE) {
                         var svg_text = evt.target.result;
                         
-                        $("#filename").text( file.name );
-                        $("#filename").removeClass( "text-muted" );
-                        
-                        loadSVG( svg_text );
-                        
-                        $("#save-button").prop( "disabled", false );
+                        loadSVG( svg_text, file.name );
                     }
                     }
                 
@@ -882,7 +877,9 @@ function globalsToJSON()
     
     var globals = {};
     globals.gInputSVGText = gInputSVGText;
+    globals.filename = $('#filename').text();
     globals.isBBWEnabled = $( "#isBBWEnabled" ).prop( "checked" );
+    globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
     
@@ -890,14 +887,22 @@ function globalsToJSON()
 }
 function loadGlobals( globals )
 {
-    if( globals.gInputSVGText !== undefined ) loadSVG( globals.gInputSVGText );
+    if( globals.gInputSVGText !== undefined )
+    {
+        loadSVG( globals.gInputSVGText, globals.filename );
+    }
+    
+    // If it wasn't set, it's an old JSON, so it wasn't using usingArcLengthParameterization.
+    if( globals.usingArcLengthParameterization === undefined ) globals.usingArcLengthParameterization = false;
     
     /// Copy to globals.
     $( "#isBBWEnabled" ).prop( "checked", globals.isBBWEnabled );
+    $( "#usingArcLengthParameterization" ).prop( "checked", globals.usingArcLengthParameterization );
     
-    // 0 Send BBW weight status already.
+    // 0 Send BBW weight and arc length status already.
     //   We send this first, because that way less re-computation has to be done.
     sendWeightTypeChanged();
+    sendIfUsingArcLengthParameterization();
     
     gPathsControlPointConstraints = globals.gPathsControlPointConstraints;
     
@@ -925,8 +930,12 @@ function loadGlobals( globals )
     sendHandlePositions();
     sendHandleTransformations( all_indices );
 }
-function loadSVG( svg_text )
+function loadSVG( svg_text, filename )
 {
+    // Show the name
+    $("#filename").text( filename );
+    $("#filename").removeClass( "text-muted" );
+    
     // Reset global variables.
     gInputSVGText = svg_text;
     gPathsControlPointConstraints = null;
@@ -1046,6 +1055,7 @@ function createUIForSVG()
 {
     console.log( "createUIForSVG()" );
     
+    $("#save-button").prop( "disabled", false );
     createConstraintUIForSVG();
     createHandleUIForSVG();
     createDeformedBezierUIForSVG();
@@ -1458,6 +1468,10 @@ function setupGlobalUI()
     $("#isBBWEnabled").change( function() {
         sendWeightTypeChanged();
     } );
+    $("#usingArcLengthParameterization").change( function() {
+        sendIfUsingArcLengthParameterization();
+    } );
+    
     
     // Set it up and trigger it.
     $("#showTargetCurves").change( function() {
@@ -1474,11 +1488,6 @@ function setupGlobalUI()
         }
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
-    $("#usingArcLengthParameterization").change( function() {
-        var checked = $(this).prop('checked');
-        sendIfUsingArcLengthParameterization();
-        
-    } );
     
     
     /// Switching modes between control point constraints and handles
