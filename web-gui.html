@@ -1193,11 +1193,12 @@ function createConstraintUIForSVG()
     
     // Let's set the z-order of our elements now.
     // Bottom-to-top:
-    $('.undeformed-curve').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-tangents').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
-    // $( '#svg-overlay-constraints circle' ).appendTo( '#svg-overlay-constraints > svg' );
+    var overlay_node = $('#svg-overlay-constraints > svg');
+    overlay_node.find('.undeformed-curve').appendTo( overlay_node )
+    overlay_node.find('.control-point-tangents').appendTo( overlay_node );
+    overlay_node.find('.control-point-inner').appendTo( overlay_node );
+    overlay_node.find('.control-point-handle').appendTo( overlay_node );
+    // overlay_node.find( 'circle' ).appendTo( overlay_node );
 }
 function createDeformedBezierUIForSVG()
 {
