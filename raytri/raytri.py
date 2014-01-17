@@ -1,5 +1,6 @@
 from math import *
 from numpy import *
+import os
 
 '''
 gcc raytri.c raytri_wrapper.cpp -lstdc++ -fkeep-inline-functions \
@@ -11,7 +12,7 @@ try:
     import ctypes
 except:
     print '''
-ERROR: ctypes not installed properly. (ctypes needed for laplacian_editing_1d())
+ERROR: ctypes not installed properly. (ctypes needed for libraytri())
         '''
     import sys
     sys.exit()
@@ -24,7 +25,7 @@ def platform_shared_library_suffix():
     if 'darwin' in sys.platform.lower(): result = 'dylib'
     return result
 
-libraytri = ctypes.cdll.LoadLibrary( 'libraytri.' + platform_shared_library_suffix() )
+libraytri = ctypes.cdll.LoadLibrary( os.path.join( os.path.dirname( __file__ ), 'libraytri.' + platform_shared_library_suffix() ) )
 real_t = ctypes.c_float
 #real_t = ctypes.c_double
 
@@ -275,7 +276,9 @@ def closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt ):
     ## It also takes edges as pairs of points, not as a line loop, so we have to duplicate points.
     result = min_distanceSqr_edge_t_to_edges( [ pt ], edges )
     ## Unpack the result, since we passed a length-1 list containing 'pt'.
-    return result[0][0], result[1][0], result[2][0]
+    ## Also, since min_distanceSqr_edge_t_to_edges supports arbitrary outer dimensions,
+    ## squeeze() everything.
+    return result[0][0].squeeze(), result[1][0].squeeze(), result[2][0].squeeze()
 
 def closest_distsqr_and_edge_index_and_t_on_line_strip_to_point( line_strip, pt ):
     '''
