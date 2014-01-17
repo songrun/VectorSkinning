@@ -237,6 +237,70 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			
 		return asarray( Left )*length
 		
+	def system_for_curve_with_arc_length( self, bundle ):
+		'''
+		## Solve the same integral as system__for_curve only with dt replaced by ds
+		'''
+		ts = bundle.ts
+		dss = bundle.dss
+		dim = 2
+		
+		dofs = self.compute_dofs_per_curve(bundle)
+		dirs = asarray(bundle.directions)
+		
+		
+		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
+		if array_equal(dofs, (4,4)):
+			Left = zeros( ( 8, 8 ) )
+			tbar = ones( ( 4, 1 ) )
+			MAM = zeros( ( 4, 4 ) )
+			for i in range(len(dss)):
+				t = (ts[i] + ts[i+1])/2
+				ds = dss[i]
+			
+				tbar[0] = t**3
+				tbar[1] = t**2
+				tbar[2] = t
+			
+				Mtbar = dot( M.T, tbar )
+				MAM += dot( Mtbar, Mtbar.T )*ds		
+			Left[ : : 2, : : 2 ] = MAM
+
+		## p1x, p1y, s, p3x, p3y, p4x, p4y
+		elif array_equal(dofs, (3,4)):
+			Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
+					[0., 13./35, 11./70*dirs[0,1], 0., 13./140, 0., 1./28],
+					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 1./35*dirs[0,0], 1./35*dirs[0,1]],
+					[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
+					[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
+					[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
+					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]
+						
+		## p1x, p1y, p2x, p2y, p4x, p4y, u
+		elif array_equal(dofs, (4,3)):
+			Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
+					[0., 1./7, 0., 1./14, 0., 1./28, 1./35*dirs[1,1]],
+					[1./14, 0., 3./35, 0., 13./140, 0., 9./140*dirs[1,0]],
+					[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
+					[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
+					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
+					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]
+					
+		## p1x, p1y, s, p4x, p4y, u
+		elif array_equal(dofs, (3,3)):
+			Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
+					[0., 13./35, 11./70*dirs[0,1], 0., 9./70, 13./140*dirs[1,1]],
+					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
+					[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
+					[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
+					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]
+					
+		else:
+			raise RuntimeError('bundle return wrong dofs.')
+		
+		
+		return Left
+		
 		
 	def compute_dofs_per_curve( self, bundle ):
 		dofs = zeros( 2, dtype = int )
@@ -315,10 +379,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Right[-1] = dot( R[:,2], dirs[1] )
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
-
-		return Right*length
 		
-	def system_for_curve_with_arc_length( self, bundle ):
-		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
-	def rhs_for_curve_with_arc_length( bundle, transforms ):
-		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+		if self.kArcLength:
+			return Right
+		else:		
+			return Right*length

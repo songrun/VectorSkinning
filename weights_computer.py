@@ -341,6 +341,24 @@ def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
 	
 		energy.append( dot( dists, segment_dts )*length )
 	
-#	if diffs*scale > 100: debugger()
-	
 	return energy
+	
+	
+def compute_arc_length_error_metric( bbw_curve, skin_spline_curve, path_dss ):
+	'''
+	Total energy is the sum of each pair of points' square distance, compute with arc lengths
+	'''
+	path_dss = asarray( path_dss )
+	
+	assert len( bbw_curve ) == len( skin_spline_curve ) == len( path_dss )
+	
+	energy = []
+	for bbw_samplings, spline_samplings, segment_dss in zip( bbw_curve, skin_spline_curve, path_dss ):
+		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
+		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
+		dists = ( ( spline_samplings - bbw_samplings )**2 ).sum( axis = 1 )
+		dists = (dists[:-1] + dists[1:])/2
+	
+		energy.append( dot( dists, segment_dss ) )
+	
+	return energy	

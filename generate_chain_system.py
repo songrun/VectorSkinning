@@ -221,8 +221,7 @@ class BezierConstraintSolver( object ):
 	### solve by arc length parameterization
 	def system_for_curve_with_arc_length( self, bundle ):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
-	def rhs_for_curve_with_arc_length( bundle, transforms ):
-		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+
 
 
 

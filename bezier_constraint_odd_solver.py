@@ -295,6 +295,3 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		else:		
 			return Right*length
 		
-
-	def rhs_for_curve_with_arc_length( bundle, transforms ):
-		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
