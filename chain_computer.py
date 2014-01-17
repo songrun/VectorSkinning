@@ -78,9 +78,8 @@ class Engine:
 		'''
 		handles = self.handle_positions
 		all_controls = self.all_controls
-		boundary = all_controls[ self.boundary_index ]
 		
-		layer1 = precompute_all_when_configuration_change( boundary, all_controls, handles, is_bbw_enabled )		
+		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, is_bbw_enabled )
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
 		all_dss = layer1[-1]
@@ -320,7 +319,7 @@ def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves
 	return new_controls
 
 
-def precompute_all_when_configuration_change( controls_on_boundary, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True ):
+def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True ):
 	'''
 	precompute everything when the configuration changes, in other words, when the number of control points and handles change.
 	W_matrices is the table contains all integral result corresponding to each sample point on the boundaries.
@@ -343,9 +342,7 @@ def precompute_all_when_configuration_change( controls_on_boundary, all_control_
 		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
 		all_dss.append( dss )
 	
-	boundary_pts, boundary_ts, boundary_dts = sample_cubic_bezier_curve_chain( controls_on_boundary, num_samples )
-	
-	all_vertices, all_weights, all_indices= triangulate_and_compute_weights( boundary_pts, skeleton_handle_vertices, all_pts, is_bbw_enabled )
+	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, 'bbw' if is_bbw_enabled else 'shepherd' )
 	
 	print 'Precomputing W_i...'
 	W_matrices = []
@@ -502,8 +499,11 @@ def main():
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 	
 	engine = Engine()
-	boundary_path = max(paths_info, key=lambda e : e[u'bbox_area']) 
-	boundary_index = paths_info.index( boundary_path )
+	
+	try:
+		boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+	except ValueError:
+		boundary_index = -1
 	
 	engine.set_control_positions( paths_info, boundary_index )
 	

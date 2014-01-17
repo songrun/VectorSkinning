@@ -113,6 +113,8 @@ def platform_shared_library_suffix():
 
 libbbw = ffi.dlopen( os.path.join( os.path.dirname( __file__ ), 'bbw' + platform_shared_library_suffix() ) )
 
+class BBWError( Exception ): pass
+
 def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
     '''
     Given an N-by-(2 or 3) numpy array 'vertices' of 2D or 3D vertices,
@@ -170,7 +172,7 @@ def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
         ffi.cast( 'real_t*', Wout.ctypes.data )
         )
     if result != 0:
-        raise RuntimeError( 'bbw() reported an error' )
+        raise BBWError( 'bbw() reported an error' )
     
     return Wout
 
