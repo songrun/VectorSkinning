@@ -188,7 +188,7 @@ def make_constraints_from_control_points( control_group, close=True ):
 	if not close:
 		constraints[0][0] = 'None'
 		constraints.append( ['None', False] )
-		
+	
 	return constraints	
 	
 	

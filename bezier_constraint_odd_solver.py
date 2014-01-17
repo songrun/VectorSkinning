@@ -36,7 +36,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	def solve( self ):
 		dim = 2
 		num = len(self.bundles)
-#		debugger()
 		
 		if self.system_symbolic_factored is None:
 			#print 'odd symbolic factoring'
@@ -172,6 +171,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		
 	def system_for_curve( self, bundle ):
+		print 'build odd normal system.'
 		'''
 		## A is computed using Sage, integral of (tbar.T * tbar) with respect to t.
 		#	A = asarray( [[	 1./7,	1./6,  1./5, 1./4], [ 1./6,	 1./5, 1./4,  1./3], 
@@ -193,6 +193,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		'''
 		## Solve the same integral as system__for_curve only with dt replaced by ds
 		'''
+		print 'build odd system with arc length'
 		ts = bundle.ts
 		dss = bundle.dss
 		dim = 2
@@ -211,7 +212,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			Mtbar = dot( M.T, tbar )
 
 			MAM += dot( Mtbar, Mtbar.T )*ds
-			
+	
 		for i in range( dim ):		
 			Left[ i*4:( i+1 )*4, i*4:( i+1 )*4 ] = MAM[:,:]
 		
