@@ -166,8 +166,6 @@ def unflatten_data( flattened, all_shapes ):
 		all_maps.append( maps )
 	
 	return all_maps
-	
-	all_clean_pts = asarray( all_clean_pts )[:, :2]
 
 def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, which = None ):
 	'''

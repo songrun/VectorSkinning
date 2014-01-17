@@ -6,7 +6,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLength = False
+kArcLengthDefault = False
 
 class Engine:
 	'''
@@ -33,7 +33,7 @@ class Engine:
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
 		self.is_bbw_enabled = True
-		self.is_arc_enabled = kArcLength
+		self.is_arc_enabled = kArcLengthDefault
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
