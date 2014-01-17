@@ -139,6 +139,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
+			self.retrieve_energy()	
 		
 		elif msg.startswith( 'enable-arc-length ' ):
 			paths_info = json.loads( msg[ len( 'enable-arc-length ' ): ] )
@@ -151,26 +152,29 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
+			self.retrieve_energy()	
 				
 		elif msg.startswith( 'handle-transform-drag-finished' ):
 			
-			energy, polylines = self.engine.compute_energy()
-			
-			energy_and_polyline = [
-				[
-					{ 'target-curve-polyline': points.tolist(), 'energy': energy }
-					for energy, points in zip( path_energy, path_points )
-				]
-				for path_energy, path_points in zip( energy, polylines )
-				]
-			
-			# import cPickle as pickle
-			# with open( 'debug.pickle', 'w' ) as f: pickle.dump( energy_and_polyline, f, pickle.HIGHEST_PROTOCOL )
-			
-			self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
+			self.retrieve_energy()
 			
 		else:
 			print 'Received unknown message:', msg
+			
+	def retrieve_energy( self )	:
+	
+		energy, polylines = self.engine.compute_energy()
+		
+		energy_and_polyline = [
+			[
+				{ 'target-curve-polyline': points.tolist(), 'energy': energy }
+				for energy, points in zip( path_energy, path_points )
+			]
+			for path_energy, path_points in zip( energy, polylines )
+			]
+		
+		
+		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 
 def make_chain_from_control_groups( all_paths ):
 	

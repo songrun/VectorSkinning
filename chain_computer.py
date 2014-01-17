@@ -223,11 +223,16 @@ class Engine:
 			path_pts = precomputed_parameters[4][i]
 			path_dts = precomputed_parameters[5][i]
 			path_ts = precomputed_parameters[6][i]
+			path_dss = precomputed_parameters[7][i]
 
 			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
 
 			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )
-			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, all_lengths[i] ) )
+			
+			if self.is_arc_enabled:
+				energy.append( compute_arc_length_error_metric( bbw_curve, spline_skin_curve, path_dss ) )
+			else:
+				energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, all_lengths[i] ) )
 			
 			bbw_curves.append( asarray( bbw_curve ).reshape( len( bbw_curve ), -1, 2 ) )
 		
