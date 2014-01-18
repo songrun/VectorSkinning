@@ -1,5 +1,5 @@
-<!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
 <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -130,11 +130,11 @@ Constraint type:
 <div id="handle-widgets" class="col-sm-4 text-muted equal-height">
 <span class="lead">Handle &lt;<span id="handle_index" class="tt">null</span>&gt;:</span>
 <div class="form-group">
-Transformation type:
+Mouse dragging controls:
         <select id="transformation" disabled>
         <option value="translation" selected>translation</option>
         <option value="rotation">rotation</option>
-        <option value="scaling">scaling</option>
+        <option value="scaling">scale</option>
         </select>
 </div>
 <div>
@@ -156,20 +156,29 @@ Transformation type:
 </tr>
 </table>
 </div>
+<button type="button" id="delete-handle-button" class="btn btn-default" disabled style="margin-bottom: 20px">Delete</button>
 </div>
 
 <div id="toggles" class="col-sm-3 col-sm-offset-1">
 <span class="lead">Toggles</span>
 
-<div class="checkbox"><label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label></div>
+<div>
+Weight type:
+        <select id="weight-function" disabled>
+        <option value="bbw" selected>BBW</option>
+        <option value="shepherd">Shepherd</option>
+        <option value="mvc">MVC</option>
+        </select>
+</div>
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div></div>
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 
-<!-- <button type="button" id="setup-button" class="btn btn-default" disabled></button> -->
+<hr>
 
+<button type="button" id="reconnect-button" class="btn btn-default">Reconnect</button>
 </div>
 
 </div>
@@ -205,7 +214,7 @@ var gHandles = [];
 // The WebSocket.
 var gSocket = null;
 // enable bbw
-// UPDATE: Access this via: $('#isBBWEnabled').prop('checked')
+// UPDATE: Access this via: $('#weight-function').val()
 // var isBBWEnabled = true;
 
 
@@ -242,18 +251,22 @@ function displayDroppable( evt )
     $(kDragDropFeedbackSelector).addClass( add );
 }
 
-function setupWebSocket()
+function setupWebSocket( connected_func )
 {
     if( kFakeWebSocket )
     {
         console.log( "Using a fake WebSocket" );
         gSocket = {};
         gSocket.send = function( msg ) { console.log( "SEND " + msg ); }
+        if( connected_func !== undefined ) connected_func();
         return;
     }
     
     gSocket = new WebSocket( kWebSocketURI );
-    gSocket.onopen = function(evt) { console.log( 'CONNECTED' ); };
+    gSocket.onopen = function(evt) {
+        console.log( 'CONNECTED' );
+        if( connected_func !== undefined ) connected_func();
+        };
     gSocket.onclose = function(evt) { console.log( 'DISCONNECTED' ); };
     gSocket.onmessage = function(evt) { receiveSocketMessage( evt.data ) };
     gSocket.onerror = function(evt) { console.log( 'ERROR: ' + evt.data ); };
@@ -662,21 +675,38 @@ function sendPathsForPrecomputation()
         console.log( "There are " + total + " cubic bezier curves total." );
     }
 }
-function sendHandlePositions()
+function sendHandlePositionsAndTransforms()
 {
     "use strict";
     
-    var handle_positions = [];
+    var handle_positions_and_transforms = [];
     for( var i = 0; i < gHandles.length; ++i )
     {
-        handle_positions.push( gHandles[i].pos );
+        var M = gHandles[i].transform;
+        handle_positions_and_transforms.push([
+            gHandles[i].pos,
+            // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
+            // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
+            // (The third row is assumed to always be [ 0, 0, 1 ].)
+            // This is all assuming that the matrix M is multiplied by a column
+            // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
+            [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+            ]);
     }
     
-    gSocket.send( "handle-positions " + JSON.stringify( handle_positions ) );
+    gSocket.send( "handle-positions-and-transforms " + JSON.stringify( handle_positions_and_transforms ) );
 }
 function sendHandleTransformation( handle_index )
 {
     sendHandleTransformations( [ handle_index ] );
+}
+function sendHandleTransformationsAll()
+{
+    // An array of 0...N-1
+    var all_indices = [];
+    for( var i = 0; i < gHandles.length; ++i ) all_indices.push(i);
+    
+    sendHandleTransformations( all_indices );
 }
 function sendHandleTransformations( handle_indices )
 {
@@ -720,7 +750,7 @@ function sendControlPointConstraintsChanged( path_index, segment_index )
 function sendWeightTypeChanged()
 {
     "use strict";
-    gSocket.send( "enable-bbw " + JSON.stringify( $('#isBBWEnabled').prop('checked') ) );
+    gSocket.send( "set-weight-function " + JSON.stringify( $('#weight-function').val() ) );
 }
 function sendIfUsingArcLengthParameterization()
 {
@@ -887,7 +917,7 @@ function globalsToJSON()
     var globals = {};
     globals.gInputSVGText = gInputSVGText;
     globals.filename = $('#filename').text();
-    globals.isBBWEnabled = $( "#isBBWEnabled" ).prop( "checked" );
+    globals.weightFunction = $( "#weight-function" ).val();
     globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
@@ -905,7 +935,7 @@ function loadGlobals( globals )
     if( globals.usingArcLengthParameterization === undefined ) globals.usingArcLengthParameterization = false;
     
     /// Copy to globals.
-    $( "#isBBWEnabled" ).prop( "checked", globals.isBBWEnabled );
+    $( "#weight-function" ).val( globals.weightFunction );
     $( "#usingArcLengthParameterization" ).prop( "checked", globals.usingArcLengthParameterization );
     
     // 0 Send BBW weight and arc length status already.
@@ -927,17 +957,13 @@ function loadGlobals( globals )
     }
     
     // 2 Send handles.
-    var all_indices = [];
     for( var handle_index = 0; handle_index < globals.gHandles.length; ++handle_index )
     {
         var handle = globals.gHandles[ handle_index ];
         createHandleAtPosition( handle.pos[0], handle.pos[1] );
         setHandleTransform( handle_index, handle.transform )
-        
-        all_indices.push( handle_index );
     }
-    sendHandlePositions();
-    sendHandleTransformations( all_indices );
+    sendHandlePositionsAndTransforms();
 }
 function loadSVG( svg_text, filename )
 {
@@ -950,7 +976,7 @@ function loadSVG( svg_text, filename )
     gPathsControlPointConstraints = null;
     gLargestPath = null;
     gHandles = [];
-    $( "#isBBWEnabled" ).prop( "checked", true );
+    $( "#weight-function" ).val( "bbw" );
     $( "#usingArcLengthParameterization" ).prop( "checked", false );
     
     // Attach the SVG to its node.
@@ -1065,6 +1091,7 @@ function createUIForSVG()
     console.log( "createUIForSVG()" );
     
     $("#save-button").prop( "disabled", false );
+    $("#weight-function").prop( "disabled", false );
     createConstraintUIForSVG();
     createHandleUIForSVG();
     createDeformedBezierUIForSVG();
@@ -1227,6 +1254,26 @@ function createHandleUIForSVG()
     var ui = Snap( '#svg-overlay-handles > svg' );
     ui.clear();
     
+    disableHandleControls();
+    
+    // A function that takes a click event and adds a handle.
+    function add_handle_click( evt ) {
+        // No one else should get this click event.
+        evt.stopPropagation();
+        
+        // TODO: Adding a handle is a slow operation. Maybe we should check if a modifier
+        //       key is held down, and return if it's not.
+        
+        // Don't use the x,y that come in as the second and third parameters.
+        // They are equivalent to evt.pageX and evt.pageY.
+        var parent = $( '#svg-overlay-handles > svg' );
+        var x = evt.pageX - parent.offset().left;
+        var y = evt.pageY - parent.offset().top;
+        
+        createHandleAtPosition( x, y );
+        sendHandlePositionsAndTransforms();
+    }
+    
     // We previously found the largest closed path. Use that to make sure handles
     // aren't created outside the shape.
     var clickable = null;
@@ -1244,27 +1291,17 @@ function createHandleUIForSVG()
         }
         clickable = ui.path( path );
         clickable.attr({ opacity: 0. });
-    }
-    else
-    {
-        // If we don't have any closed paths, users can click anywhere.
-        clickable = ui;
+        clickable.click( add_handle_click );
     }
     
-    disableHandleControls();
-    
-    clickable.click( function( evt ) {
-        // TODO: Adding a handle is a slow operation. Maybe we should check if a modifier
-        //       key is held down, and return if it's not.
-        
-        // Don't use the x,y that come in as the second and third parameters.
-        // They are equivalent to evt.pageX and evt.pageY.
-        var parent = $( '#svg-overlay-handles > svg' );
-        var x = evt.pageX - parent.offset().left;
-        var y = evt.pageY - parent.offset().top;
-        
-        createHandleAtPosition( x, y );
-        sendHandlePositions();
+    // For MVC and Shepherd, allow users to click anywhere.
+    // Also if we don't have any closed paths, allow users to click anywhere.
+    ui.click( function( evt ) {
+        var weightFunction = $( "#weight-function" ).val();
+        if( clickable === null || weightFunction === "mvc" || weightFunction === "shepherd" )
+        {
+            add_handle_click( evt );
+        }
         } );
 }
 // Creates a new handle. NOTE: It does not send the new handle position to the server.
@@ -1284,6 +1321,7 @@ function createHandleAtPosition( x, y )
     // because the shape under this can't be clicked.
     var r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r0.attr({
+        class: 'handle-original',
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.,
@@ -1292,21 +1330,37 @@ function createHandleAtPosition( x, y )
     
     var r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r.attr({
+        class: 'handle',
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.
         });
     
-    var handle_index = gHandles.length;
-    gHandles.push( { 'pos': [ x, y ], 'transform': new Snap.Matrix() } );
-    setupHandleControls( handle_index );
+    // This 'posKey' is used by the click and drag handlers to find the transform.
+    // NOTE: It is an object (an array), so if anyone ever replaces 'pos'
+    //       with another array, even if it contains the same values, the
+    //       click and drag callbacks won't be able to find themselves.
+    var posKey = [ x, y ];
+    gHandles.push( { 'pos': posKey, 'transform': new Snap.Matrix() } );
+    setupHandleControls( gHandles.length - 1 );
+    
+    // If the user deletes a handle, we need a way to find ourselves.
+    function find_handle_index()
+    {
+        for( var i = 0; i < gHandles.length; ++i )
+        {
+            if( gHandles[i].pos === posKey ) return i;
+        }
+        
+        return undefined;
+    }
     
 	// Make a drag handler for the handle.
 	// A variable for the mouse-down matrix.
 	var M0;
 	r.drag(
 		// drag move
-		function( dx, dy ) {
+		function( dx, dy, x, y, evt ) {
 		    var M;
 			var trans_type = $('#handle-widgets select').val();
 			if( trans_type === "translation" ) 
@@ -1339,24 +1393,51 @@ function createHandleAtPosition( x, y )
             this.transform( M );
             
             // Update the global variable (and the HTML table).
+            var handle_index = find_handle_index();
+            if( handle_index === undefined )
+            {
+                console.error( "Orphan handle." );
+                return;
+            }
+            
             gHandles[ handle_index ].transform = M;
             setupHandleControls( handle_index );
             
             // Send the transform over the network.
             sendHandleTransformation( handle_index );
+            
+            // Maybe connect the handles as a hack
+            maybeConnectHandlesHack();
 		},
 		// drag start
-		function() {
-			// Store the current transform state.
+		function( x, y, evt ) {
+		    // Store the current transform state.
 			M0 = this.transform().localMatrix;
 			
 			// Setup the table when clicking on an already-created rect.
+			var handle_index = find_handle_index();
+            if( handle_index === undefined )
+            {
+                console.error( "Orphan handle." );
+                return;
+            }
 			setupHandleControls( handle_index );
 		},
-		function() {
+		function( evt ) {
 		    // Let the backend know it can do some processing.
 		    sendHandleDragFinished();
 		} );
+	
+	// I need to do this to eat click events:
+	r.click( function(evt) { evt.stopPropagation(); } );
+	r0.click( function(evt) { evt.stopPropagation(); } );
+	
+	// Finally, update the z-order with appendTo()'s in back-to-front order.
+	var svg = $('#svg-overlay-handles > svg' );
+	svg.find( '.handle-loop-original' ).appendTo( svg );
+	svg.find( '.handle-original' ).appendTo( svg );
+	svg.find( '.handle-loop' ).appendTo( svg );
+	svg.find( '.handle' ).appendTo( svg );
 }
 // Sets the transform for a handle.
 // NOTE: This does not call sendHandleTransformation(). Call that yourself, afterwards.
@@ -1366,6 +1447,74 @@ function setHandleTransform( handle_index, M )
     gHandles[ handle_index ].transform = matrix;
     var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
     Snap( rect ).transform( matrix );
+}
+function deleteHandle( handle_index )
+{
+    "use strict";
+    
+    // Delete it.
+    gHandles.splice( handle_index, 1 );
+    
+    // Update the GUI.
+    // Delete the rects at (handle_index*2) and (handle_index*2 + 1).
+    $('#svg-overlay-handles > svg > rect').slice( handle_index*2, (handle_index+1)*2 ).remove();
+    
+    // Update the back-end.
+    sendHandlePositionsAndTransforms();
+}
+
+function maybeConnectHandlesHack()
+{
+    return;
+    
+    maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg .handle-original'),
+        {
+        class: 'handle-loop-original',
+        fill: "#da55da",
+        stroke: "#000",
+        strokeWidth: 2.,
+        strokeDasharray: "20,10,5,5,5,10",
+        opacity: .5
+        });
+    maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg .handle'),
+        {
+        class: 'handle-loop',
+        fill: "#da55da",
+        stroke: "#000",
+        strokeWidth: 2.,
+        strokeDasharray: "20,10,5,5,5,10"
+        });
+}
+function maybeConnectHandlesHack_inner( handles, attrs )
+{
+    handles.remove();
+    
+    var weightFunction = $( "#weight-function" ).val();
+    if( weightFunction === "bbw" || weightFunction === "shepherd" ) return;
+    
+    var closed = weightFunction === "mvc";
+    
+    var ui = Snap( '#svg-overlay-handles > svg' );
+    
+    function xformed_handle_pos( handle )
+    {
+        var xform0 = Snap( handle ).transform().globalMatrix;
+        var xy = [ parseFloat( handle.getAttribute('x') ), parseFloat( handles[i].getAttribute('y') ) ];
+        return [ xform0.x( xy[0], xy[1] ), xform0.y( xy[0], xy[1] ) ];
+    }
+    
+    for( var i = 0; i < handles.length-1; ++i )
+    {
+        var xy0 = xformed_handle_pos( handles[i] );
+        var xy1 = xformed_handle_pos( handles[i+1] );
+        ui.line( xy0[0], xy0[1], xy1[0], xy1[1] ).attr( attrs );
+    }
+    if( closed )
+    {
+        var xy0 = xformed_handle_pos( handles[handles.length-1] );
+        var xy1 = xformed_handle_pos( handles[0] );
+        ui.line( xy0[0], xy0[1], xy1[0], xy1[1] ).attr( attrs );
+    }
 }
 
 function controlPointIsSelected( path_index, segment_index )
@@ -1404,10 +1553,10 @@ function setupHandleControls( handle_index )
     $('#handle_index').text( handle_index );
     
     // We really only have to enable these controls the first time.
-    var controls = $('#handle-widgets table');
+    var controls = $('#handle-widgets');
     controls.removeClass( 'text-muted' );
     
-    var inputs = controls.find( 'input' );
+    var inputs = controls.find( 'table input' );
     
     var M = gHandles[ handle_index ].transform;
     inputs.eq(0).val( M.a );
@@ -1417,29 +1566,23 @@ function setupHandleControls( handle_index )
     inputs.eq(4).val( M.d );
     inputs.eq(5).val( M.f );
     
-    inputs.prop( "disabled", false );
-    
-    // At the same time enable the transformation type choices
-    var trans_choice = $('#handle-widgets select');
-    trans_choice.prop( "disabled", false );
-     
+    // Enable all controls.
+    controls.find(':input').prop( "disabled", false );
 }
 function disableHandleControls()
 {
     $('#handle_index').text( 'null' );
     
     // We really only have to enable these controls the first time.
-    var controls = $('#handle-widgets table');
+    var controls = $('#handle-widgets');
     controls.addClass( 'text-muted' );
-    controls.find( 'input' ).prop( 'disabled', true );
-    controls.find( 'input' ).val( '?' );
-    
-    // At the same time disable the transformation type choices
-    var trans_choice = $('#handle-widgets select');
-    trans_choice.prop( "disabled", true );
+    controls.find( ':input' ).prop( 'disabled', true );
+    controls.find( 'table input' ).val( '?' );
 }
 function setupGlobalUI()
 {
+    "use strict";
+    
     /// Change handlers for control point constraints.
     $('#continuity').change( function() {
         
@@ -1462,7 +1605,7 @@ function setupGlobalUI()
     
     
     /// Change handler for handle transform inputs.
-    $('#handle-widgets input').change( function() {
+    $('#handle-widgets table input').change( function() {
         var which = this.getAttribute( 'name' );
         var handle_index = parseInt( $('#handle_index').text() );
         var M = gHandles[ handle_index ].transform;
@@ -1472,16 +1615,24 @@ function setupGlobalUI()
         
         sendHandleTransformation( handle_index );
         } );
+    $('#delete-handle-button').click( function() {
+        var handle_index = parseInt( $('#handle_index').text() );
+        
+        // delete the handle.
+        deleteHandle( handle_index );
+        
+        // disable the controls.
+        disableHandleControls();
+        } );
     
     
     /// Setup change callbacks for the toggles.
-    $("#isBBWEnabled").change( function() {
+    $("#weight-function").change( function() {
         sendWeightTypeChanged();
     } );
     $("#usingArcLengthParameterization").change( function() {
         sendIfUsingArcLengthParameterization();
     } );
-    
     
     // Set it up and trigger it.
     $("#showTargetCurves").change( function() {
@@ -1498,6 +1649,16 @@ function setupGlobalUI()
         }
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
+    
+    // Reconnect button.
+    $('#reconnect-button').click( function() {
+        setupWebSocket( function() {
+            if( gInputSVGText !== null )
+            {
+                loadGlobals( JSON.parse( globalsToJSON() ) );
+            }
+            } );
+        } );
     
     
     /// Switching modes between control point constraints and handles

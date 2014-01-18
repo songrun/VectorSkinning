@@ -6,7 +6,6 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-
 kArcLengthDefault = False
 
 class Engine:
@@ -33,7 +32,7 @@ class Engine:
 		self.transforms = []
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
-		self.is_bbw_enabled = True
+		self.weight_function = 'bbw'
 		self.is_arc_enabled = kArcLengthDefault
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
@@ -58,23 +57,27 @@ class Engine:
 		
 		self.transforms[i] = transform
 	
-	def set_handle_positions( self, handles ):
+	def set_handle_positions( self, new_handle_positions, new_transforms = None ):
 		'''
-		set new handles with identity transforms and keep old handles and transforms unchanged.
+		Replaces the set of known handles with the positions and transforms
+		in new_handle_positions, new_transforms.
+		If 'new_transforms' is not specified or is None,
+		all handles will be set to the identity transformation.
 		'''
-		handles = asarray( handles )
-		handle_positions = self.handle_positions
-		handle_positions = asarray( handle_positions )
-		num_adding = len( handles ) - len( handle_positions )
 		
-		assert num_adding >= 0
-		if len( handle_positions ) != 0:
-			assert array_equal( handle_positions, handles[ :len( handle_positions ) ] )
+		assert new_transforms is None or len( new_transforms ) == len( new_handle_positions )
 		
-		self.handle_positions = handles.tolist()
+		## Set the new handle positions.
+		self.handle_positions = asarray( new_handle_positions ).tolist()
+		## Initialize all the transforms to the identity matrix.
+		## NOTE: We don't directly use 'new_transforms' here, because they're
+		##       in a different format.
+		self.transforms = [ identity(3) for i in range(len( new_handle_positions )) ]
 		
-		for i in range( num_adding ):
-			self.transforms.append( identity(3) )
+		## Set the corresponding transformations.
+		if new_transforms is not None:
+			for i, transform in enumerate( new_transforms ):
+				self.transform_change( i, transform )
 	
 	def precompute_configuration( self ):
 		'''
@@ -83,15 +86,17 @@ class Engine:
 		handles = self.handle_positions
 		all_controls = self.all_controls
 		
-		is_bbw_enabled = self.is_bbw_enabled
+		if len( handles ) == 0: return
+		
+		weight_function = self.weight_function
 		is_arc_enabled = self.is_arc_enabled
-		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, is_bbw_enabled, is_arc_enabled )
+		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, weight_function, is_arc_enabled )
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
 		
-	def solve( self ):
+	def prepare_to_solve( self ):
 		'''
-		send back all groups of controls
+		call this and then call solve_transform_change() to get back all groups of controls
 		'''
 		if len( self.all_controls ) == 0:
 			raise NoControlPointsError()
@@ -137,19 +142,19 @@ class Engine:
 		self.solutions = result	
 		return result
 	
-	def set_enable_bbw( self, is_bbw_enabled ):
+	def set_weight_function( self, weight_function ):
 		'''
-		set enable_bbw flag on/off
+		set weight_function
 		'''
-		if self.is_bbw_enabled != is_bbw_enabled:
-			self.is_bbw_enabled = is_bbw_enabled
+		if self.weight_function != weight_function:
+			self.weight_function = weight_function
 			self.precompute_configuration( ) 
 	
-	def get_enable_bbw( self ):
+	def get_weight_function( self ):
 		'''
-		gets enable_bbw flag
+		gets weight_function
 		'''
-		return self.is_bbw_enabled
+		return self.weight_function
 	
 	def set_enable_arc_length( self, is_arc_enabled ):
 		'''
@@ -358,7 +363,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 # 	return new_controls
 
 
-def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True, kArcLength=False ):
+def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, weight_function = 'bbw', kArcLength=False ):
 	'''
 	precompute everything when the configuration changes, in other words, when the number of control points and handles change.
 	W_matrices is the table contains all integral result corresponding to each sample point on the boundaries.
@@ -394,7 +399,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 			all_dts.append( dts )
 
 	
-	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, 'bbw' if is_bbw_enabled else 'shepherd' )
+	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, weight_function )
 	
 	print 'Precomputing W_i...'
 	W_matrices = []
@@ -578,7 +583,8 @@ def main():
 	
 #	engine.set_transforms()
 	engine.precompute_configuration()
-	all_paths = engine.solve()
+	engine.prepare_to_solve()
+	all_paths = engine.solve_transform_change()
 	# from random import randint
 	# engine.transform_change( 0, [[1,0,randint(-20,20)],[0,1,randint(-20,20)]] )
 	# all_paths = engine.solve_transform_change()

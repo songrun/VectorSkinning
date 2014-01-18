@@ -174,7 +174,7 @@ def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, whic
 	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
 	a sequence of M skeleton handle vertices, and
 	the index into 'all_pts' of the boundary_curve (may be -1 for no boundary),
-	a parameter 'which' specifying the style of weights ('bbw' or 'shepherd'),
+	a parameter 'which' specifying the style of weights ('bbw' or 'shepherd' or 'mvc'),
 	returns
 		a sequence of vertices,
 		a M-dimensional weight for each vertex,
@@ -193,6 +193,9 @@ def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, whic
 			print 'BBW Computation failed:', e
 			print 'Falling back to Shepherd weights.'
 			which = 'shepherd'
+	
+	if 'mvc' == which:
+		return compute_all_weights_mvc( all_pts, skeleton_handle_vertices )
 	
 	if 'shepherd' == which:
 		return compute_all_weights_shepherd( all_pts, skeleton_handle_vertices )
@@ -225,6 +228,25 @@ def compute_all_weights_shepherd( all_pts, skeleton_handle_vertices ):
 	print '...finished.'
 	
 	return all_clean_pts, all_weights, all_maps
+
+def compute_all_weights_mvc( all_pts, cage_loop ):
+	'''
+	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
+	and a sequence of M cage loop vertices 'cage_loop'
+	returns
+		a sequence of vertices,
+		a M-dimensional weight for each vertex,
+		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
+	'''
+	
+	all_pts, all_shapes = flatten_paths( all_pts )
+	all_maps = unflatten_data( range(len( all_pts )), all_shapes )
+	
+	print 'Computing Mean Value Coordinate weights...'
+	all_weights = bbw.mvc( all_pts, cage_loop )
+	print '...finished.'
+	
+	return all_pts, all_weights, all_maps
 
 def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index ):
 	'''

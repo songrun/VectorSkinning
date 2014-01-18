@@ -18,14 +18,14 @@ except ImportError:
 '''
 # OSX
 g++ -fPIC \
-    bbw.cpp \
+    bbw.cpp mvc.cpp \
     -I../libigl/include \
     -I/opt/local/include/eigen3 \
     -dynamiclib -o bbw.dylib \
     -g -O3 -Wall -Wshadow -Wno-sign-compare
 
 g++-mp-4.7 -static-libgcc -static-libstdc++ -fPIC \
-    bbw.cpp \
+    bbw.cpp mvc.cpp \
     -I../libigl/include \
     -I/opt/local/include/eigen3 \
     -dynamiclib -o bbw.dylib \
@@ -36,7 +36,7 @@ g++-mp-4.7 -static-libgcc -static-libstdc++ -fPIC \
 # For some reason this seemed faster in practice, but slower on the bbw.py test.
 # Did I compile in between those tests?
 clang++-mp-3.3 -fPIC \
-    bbw.cpp \
+    bbw.cpp mvc.cpp \
     -I../libigl/include \
     -I/opt/local/include/eigen3 \
     -dynamiclib -o bbw.dylib \
@@ -46,7 +46,7 @@ clang++-mp-3.3 -fPIC \
 
 # Linux
 g++ -fPIC \
-    bbw.cpp \
+    bbw.cpp mvc.cpp \
     -Ipath/to/igl???? \
     -Ipath/to/Eigen???? \
     -shared -o bbw.so \
@@ -54,7 +54,7 @@ g++ -fPIC \
 
 # Cygwin?
 g++ -fPIC \
-    bbw.cpp \
+    bbw.cpp mvc.cpp \
     -Ipath/to/igl???? \
     -Ipath/to/Eigen???? \
     -shared -o bbw.dll \
@@ -95,6 +95,28 @@ int bbw(
     // The data layout is that all 'num_skeleton_vertices' weights for vertex 0
     // appear before all 'num_skeleton_vertices' weights for vertex 1, and so on.
     // In other words, a num_vertices-by-num_skeleton_vertices matrix packed row-major.
+    real_t* Wout
+    );
+
+// Returns 0 for success, anything else is an error.
+int mvc(
+    /// Input Parameters
+    // 'vertices' is a pointer to num_vertices*2 floating point values,
+    // packed: x0, y0, x1, y1, ...
+    // In other words, a num_vertices-by-2 matrix packed row-major.
+    int num_vertices, real_t* vertices,
+    // 'line_loop' is a pointer to num_line_loop*2 floating point values,
+    // packed: x0, y0, x1, y1, ...
+    // In other words, a num_line_loop-by-2 matrix packed row-major.
+    int num_line_loop, real_t* line_loop,
+    
+    /// Output Parameters
+    // 'Wout' is a pointer to num_vertices*num_line_loop values.
+    // Upon return, W will be filled with each vertex in 'num_vertices' weight for
+    // each vertex in 'line_loop'.
+    // The data layout is that all 'num_line_loop' weights for vertex 0
+    // appear before all 'num_line_loop' weights for vertex 1, and so on.
+    // In other words, a num_vertices-by-num_line_loop matrix packed row-major.
     real_t* Wout
     );
 """)
@@ -176,6 +198,36 @@ def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
     
     return Wout
 
+def mvc( vertices, line_loop ):
+    '''
+    Given an N-by-2 numpy array 'vertices' of 2D vertices and
+    an H-by-2 numpy array 'line_loop' of vertices representing a closed polyline,
+    returns a N-by-H numpy.array of weights per vertex per vertex in 'line_loop'.
+    '''
+    
+    import numpy
+    
+    ## Make sure the input values have their data in a way easy to access from C.
+    vertices = numpy.ascontiguousarray( numpy.asarray( vertices, dtype = real_t ) )
+    line_loop = numpy.ascontiguousarray( numpy.asarray( line_loop, dtype = real_t ) )
+    
+    ## Check the dimensions.
+    assert vertices.shape[1] == line_loop.shape[1]
+    assert len( vertices.shape ) == 2
+    assert vertices.shape[1] == 2
+    
+    Wout = numpy.empty( ( len( vertices ), len( line_loop ) ), dtype = numpy.float64 )
+    result = libbbw.mvc(
+        len( vertices ),                 ffi.cast( 'real_t*',  vertices.ctypes.data ),
+        len( line_loop ),                ffi.cast( 'real_t*',  line_loop.ctypes.data ),
+        
+        ffi.cast( 'real_t*', Wout.ctypes.data )
+        )
+    if result != 0:
+        raise BBWError( 'bbw() reported an error' )
+    
+    return Wout
+
 def test_OBJ( path, num_handle_points = None ):
     from numpy import asarray, asfarray, ones
     vs = [ list( map( float, line.strip().split()[1:] ) ) for line in open( path ) if len( line.strip() ) > 0 and line.strip().split()[0] == 'v' ]
@@ -204,12 +256,23 @@ def test_OBJ( path, num_handle_points = None ):
     print 'bbw() took', duration, 'seconds'
     print W
 
-def test_simple():
+def test_simple_bbw():
+    print 'test_simple_bbw()'
+    
     vs = array([(-1, -1), (1, -1), (1, 1), (-1, 1), (0, 0)])
     faces = array([[3, 0, 4], [4, 1, 2], [1, 4, 0], [4, 2, 3]])
     
     handle_points = [ 0 ]
     W = bbw( vs, faces, [ vs[i] for i in handle_points ], list(range(len( handle_points ))) )
+    print W
+
+def test_simple_mvc():
+    print 'test_simple_mvc()'
+    
+    vs = array([(-1, -1), (1, -1), (1, 1), (-1, 1), (0, 0)])
+    
+    cage_loop = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    W = mvc( vs, cage_loop )
     print W
 
 def main():
@@ -219,6 +282,7 @@ def main():
         test_OBJ( sys.argv[1], int( sys.argv[2] ) if len( sys.argv ) > 2 else None )
     
     else:
-        test_simple()
+        #test_simple_bbw()
+        test_simple_mvc()
 
 if __name__ == '__main__': main()

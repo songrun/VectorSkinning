@@ -23,7 +23,7 @@ try:
     engine.set_control_positions( paths_info, boundary_index )
     engine.set_handle_positions( skeleton_handle_vertices )
     engine.precompute_configuration()
-    engine.solve()
+    engine.prepare_to_solve()
 except Exception as e:
     print '++++++++++++++++++++++++++ Setup died: ++++++++++++++++++++++++++'
     print e
