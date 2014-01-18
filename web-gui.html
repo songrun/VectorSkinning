@@ -1396,6 +1396,9 @@ function createHandleAtPosition( x, y )
             
             // Send the transform over the network.
             sendHandleTransformation( handle_index );
+            
+            // Maybe connect the handles as a hack
+            maybeConnectHandlesHack();
 		},
 		// drag start
 		function( x, y, evt ) {
@@ -1422,7 +1425,9 @@ function createHandleAtPosition( x, y )
 	
 	// Finally, update the z-order with appendTo()'s in back-to-front order.
 	var svg = $('#svg-overlay-handles > svg' );
+	svg.find( '.handle-loop-original' ).appendTo( svg );
 	svg.find( '.handle-original' ).appendTo( svg );
+	svg.find( '.handle-loop' ).appendTo( svg );
 	svg.find( '.handle' ).appendTo( svg );
 }
 // Sets the transform for a handle.
@@ -1447,6 +1452,60 @@ function deleteHandle( handle_index )
     
     // Update the back-end.
     sendHandlePositionsAndTransforms();
+}
+
+function maybeConnectHandlesHack()
+{
+    return;
+    
+    maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg .handle-original'),
+        {
+        class: 'handle-loop-original',
+        fill: "#da55da",
+        stroke: "#000",
+        strokeWidth: 2.,
+        strokeDasharray: "20,10,5,5,5,10",
+        opacity: .5
+        });
+    maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg .handle'),
+        {
+        class: 'handle-loop',
+        fill: "#da55da",
+        stroke: "#000",
+        strokeWidth: 2.,
+        strokeDasharray: "20,10,5,5,5,10"
+        });
+}
+function maybeConnectHandlesHack_inner( handles, attrs )
+{
+    handles.remove();
+    
+    var weightFunction = $( "#weight-function" ).val();
+    if( weightFunction === "bbw" || weightFunction === "shepherd" ) return;
+    
+    var closed = weightFunction === "mvc";
+    
+    var ui = Snap( '#svg-overlay-handles > svg' );
+    
+    function xformed_handle_pos( handle )
+    {
+        var xform0 = Snap( handle ).transform().globalMatrix;
+        var xy = [ parseFloat( handle.getAttribute('x') ), parseFloat( handles[i].getAttribute('y') ) ];
+        return [ xform0.x( xy[0], xy[1] ), xform0.y( xy[0], xy[1] ) ];
+    }
+    
+    for( var i = 0; i < handles.length-1; ++i )
+    {
+        var xy0 = xformed_handle_pos( handles[i] );
+        var xy1 = xformed_handle_pos( handles[i+1] );
+        ui.line( xy0[0], xy0[1], xy1[0], xy1[1] ).attr( attrs );
+    }
+    if( closed )
+    {
+        var xy0 = xformed_handle_pos( handles[handles.length-1] );
+        var xy1 = xformed_handle_pos( handles[0] );
+        ui.line( xy0[0], xy0[1], xy1[0], xy1[1] ).attr( attrs );
+    }
 }
 
 function controlPointIsSelected( path_index, segment_index )
