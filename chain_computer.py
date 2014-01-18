@@ -32,7 +32,7 @@ class Engine:
 		self.transforms = []
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
-		self.is_bbw_enabled = True
+		self.weight_function = 'bbw'
 		self.is_arc_enabled = kArcLengthDefault
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
@@ -82,9 +82,11 @@ class Engine:
 		handles = self.handle_positions
 		all_controls = self.all_controls
 		
-		is_bbw_enabled = self.is_bbw_enabled
+		if len( handles ) == 0: return
+		
+		weight_function = self.weight_function
 		is_arc_enabled = self.is_arc_enabled
-		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, is_bbw_enabled, is_arc_enabled )
+		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, weight_function, is_arc_enabled )
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
 		all_dss = layer1[-1]
@@ -138,19 +140,19 @@ class Engine:
 		self.solutions = result	
 		return result
 	
-	def set_enable_bbw( self, is_bbw_enabled ):
+	def set_weight_function( self, weight_function ):
 		'''
-		set enable_bbw flag on/off
+		set weight_function
 		'''
-		if self.is_bbw_enabled != is_bbw_enabled:
-			self.is_bbw_enabled = is_bbw_enabled
+		if self.weight_function != weight_function:
+			self.weight_function = weight_function
 			self.precompute_configuration( ) 
 	
-	def get_enable_bbw( self ):
+	def get_weight_function( self ):
 		'''
-		gets enable_bbw flag
+		gets weight_function
 		'''
-		return self.is_bbw_enabled
+		return self.weight_function
 	
 	def set_enable_arc_length( self, is_arc_enabled ):
 		'''
@@ -353,7 +355,7 @@ def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves
 	return new_controls
 
 
-def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True, kArcLength=False ):
+def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, weight_function = 'bbw', kArcLength=False ):
 	'''
 	precompute everything when the configuration changes, in other words, when the number of control points and handles change.
 	W_matrices is the table contains all integral result corresponding to each sample point on the boundaries.
@@ -376,7 +378,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
 		all_dss.append( dss )
 	
-	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, 'bbw' if is_bbw_enabled else 'shepherd' )
+	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, weight_function )
 	
 	print 'Precomputing W_i...'
 	W_matrices = []

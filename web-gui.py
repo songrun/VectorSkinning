@@ -132,13 +132,13 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			## Send the new positions to the GUI.
 			# self.sendMessage( json.dumps( new_positions ) )
 		
-		elif msg.startswith( 'enable-bbw ' ):
-			enable_bbw = json.loads( msg[ len( 'enable-bbw ' ): ] )
+		elif msg.startswith( 'set-weight-function ' ):
+			weight_function = json.loads( msg[ len( 'set-weight-function ' ): ] )
 			
 			## Do nothing if this would do nothing.
-			if self.engine.get_enable_bbw() == enable_bbw: return
+			if self.engine.get_weight_function() == weight_function: return
 			
-			self.engine.set_enable_bbw( enable_bbw )
+			self.engine.set_weight_function( weight_function )
 			
 			try:
 				all_paths = self.engine.solve()

@@ -161,7 +161,14 @@ Transformation type:
 <div id="toggles" class="col-sm-3 col-sm-offset-1">
 <span class="lead">Toggles</span>
 
-<div class="checkbox"><label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label></div>
+<div>
+Weight type:
+        <select id="weight-function" disabled>
+        <option value="bbw" selected>BBW</option>
+        <option value="shepherd">Shepherd</option>
+        <option value="mvc">MVC</option>
+        </select>
+</div>
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div>
@@ -206,7 +213,7 @@ var gHandles = [];
 // The WebSocket.
 var gSocket = null;
 // enable bbw
-// UPDATE: Access this via: $('#isBBWEnabled').prop('checked')
+// UPDATE: Access this via: $('#weight-function').val()
 // var isBBWEnabled = true;
 
 
@@ -711,7 +718,7 @@ function sendControlPointConstraintsChanged( path_index, segment_index )
 function sendWeightTypeChanged()
 {
     "use strict";
-    gSocket.send( "enable-bbw " + JSON.stringify( $('#isBBWEnabled').prop('checked') ) );
+    gSocket.send( "set-weight-function " + JSON.stringify( $('#weight-function').val() ) );
 }
 function sendIfUsingArcLengthParameterization()
 {
@@ -878,7 +885,7 @@ function globalsToJSON()
     var globals = {};
     globals.gInputSVGText = gInputSVGText;
     globals.filename = $('#filename').text();
-    globals.isBBWEnabled = $( "#isBBWEnabled" ).prop( "checked" );
+    globals.weightFunction = $( "#weight-function" ).val();
     globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
@@ -896,7 +903,7 @@ function loadGlobals( globals )
     if( globals.usingArcLengthParameterization === undefined ) globals.usingArcLengthParameterization = false;
     
     /// Copy to globals.
-    $( "#isBBWEnabled" ).prop( "checked", globals.isBBWEnabled );
+    $( "#weight-function" ).val( globals.weightFunction );
     $( "#usingArcLengthParameterization" ).prop( "checked", globals.usingArcLengthParameterization );
     
     // 0 Send BBW weight and arc length status already.
@@ -941,7 +948,7 @@ function loadSVG( svg_text, filename )
     gPathsControlPointConstraints = null;
     gLargestPath = null;
     gHandles = [];
-    $( "#isBBWEnabled" ).prop( "checked", true );
+    $( "#weight-function" ).val( "bbw" );
     $( "#usingArcLengthParameterization" ).prop( "checked", false );
     
     // Attach the SVG to its node.
@@ -1056,6 +1063,7 @@ function createUIForSVG()
     console.log( "createUIForSVG()" );
     
     $("#save-button").prop( "disabled", false );
+    $("#weight-function").prop( "disabled", false );
     createConstraintUIForSVG();
     createHandleUIForSVG();
     createDeformedBezierUIForSVG();
@@ -1466,7 +1474,7 @@ function setupGlobalUI()
     
     
     /// Setup change callbacks for the toggles.
-    $("#isBBWEnabled").change( function() {
+    $("#weight-function").change( function() {
         sendWeightTypeChanged();
     } );
     $("#usingArcLengthParameterization").change( function() {
