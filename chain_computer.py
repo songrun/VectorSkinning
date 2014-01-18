@@ -6,7 +6,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLengthDefault = True
+kArcLengthDefault = False
 
 class Engine:
 	'''
@@ -57,23 +57,27 @@ class Engine:
 		
 		self.transforms[i] = transform
 	
-	def set_handle_positions( self, handles ):
+	def set_handle_positions( self, new_handle_positions, new_transforms = None ):
 		'''
-		set new handles with identity transforms and keep old handles and transforms unchanged.
+		Replaces the set of known handles with the positions and transforms
+		in new_handle_positions, new_transforms.
+		If 'new_transforms' is not specified or is None,
+		all handles will be set to the identity transformation.
 		'''
-		handles = asarray( handles )
-		handle_positions = self.handle_positions
-		handle_positions = asarray( handle_positions )
-		num_adding = len( handles ) - len( handle_positions )
 		
-		assert num_adding >= 0
-		if len( handle_positions ) != 0:
-			assert array_equal( handle_positions, handles[ :len( handle_positions ) ] )
+		assert new_transforms is None or len( new_transforms ) == len( new_handle_positions )
 		
-		self.handle_positions = handles.tolist()
+		## Set the new handle positions.
+		self.handle_positions = asarray( new_handle_positions ).tolist()
+		## Initialize all the transforms to the identity matrix.
+		## NOTE: We don't directly use 'new_transforms' here, because they're
+		##       in a different format.
+		self.transforms = [ identity(3) for i in range(len( new_handle_positions )) ]
 		
-		for i in range( num_adding ):
-			self.transforms.append( identity(3) )
+		## Set the corresponding transformations.
+		if new_transforms is not None:
+			for i, transform in enumerate( new_transforms ):
+				self.transform_change( i, transform )
 	
 	def precompute_configuration( self ):
 		'''
@@ -92,9 +96,9 @@ class Engine:
 		all_dss = layer1[-1]
 		self.all_lengths = [ [ sum( segment_dss ) for segment_dss in path_dss ] for path_dss in all_dss ]
 		
-	def solve( self ):
+	def prepare_to_solve( self ):
 		'''
-		send back all groups of controls
+		call this and then call solve_transform_change() to get back all groups of controls
 		'''
 		if len( self.all_controls ) == 0:
 			raise NoControlPointsError()
@@ -270,7 +274,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
-		debugger()
+		#debugger()
 		last_solutions = solutions = odd.solve()
 		
 		### 2
@@ -283,19 +287,19 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				#print 'iteration', iter
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
-				debugger()
+				#debugger()
 				solutions = even.solve()
 			
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 			
-# 				## Check if error is low enough and terminate
-# 				odd.update_system_with_result_of_previous_iteration( solutions )
-# 				last_solutions = solutions
-# 				solutions = odd.solve()
-# 			
-# 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-# 					break
+				## Check if error is low enough and terminate
+				odd.update_system_with_result_of_previous_iteration( solutions )
+				last_solutions = solutions
+				solutions = odd.solve()
+			
+				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
+					break
 		
 		return solutions
 	
@@ -554,7 +558,8 @@ def main():
 	
 #	engine.set_transforms()
 	engine.precompute_configuration()
-	all_paths = engine.solve()
+	engine.prepare_to_solve()
+	all_paths = engine.solve_transform_change()
 	# from random import randint
 	# engine.transform_change( 0, [[1,0,randint(-20,20)],[0,1,randint(-20,20)]] )
 	# all_paths = engine.solve_transform_change()

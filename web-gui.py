@@ -69,13 +69,19 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 					self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
 
 		
-		elif msg.startswith( 'handle-positions ' ):
-			paths_info = json.loads( msg[ len( 'handle-positions ' ): ] )
-
-			self.engine.set_handle_positions( paths_info )
-			self.engine.precompute_configuration()
+		elif msg.startswith( 'handle-positions-and-transforms ' ):
+			handles = json.loads( msg[ len( 'handle-positions-and-transforms ' ): ] )
 			
-			all_paths = self.engine.solve() 
+			positions = [ pos for pos, transform in handles ]
+			transforms = [ transform for pos, transform in handles ]
+			self.engine.set_handle_positions( positions, transforms )
+			## Stop here it if it's empty.
+			if len( handles ) == 0: return
+			
+			self.engine.precompute_configuration()
+			self.engine.prepare_to_solve()
+			
+			all_paths = self.engine.solve_transform_change()
 
 			all_positions = make_chain_from_control_groups( all_paths )
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
@@ -117,7 +123,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
 			
 			try:
-				all_paths = self.engine.solve() 
+				self.engine.prepare_to_solve()
+				all_paths = self.engine.solve_transform_change()
 	
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
@@ -141,7 +148,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.set_weight_function( weight_function )
 			
 			try:
-				all_paths = self.engine.solve()
+				self.engine.prepare_to_solve()
+				all_paths = self.engine.solve_transform_change()
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 				self.retrieve_energy()
@@ -159,7 +167,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.set_enable_arc_length( enable_arc_length )
 			
 			try:
-				all_paths = self.engine.solve()
+				self.engine.prepare_to_solve()
+				all_paths = self.engine.solve_transform_change()
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 				self.retrieve_energy()
