@@ -6,7 +6,8 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLength = False
+
+kArcLengthDefault = False
 
 class Engine:
 	'''
@@ -33,7 +34,7 @@ class Engine:
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
 		self.is_bbw_enabled = True
-		self.is_arc_enabled = kArcLength
+		self.is_arc_enabled = kArcLengthDefault
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
@@ -201,7 +202,7 @@ class Engine:
 			
 		return spline_skin_curves		
 		
-	def compute_energy( self ):
+	def compute_energy_and_maximum_distance( self ):
 		'''
 		compute the error between the skinning spline and the bbw_affected position.
 		'''
@@ -218,6 +219,7 @@ class Engine:
 			
 		energy = []
 		bbw_curves = []
+		distances = []
 		for i in range( self.num_of_paths ):
 
 			path_indices = precomputed_parameters.all_indices[i]		
@@ -233,9 +235,10 @@ class Engine:
 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
 			
 			bbw_curves.append( asarray( bbw_curve ).reshape( len( bbw_curve ), -1, 2 ) )
+			
+			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
 		
-		print "energy: ", energy
-		return energy, bbw_curves
+		return energy, bbw_curves, distances
 			
 				
 ## The dimensions of a point represented in the homogeneous coordinates
@@ -268,7 +271,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
-		print 'the first result: ', solutions
+# 		print 'the first result: ', solutions
 		
 		all_solutions.append( solutions )
 		pickle.dump( all_solutions, open( debug_out, "wb" ) )
@@ -316,43 +319,43 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 
 
 
-def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
-	'''
-	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
-	'''
-	assert len( bbw_curves ) == len( spline_skin_curves )
-	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
-	print 'differences: ', diffs
-	
-	new_controls = []
-	partition = [0.5, 0.5]
-	threshold = 100 
-	
-	all_pos = asarray([x.position for x in controls])
-	
-	for k, diff in enumerate( diffs ):
-		control_pos = all_pos[ k*3 : k*3+4 ]
-		if len(control_pos) == 3:	
-			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
-		
-		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
-			splitted = split_cublic_beizer_curve( control_pos, partition )
-			splitted = asarray( splitted ).astype(int)
-			
-			new_controls.append( controls[ k*3 ] )
-			for j, each in enumerate(splitted):
-				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
-				if j != len(splitted)-1:
-					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
-			
-		else:
-			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
-			
-	'''
-	if is not closed, add the last control at the end.
-	'''
-	
-	return new_controls
+# def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
+# 	'''
+# 	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
+# 	'''
+# 	assert len( bbw_curves ) == len( spline_skin_curves )
+# 	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
+# 	print 'differences: ', diffs
+# 	
+# 	new_controls = []
+# 	partition = [0.5, 0.5]
+# 	threshold = 100 
+# 	
+# 	all_pos = asarray([x.position for x in controls])
+# 	
+# 	for k, diff in enumerate( diffs ):
+# 		control_pos = all_pos[ k*3 : k*3+4 ]
+# 		if len(control_pos) == 3:	
+# 			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
+# 		
+# 		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
+# 			splitted = split_cublic_beizer_curve( control_pos, partition )
+# 			splitted = asarray( splitted ).astype(int)
+# 			
+# 			new_controls.append( controls[ k*3 ] )
+# 			for j, each in enumerate(splitted):
+# 				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
+# 				if j != len(splitted)-1:
+# 					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
+# 			
+# 		else:
+# 			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
+# 			
+# 	'''
+# 	if is not closed, add the last control at the end.
+# 	'''
+# 	
+# 	return new_controls
 
 
 def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, is_bbw_enabled=True, kArcLength=False ):
@@ -551,13 +554,13 @@ def main():
 		else:
 			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
 	else:
-		paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
 		# paths_info, skeleton_handle_vertices, constraint = get_test1()
 		# paths_info, skeleton_handle_vertices, constraint = get_test2()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
-		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
+		paths_info, skeleton_handle_vertices, constraint = get_test_box()
 	
 	engine = Engine()
 	
@@ -588,7 +591,7 @@ def main():
 			chain = path[0]
 		print chain
 		
- 	engine.compute_energy()	
+ 	engine.compute_energy_and_maximum_distance()	
 						   
 	
 	print 'HAHA ~ '

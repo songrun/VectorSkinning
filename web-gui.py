@@ -4,7 +4,12 @@
 from twisted.internet import reactor
 
 ## For WebSockets
-from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, listenWS
+try:
+	## New style autobahn
+	from autobahn.twisted.websocket import WebSocketServerFactory, WebSocketServerProtocol, listenWS
+except ImportError:
+	## Old style autobahn
+	from autobahn.websocket import WebSocketServerFactory, WebSocketServerProtocol, listenWS
 
 ## All payloads are JSON-formatted.
 import json
@@ -173,7 +178,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 	def retrieve_energy( self )	:
 	
-		energy, polylines = self.engine.compute_energy()
+		energy, polylines, distances = self.engine.compute_energy_and_maximum_distance()
 		
 		energy_and_polyline = [
 			[
@@ -182,7 +187,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			]
 			for path_energy, path_points in zip( energy, polylines )
 			]
-		
+		print energy_and_polyline, distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 

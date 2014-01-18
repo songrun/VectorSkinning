@@ -162,9 +162,10 @@ Transformation type:
 <span class="lead">Toggles</span>
 
 <div class="checkbox"><label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label></div>
-<div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox"/></label></div>
+<div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div>
+    <div class="checkbox"><label>Show largest distance <input id="showLargestDistance" type="checkbox" disabled /></label></div>
 </div>
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
@@ -1193,11 +1194,12 @@ function createConstraintUIForSVG()
     
     // Let's set the z-order of our elements now.
     // Bottom-to-top:
-    $('.undeformed-curve').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-tangents').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-inner').appendTo( '#svg-overlay-constraints > svg' );
-    $('.control-point-handle').appendTo( '#svg-overlay-constraints > svg' );
-    // $( '#svg-overlay-constraints circle' ).appendTo( '#svg-overlay-constraints > svg' );
+    var overlay_node = $('#svg-overlay-constraints > svg');
+    overlay_node.find('.undeformed-curve').appendTo( overlay_node )
+    overlay_node.find('.control-point-tangents').appendTo( overlay_node );
+    overlay_node.find('.control-point-inner').appendTo( overlay_node );
+    overlay_node.find('.control-point-handle').appendTo( overlay_node );
+    // overlay_node.find( 'circle' ).appendTo( overlay_node );
 }
 function createDeformedBezierUIForSVG()
 {
@@ -1477,6 +1479,7 @@ function setupGlobalUI()
     $("#showTargetCurves").change( function() {
         var checked = $(this).prop('checked');
         $('#liveTargetCurves').prop( 'disabled', !checked );
+        $('#showLargestDistance').prop( 'disabled', !checked );
         $('#svg-overlay-target').toggle( checked );
     } ).change();
     $("#showDeformedControlPoints").change( function() {

@@ -166,8 +166,6 @@ def unflatten_data( flattened, all_shapes ):
 		all_maps.append( maps )
 	
 	return all_maps
-	
-	all_clean_pts = asarray( all_clean_pts )[:, :2]
 
 def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, which = None ):
 	'''
@@ -572,3 +570,45 @@ def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
 		energy.append( dot( dists, segment_dts )*length )
 	
 	return energy
+	
+def compute_maximum_distances( bbw_curve, skin_spline_curve ):
+	'''
+	Find the approximate largest distance between a spline curve and its target curve.
+	'''	
+	assert len( bbw_curve ) == len( skin_spline_curve )
+	bbw_curve = asarray ( bbw_curve )
+	skin_spline_curve = asarray( skin_spline_curve )
+	
+	offset = 50
+	distances = []
+	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
+		
+		num = len( spline_samplings ) / 2
+		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
+		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
+
+		bbw_comparator = concatenate( ( ones( (offset, 2) ) * bbw_samplings[0], bbw_samplings, ones( (offset, 2) ) * bbw_samplings[-1] ), axis=0 ) 
+		
+		all_mins = []
+		for j in arange( offset*2 ):
+			diffs = map( mag, spline_samplings - bbw_comparator[ j: num + j ] )
+			## only find the first largest distance.	
+			spline_index = argmin( diffs )
+			bbw_index = spline_index - offset + j
+			
+			## take the first or last element if bbw_index is out of bound
+			if bbw_index < 0:	bbw_index = 0
+			if bbw_index > num - 1: bbw_index = num - 1
+			
+			all_mins.append( { 'spline index': spline_index, 'target index': bbw_index,  'maximum distance': diffs[ spline_index ] } )
+		
+		dist_array = [ dist_info[ 'maximum distance' ] for dist_info in all_mins ]
+		distances.append( all_mins[ argsort( dist_array )[-1] ] )
+	
+		
+	return distances		
+
+	
+	
+		
+	
