@@ -257,9 +257,10 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	### 3 refine the solutions based on the error of each curve. If it is larger than a threshold, split the curve into two.
 	'''
 	
-	import cPickle as pickle
-	debug_out = 'solutions-arc' + str(kArcLength) + '.pickle'
-	all_solutions = []
+	if kPickleDebug:
+		import cPickle as pickle
+		debug_out = 'solutions-arc' + str(kArcLength) + '.pickle'
+		all_solutions = []
 	
 	solutions = None
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
@@ -278,8 +279,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		last_solutions = solutions = odd.solve()
 # 		print 'the first result: ', solutions
 		
-		all_solutions.append( solutions )
-		pickle.dump( all_solutions, open( debug_out, "wb" ) )
+		if kPickleDebug:
+			all_solutions.append( solutions )
+			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
@@ -292,8 +294,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				last_solutions = solutions
 				solutions = even.solve()
 				
-				all_solutions.append( solutions )
-				pickle.dump( all_solutions, open( debug_out, "wb" ) )
+				if kPickleDebug:
+					all_solutions.append( solutions )
+					pickle.dump( all_solutions, open( debug_out, "wb" ) )
 				
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break

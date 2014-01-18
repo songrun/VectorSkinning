@@ -196,7 +196,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			]
 			for path_energy, path_points in zip( energy, polylines )
 			]
-		print energy_and_polyline, distances
+		if kVerbose >= 2:
+			print energy_and_polyline, distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 
