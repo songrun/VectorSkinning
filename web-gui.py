@@ -155,6 +155,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			try:
 				all_paths = self.engine.solve()
+				print 'returned results: ', all_paths
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 				self.retrieve_energy()

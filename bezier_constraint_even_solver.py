@@ -13,12 +13,18 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		num = len(self.bundles)
 		assert solution.shape == (num, 4, 2)
 		
-		#directions = [[dir_allow_zero( solution[i][1]-solution[i][0] ), dir_allow_zero( solution[i][2]-solution[i][3] )] for i in range(num) ]
+# 		directions = [[dir_allow_zero( solution[i][1]-solution[i][0] ), dir_allow_zero( solution[i][2]-solution[i][3] )] for i in range(num) ]
+# 		for i in range( num ):
+# 			self.bundles[i].directions = directions[i]
 	
 		for i in range(num):
 			#self.bundles[i].directions = directions[i]
 			dir1 = dir_allow_zero( solution[i][1]-solution[i][0] )
 			dir2 = dir_allow_zero( solution[i][2]-solution[i][3] )
+			
+# 			if dot( dir1, self.bundles[i].directions[0] ) < 0 or dot( dir2, self.bundles[i].directions[1] ) < 0:
+# 				print 'great direction changed'
+# 			print dir1, dir2, self.bundles[i].directions	
 			
 			if mag2( dir1 ) > 0: self.bundles[i].directions[0] = dir1
 			if mag2( dir2 ) > 0: self.bundles[i].directions[1] = dir2
@@ -242,8 +248,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		'''
 		print 'build even system with arc length'
 		ts = bundle.ts
- 		dss = bundle.dss
-# 		dss = ones( len( ts )-1 ) * (1./(len(ts)-1) )
+  		dss = bundle.dss
+#		dss = ones( len( ts )-1 ) * (1./(len(ts)-1) )*bundle.length
 		dim = 2
 		
 		dofs = self.compute_dofs_per_curve(bundle)
@@ -331,7 +337,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Left[-1,-3] = Left[-3,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,0]
 			Left[-1,-2] = Left[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,1]
 			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
-
+			print 'arc length 3*3', Left
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')

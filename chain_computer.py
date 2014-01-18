@@ -6,7 +6,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLength = True
+kArcLength = False
 
 class Engine:
 	'''
@@ -254,6 +254,11 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	### 2 If the constraints contain any fixed angle and G1, iterate between the even and odd system until two consecutive solutions are close enough.
 	### 3 refine the solutions based on the error of each curve. If it is larger than a threshold, split the curve into two.
 	'''
+	
+	import cPickle as pickle
+	debug_out = 'solutions-arc' + str(kArcLength) + '.pickle'
+	all_solutions = []
+	
 	solutions = None
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
@@ -268,22 +273,27 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
-		debugger()
 		last_solutions = solutions = odd.solve()
+		
+		all_solutions.append( solutions )
+		pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
-	
+			
 			for iter in xrange( 1 ):
 				#print 'iteration', iter
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
-				debugger()
+#  				debugger()
 				solutions = even.solve()
-			
+				
+				all_solutions.append( solutions )
+				pickle.dump( all_solutions, open( debug_out, "wb" ) )
+				
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 			
@@ -529,9 +539,10 @@ def main():
 		else:
 			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
 	else:
+		paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
 		# paths_info, skeleton_handle_vertices, constraint = get_test1()
 		# paths_info, skeleton_handle_vertices, constraint = get_test2()
-		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_box()

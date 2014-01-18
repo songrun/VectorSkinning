@@ -363,6 +363,7 @@ def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, d
 	'''
 	
 	if dts is None: dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) )
+#	dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) ) * sum( dts )
 	
 	### Asserts
 	## Ensure our inputs are numpy.arrays:

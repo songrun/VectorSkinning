@@ -114,7 +114,6 @@ class BezierConstraintSolver( object ):
 		system = self.system
 		angles = self.angles
 		kArcLength = self.kArcLength
-		# system = self.system
 		rhs = self.rhs
 		transforms = self.transforms
 		is_closed = self.is_closed
