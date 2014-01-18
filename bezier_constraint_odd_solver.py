@@ -171,7 +171,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		
 	def system_for_curve( self, bundle ):
-		print 'build odd normal system.'
 		'''
 		## A is computed using Sage, integral of (tbar.T * tbar) with respect to t.
 		#	A = asarray( [[	 1./7,	1./6,  1./5, 1./4], [ 1./6,	 1./5, 1./4,  1./3], 
@@ -193,7 +192,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		'''
 		## Solve the same integral as system__for_curve only with dt replaced by ds
 		'''
-		print 'build odd system with arc length'
 		length = bundle.length
 		ts = bundle.ts
 		dts = bundle.dts
@@ -202,9 +200,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
 		
-		#dtts = zeros(len(ts))
-		#dtts[1:] += dts*.5
-		#dtts[:-1] += dts*.5
 		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
 			ds = dts[i]

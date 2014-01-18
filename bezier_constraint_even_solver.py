@@ -12,19 +12,11 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		solution = asarray(solution)
 		num = len(self.bundles)
 		assert solution.shape == (num, 4, 2)
-		
-# 		directions = [[dir_allow_zero( solution[i][1]-solution[i][0] ), dir_allow_zero( solution[i][2]-solution[i][3] )] for i in range(num) ]
-# 		for i in range( num ):
-# 			self.bundles[i].directions = directions[i]
 	
 		for i in range(num):
 			#self.bundles[i].directions = directions[i]
 			dir1 = dir_allow_zero( solution[i][1]-solution[i][0] )
 			dir2 = dir_allow_zero( solution[i][2]-solution[i][3] )
-			
-# 			if dot( dir1, self.bundles[i].directions[0] ) < 0 or dot( dir2, self.bundles[i].directions[1] ) < 0:
-# 				print 'great direction changed'
-# 			print dir1, dir2, self.bundles[i].directions	
 			
 			if mag2( dir1 ) > 0: self.bundles[i].directions[0] = dir1
 			if mag2( dir2 ) > 0: self.bundles[i].directions[1] = dir2
@@ -191,11 +183,9 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 		
 	def system_for_curve( self, bundle ):
-		print 'build even normal system.'
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
-		#debugger()
 
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
@@ -207,7 +197,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 					[0., 1./35, 0., 9./140, 0., 3./35, 0., 1./14],
 					[1./140, 0., 1./35, 0., 1./14, 0., 1./7, 0.],
 					[0., 1./140, 0., 1./35, 0., 1./14, 0., 1./7]]
-# 			print 'normal 4*4', asarray( Left )
 		## p1x, p1y, s, p3x, p3y, p4x, p4y
 		elif array_equal(dofs, (3,4)):
 			Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
@@ -216,8 +205,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 					[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
 					[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
 					[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
-					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]
-# 			print 'normal 3*4', asarray( Left )			
+					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]	
 		## p1x, p1y, p2x, p2y, p4x, p4y, u
 		elif array_equal(dofs, (4,3)):
 			Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
@@ -226,8 +214,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 					[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
 					[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
 					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
-					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]
-# 			print 'normal 4*3', asarray( Left )		
+					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]	
 		## p1x, p1y, s, p4x, p4y, u
 		elif array_equal(dofs, (3,3)):
 			Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
@@ -235,8 +222,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
 					[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
 					[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
-					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]
-# 			print 'normal 3*3', asarray( Left )		
+					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]	
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
@@ -247,10 +233,8 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		'''
 		## Solve the same integral as system__for_curve only with dt replaced by ds
 		'''
-		print 'build even system with arc length'
 		ts = bundle.ts
   		dts = bundle.dts
-#		dss = ones( len( ts )-1 ) * (1./(len(ts)-1) )*bundle.length
 		dim = 2
 		
 		dofs = self.compute_dofs_per_curve(bundle)
@@ -260,12 +244,9 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
-		#dtts = zeros(len(ts))
-		#dtts[1:] += dts*.5
-		#dtts[:-1] += dts*.5
 		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
-			ds = dts[i]
+ 			ds = dts[i]
 		
 			tbar[0] = t**3
 			tbar[1] = t**2
@@ -274,8 +255,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Mtbar = dot( M.T, tbar )
 			MAM += dot( Mtbar, Mtbar.T )*ds
 		
-# 		print 'hello'
-		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
 			Left = zeros( ( 8, 8 ) )	
 			Left[ : : 2, : : 2 ] = MAM
@@ -299,7 +278,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Left[2,0] = Left[0,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,0]
 			Left[2,1] = Left[1,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,1]
 			Left[2,2] = MAM[1,1]*mag2(dirs[0])
-			print 'arc length 3*4', Left
 						
 		## p1x, p1y, p2x, p2y, p4x, p4y, u
 		elif array_equal(dofs, (4,3)):
@@ -318,7 +296,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Left[-1,-3] = Left[-3,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,0]
 			Left[-1,-2] = Left[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,1]
 			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
-			print 'arc length 4*3', Left
 					
 		## p1x, p1y, s, p4x, p4y, u
 		elif array_equal(dofs, (3,3)):
@@ -342,7 +319,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			Left[-1,-3] = Left[-3,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,0]
 			Left[-1,-2] = Left[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,1]
 			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
-			print 'arc length 3*3', Left
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')

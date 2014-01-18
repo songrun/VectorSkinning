@@ -6,7 +6,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLength = True
+kArcLength = False
 
 class Engine:
 	'''
@@ -258,7 +258,6 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
 	odd = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
-	#print 'odd system size:', odd.system_size
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
@@ -280,11 +279,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 			even.update_rhs_for_handles( transforms )
 			
-			for iter in xrange( 1 ):
-				#print 'iteration', iter
+			for iter in xrange( 10 ):
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
-#  				debugger()
 				solutions = even.solve()
 				
 				all_solutions.append( solutions )
@@ -293,13 +290,13 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 			
-# 				## Check if error is low enough and terminate
-# 				odd.update_system_with_result_of_previous_iteration( solutions )
-# 				last_solutions = solutions
-# 				solutions = odd.solve()
-# 			
-# 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-# 					break
+				## Check if error is low enough and terminate
+				odd.update_system_with_result_of_previous_iteration( solutions )
+				last_solutions = solutions
+				solutions = odd.solve()
+			
+				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
+					break
 		
 		return solutions
 	
@@ -341,7 +338,6 @@ def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves
 		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
 			splitted = split_cublic_beizer_curve( control_pos, partition )
 			splitted = asarray( splitted ).astype(int)
-#			debugger()
 			
 			new_controls.append( controls[ k*3 ] )
 			for j, each in enumerate(splitted):
@@ -387,7 +383,6 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		lengths = [ sum( dss[i] ) for i in range( len( dss ) ) ]
 		all_lengths.append( lengths )
 		## Then normalize dss
-		# dss /= dss.sum( axis = 1 )[...,newaxis]
 		dss = [ ds / length for ds, length in zip( dss, lengths ) ]
 		
 		if kArcLength:
