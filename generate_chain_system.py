@@ -4,13 +4,13 @@ from weights_computer import *
 import systems_and_solvers
 
 class Bundle( object ):
-	def __init__( self, W_matrices, control_points, constraints, length, ts, dss,  mags = None, dirs = None ):
+	def __init__( self, W_matrices, control_points, constraints, length, ts, dts,  mags = None, dirs = None ):
 		self.W_matrices = W_matrices
 		self.control_points = control_points
 		self.constraints = constraints
 		self.length = length
 		self.ts = ts
-		self.dss = dss
+		self.dts = dts
 		controls = asarray(self.control_points)
 		if mags is None:
 			self.magnitudes = [mag(controls[1] - controls[0]), mag(controls[2] - controls[3])]
@@ -50,13 +50,13 @@ def compute_angle( bundle0, bundle1 ):
 		return [ cos_theta, sin_theta ]
 
 class BezierConstraintSolver( object ):
-	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength ):
+	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, ts, dts, is_closed, kArcLength ):
 		## compute the weight of each segment according to its length
 		# num = len(control_points)
 		control_points = asarray(control_points)
-		self.build_system( W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
+		self.build_system( W_matrices, control_points, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 
-	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, ts, dss, is_closed, kArcLength ):
+	def build_system( self, W_matrices, control_points, constraints, transforms, lengths, ts, dts, is_closed, kArcLength ):
 		
 		### 1 Bundle all data for each bezier curve together
 		### 2 Allocate space for the system matrix
@@ -66,7 +66,7 @@ class BezierConstraintSolver( object ):
 		### 6 Insert them into the system matrix and right-hand-side
 
 		### 1
-		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], ts[i], dss[i] ) for i in xrange(len( control_points )) ]
+		self.bundles = [ Bundle( W_matrices[i], control_points[i], [constraints[i], constraints[(i+1)%len(control_points)]], lengths[i], ts[i], dts[i] ) for i in xrange(len( control_points )) ]
 		
 		if is_closed:
 			self.angles = [ compute_angle( self.bundles[i], self.bundles[(i+1)%len( self.bundles ) ] ) for i in xrange( len( self.bundles ) ) ]

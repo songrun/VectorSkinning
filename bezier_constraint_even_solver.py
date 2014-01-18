@@ -248,7 +248,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		'''
 		print 'build even system with arc length'
 		ts = bundle.ts
-  		dss = bundle.dss
+  		dts = bundle.dts
 #		dss = ones( len( ts )-1 ) * (1./(len(ts)-1) )*bundle.length
 		dim = 2
 		
@@ -258,9 +258,9 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
-		for i in range(len(dss)):
+		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
-			ds = dss[i]
+			ds = dts[i]
 		
 			tbar[0] = t**3
 			tbar[1] = t**2
@@ -342,7 +342,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 		
-		return Left
+		return Left*length
 		
 		
 	def compute_dofs_per_curve( self, bundle ):
@@ -423,7 +423,4 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 		
-		if self.kArcLength:
-			return Right
-		else:		
-			return Right*length
+		return Right*length

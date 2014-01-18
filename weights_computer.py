@@ -346,7 +346,7 @@ def shepherd( vs, skeleton_handle_vertices ):
 	return weights
 
 
-def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, dts = None ):
+def precompute_W_i( vs, weights, i, sampling_index2vs_index, sampling, ts, dts ):
 	'''
 	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
 	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
@@ -362,7 +362,7 @@ def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, d
 	If 'dts' is not given, it defaults to 1/len(sampling).
 	'''
 	
-	if dts is None: dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) )
+	#if dts is None: dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) )
 #	dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) ) * sum( dts )
 	
 	### Asserts
@@ -569,23 +569,3 @@ def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
 		energy.append( dot( dists, segment_dts )*length )
 	
 	return energy
-	
-	
-def compute_arc_length_error_metric( bbw_curve, skin_spline_curve, path_dss ):
-	'''
-	Total energy is the sum of each pair of points' square distance, compute with arc lengths
-	'''
-	path_dss = asarray( path_dss )
-	
-	assert len( bbw_curve ) == len( skin_spline_curve ) == len( path_dss )
-	
-	energy = []
-	for bbw_samplings, spline_samplings, segment_dss in zip( bbw_curve, skin_spline_curve, path_dss ):
-		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
-		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
-		dists = ( ( spline_samplings - bbw_samplings )**2 ).sum( axis = 1 )
-		dists = (dists[:-1] + dists[1:])/2
-	
-		energy.append( dot( dists, segment_dss ) )
-	
-	return energy	

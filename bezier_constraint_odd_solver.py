@@ -194,16 +194,17 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		## Solve the same integral as system__for_curve only with dt replaced by ds
 		'''
 		print 'build odd system with arc length'
+		length = bundle.length
 		ts = bundle.ts
-		dss = bundle.dss
+		dts = bundle.dts
 		dim = 2
 		Left = zeros( ( 8, 8 ) )
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
 		
-		for i in range(len(dss)):
+		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
-			ds = dss[i]
+			ds = dts[i]
 			
 			tbar[0] = t*t*t
 			tbar[1] = t*t
@@ -216,7 +217,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		for i in range( dim ):		
 			Left[ i*4:( i+1 )*4, i*4:( i+1 )*4 ] = MAM[:,:]
 		
-		return Left
+		return Left*length
 			
 			
 	def compute_dofs_per_curve( self, bundle ):
@@ -290,9 +291,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		R = temp[:2,:]
 		
 		Right[:] = concatenate((R[0, :], R[1, :]))
-		
-		if self.kArcLength:
-			return Right
-		else:		
-			return Right*length
+			
+		return Right*length
 		

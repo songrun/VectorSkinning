@@ -6,7 +6,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLength = False
+kArcLength = True
 
 class Engine:
 	'''
@@ -27,7 +27,7 @@ class Engine:
 		self.num_of_paths = len( all_controls )
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
-# 		self.all_lengths = all_lengths
+#  		self.all_lengths = all_lengths
 		
 		self.transforms = []
 		self.handle_positions = []	
@@ -87,8 +87,6 @@ class Engine:
 		layer1 = precompute_all_when_configuration_change( self.boundary_index, all_controls, handles, is_bbw_enabled, is_arc_enabled )
 		self.precomputed_parameter_table = []
 		self.precomputed_parameter_table.append( layer1 )
-		all_dss = layer1[-1]
-		self.all_lengths = [ [ sum( segment_dss ) for segment_dss in path_dss ] for path_dss in all_dss ]
 		
 	def solve( self ):
 		'''
@@ -103,22 +101,22 @@ class Engine:
 		
 		all_controls = self.all_controls
 		all_constraints = self.all_constraints
-		all_lengths = self.all_lengths
 	
 		handles = self.handle_positions
 		transforms = self.transforms
 		precomputed_parameters = self.precomputed_parameter_table[0]
-	
+		
 		is_arc_enabled = self.is_arc_enabled
 		
 		result = []
 		self.fast_update_functions = []
-		for i, controls, constraints, lengths in zip( range( len( all_controls ) ), all_controls, all_constraints, all_lengths ):
-			W_matrices = precomputed_parameters[0][i]
-			ts = precomputed_parameters[6][i]
-			dss = precomputed_parameters[7][i]
+		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
+			W_matrices = precomputed_parameters.W_matrices[i]
+			ts = precomputed_parameters.all_ts[i]
+			dts = precomputed_parameters.all_dts[i]
+			lengths = precomputed_parameters.all_lengths[i]
 			
-			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dss, is_arc_enabled )
+			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dts, is_arc_enabled )
 			self.fast_update_functions.append( fast_update )
 			
 			result.append(	fast_update( transforms ) )
@@ -214,29 +212,25 @@ class Engine:
 		transforms = self.transforms
 		precomputed_parameters = self.precomputed_parameter_table[0]
 		solutions = self.solutions
-		all_lengths = self.all_lengths
 		
-		all_weights = precomputed_parameters[1]
-		all_vertices = precomputed_parameters[2]
+		all_weights = precomputed_parameters.all_weights
+		all_vertices = precomputed_parameters.all_vertices
 			
 		energy = []
 		bbw_curves = []
 		for i in range( self.num_of_paths ):
 
-			path_indices = precomputed_parameters[3][i]		
-			path_pts = precomputed_parameters[4][i]
-			path_dts = precomputed_parameters[5][i]
-			path_ts = precomputed_parameters[6][i]
-			path_dss = precomputed_parameters[7][i]
-
+			path_indices = precomputed_parameters.all_indices[i]		
+			path_pts = precomputed_parameters.all_pts[i]
+			path_dts = precomputed_parameters.all_dts[i]
+			path_ts = precomputed_parameters.all_ts[i]
+			path_lengths = precomputed_parameters.all_lengths[i]
+			
 			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
 
 			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )
 			
-			if self.is_arc_enabled:
-				energy.append( compute_arc_length_error_metric( bbw_curve, spline_skin_curve, path_dss ) )
-			else:
-				energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, all_lengths[i] ) )
+			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
 			
 			bbw_curves.append( asarray( bbw_curve ).reshape( len( bbw_curve ), -1, 2 ) )
 		
@@ -247,7 +241,7 @@ class Engine:
 ## The dimensions of a point represented in the homogeneous coordinates
 # dim = 2
 
-def prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dss, kArcLength=False ):
+def prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dts, kArcLength=False ):
 	
 	'''
 	### 1 construct and solve the linear system for the odd iteration. if the constraints don't contain fixed angle and G1, skip ### 2.
@@ -263,17 +257,18 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 	#print 'odd system size:', odd.system_size
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
-		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dss, is_closed, kArcLength )
+		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
+		#print 'the first result: ', solutions
 		
 		all_solutions.append( solutions )
 		pickle.dump( all_solutions, open( debug_out, "wb" ) )
@@ -377,14 +372,26 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 	all_pts = []
 	all_dts = []
 	all_ts = []
-	all_dss = []
+	all_lengths = []
 	for control_pos in all_control_positions:
-		pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples ) 
+		pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
 		all_pts.append( pts )
-		all_dts.append( dts )
 		all_ts.append( ts )
+		
+		## Compute all_lengths
 		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
-		all_dss.append( dss )
+		dss = asarray( dss )
+		lengths = [ sum( dss[i] ) for i in range( len( dss ) ) ]
+		all_lengths.append( lengths )
+		## Then normalize dss
+		# dss /= dss.sum( axis = 1 )[...,newaxis]
+		dss = [ ds / length for ds, length in zip( dss, lengths ) ]
+		
+		if kArcLength:
+			all_dts.append( dss )
+		else:
+			all_dts.append( dts )
+
 	
 	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, 'bbw' if is_bbw_enabled else 'shepherd' )
 	
@@ -396,15 +403,22 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 			for i in xrange(len( skeleton_handle_vertices )):
 				## indices k, i, 0 is integral of w*tbar*tbar.T, used for C0, C1, G1,
 				## indices k, i, 1 is integral of w*tbar*(M*tbar), used for G1
-				if kArcLength:
-					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dss[j][k])
-				else:
-					W_matrices[j][k,i] = precompute_W_i_bbw( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])	
+				W_matrices[j][k,i] = precompute_W_i( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
 	print '...finished.'
-
-	return [ W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts, all_ts, all_dss ]
+	
+	class Layer( object ): pass
+	layer = Layer()
+	layer.W_matrices = W_matrices
+	layer.all_weights = all_weights
+	layer.all_vertices = all_vertices
+	layer.all_indices = all_indices
+	layer.all_pts = all_pts
+	layer.all_dts = all_dts
+	layer.all_ts = all_ts
+	layer.all_lengths = all_lengths
+	return layer
 
 	
 
