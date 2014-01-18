@@ -169,6 +169,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			try:
 				self.engine.prepare_to_solve()
 				all_paths = self.engine.solve_transform_change()
+				# print 'returned results: ', all_paths
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 				self.retrieve_energy()
@@ -186,7 +187,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 	def retrieve_energy( self )	:
 	
-		energy, polylines = self.engine.compute_energy()
+		energy, polylines, distances = self.engine.compute_energy_and_maximum_distance()
 		
 		energy_and_polyline = [
 			[
@@ -195,7 +196,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			]
 			for path_energy, path_points in zip( energy, polylines )
 			]
-		
+		print energy_and_polyline, distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 

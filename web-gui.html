@@ -173,6 +173,7 @@ Weight type:
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div>
+    <div class="checkbox"><label>Show largest distance <input id="showLargestDistance" type="checkbox" disabled /></label></div>
 </div>
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
@@ -1629,6 +1630,7 @@ function setupGlobalUI()
     $("#showTargetCurves").change( function() {
         var checked = $(this).prop('checked');
         $('#liveTargetCurves').prop( 'disabled', !checked );
+        $('#showLargestDistance').prop( 'disabled', !checked );
         $('#svg-overlay-target').toggle( checked );
     } ).change();
     $("#showDeformedControlPoints").change( function() {

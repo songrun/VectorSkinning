@@ -366,7 +366,7 @@ def shepherd( vs, skeleton_handle_vertices ):
 	return weights
 
 
-def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, dts = None ):
+def precompute_W_i( vs, weights, i, sampling_index2vs_index, sampling, ts, dts ):
 	'''
 	Given an N-by-k numpy.array 'vs' of all points represented in 'weights',
 	an N-by-num-handles numpy.array 'weights' of all the weights for each sample vertex,
@@ -382,7 +382,8 @@ def precompute_W_i_bbw( vs, weights, i, sampling_index2vs_index, sampling, ts, d
 	If 'dts' is not given, it defaults to 1/len(sampling).
 	'''
 	
-	if dts is None: dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) )
+	#if dts is None: dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) )
+#	dts = ones( len( sampling )-1 ) * (1./(len(sampling)-1) ) * sum( dts )
 	
 	### Asserts
 	## Ensure our inputs are numpy.arrays:
@@ -490,6 +491,9 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	R = zeros( ( 4, 4 ) )
 	tbar = ones( 4 ).reshape( (4,1) )
 	
+	#dtts = zeros(len(ts))
+	#dtts[1:] += dts*.5
+	#dtts[:-1] += dts*.5
 	for i in range(len(dts)):
 		t = (ts[i] + ts[i+1])/2
 		dt = dts[i]
@@ -589,22 +593,44 @@ def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
 	
 	return energy
 	
-	
-def compute_arc_length_error_metric( bbw_curve, skin_spline_curve, path_dss ):
+def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 	'''
-	Total energy is the sum of each pair of points' square distance, compute with arc lengths
-	'''
-	path_dss = asarray( path_dss )
+	Find the approximate largest distance between a spline curve and its target curve.
+	'''	
+	assert len( bbw_curve ) == len( skin_spline_curve )
+	bbw_curve = asarray ( bbw_curve )
+	skin_spline_curve = asarray( skin_spline_curve )
 	
-	assert len( bbw_curve ) == len( skin_spline_curve ) == len( path_dss )
-	
-	energy = []
-	for bbw_samplings, spline_samplings, segment_dss in zip( bbw_curve, skin_spline_curve, path_dss ):
+	offset = 50
+	distances = []
+	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
+		
+		num = len( spline_samplings ) / 2
 		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
 		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
-		dists = ( ( spline_samplings - bbw_samplings )**2 ).sum( axis = 1 )
-		dists = (dists[:-1] + dists[1:])/2
+
+		bbw_comparator = concatenate( ( ones( (offset, 2) ) * bbw_samplings[0], bbw_samplings, ones( (offset, 2) ) * bbw_samplings[-1] ), axis=0 ) 
+		
+		all_mins = []
+		for j in arange( offset*2 ):
+			diffs = map( mag, spline_samplings - bbw_comparator[ j: num + j ] )
+			## only find the first largest distance.	
+			spline_index = argmin( diffs )
+			bbw_index = spline_index - offset + j
+			
+			## take the first or last element if bbw_index is out of bound
+			if bbw_index < 0:	bbw_index = 0
+			if bbw_index > num - 1: bbw_index = num - 1
+			
+			all_mins.append( { 'spline index': spline_index, 'target index': bbw_index,  'maximum distance': diffs[ spline_index ] } )
+		
+		dist_array = [ dist_info[ 'maximum distance' ] for dist_info in all_mins ]
+		distances.append( all_mins[ argsort( dist_array )[-1] ] )
 	
-		energy.append( dot( dists, segment_dss ) )
+		
+	return distances		
+
 	
-	return energy	
+	
+		
+	
