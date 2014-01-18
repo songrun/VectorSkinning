@@ -1,5 +1,5 @@
-<!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
 <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -177,8 +177,9 @@ Weight type:
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 
-<button type="button" id="reconnect-button" class="btn btn-default">Reconnect</button>
+<hr>
 
+<button type="button" id="reconnect-button" class="btn btn-default">Reconnect</button>
 </div>
 
 </div>
@@ -1244,6 +1245,26 @@ function createHandleUIForSVG()
     var ui = Snap( '#svg-overlay-handles > svg' );
     ui.clear();
     
+    disableHandleControls();
+    
+    // A function that takes a click event and adds a handle.
+    function add_handle_click( evt ) {
+        // No one else should get this click event.
+        evt.stopPropagation();
+        
+        // TODO: Adding a handle is a slow operation. Maybe we should check if a modifier
+        //       key is held down, and return if it's not.
+        
+        // Don't use the x,y that come in as the second and third parameters.
+        // They are equivalent to evt.pageX and evt.pageY.
+        var parent = $( '#svg-overlay-handles > svg' );
+        var x = evt.pageX - parent.offset().left;
+        var y = evt.pageY - parent.offset().top;
+        
+        createHandleAtPosition( x, y );
+        sendHandlePositionsAndTransforms();
+    }
+    
     // We previously found the largest closed path. Use that to make sure handles
     // aren't created outside the shape.
     var clickable = null;
@@ -1261,27 +1282,17 @@ function createHandleUIForSVG()
         }
         clickable = ui.path( path );
         clickable.attr({ opacity: 0. });
-    }
-    else
-    {
-        // If we don't have any closed paths, users can click anywhere.
-        clickable = ui;
+        clickable.click( add_handle_click );
     }
     
-    disableHandleControls();
-    
-    clickable.click( function( evt ) {
-        // TODO: Adding a handle is a slow operation. Maybe we should check if a modifier
-        //       key is held down, and return if it's not.
-        
-        // Don't use the x,y that come in as the second and third parameters.
-        // They are equivalent to evt.pageX and evt.pageY.
-        var parent = $( '#svg-overlay-handles > svg' );
-        var x = evt.pageX - parent.offset().left;
-        var y = evt.pageY - parent.offset().top;
-        
-        createHandleAtPosition( x, y );
-        sendHandlePositionsAndTransforms();
+    // For MVC and Shepherd, allow users to click anywhere.
+    // Also if we don't have any closed paths, allow users to click anywhere.
+    ui.click( function( evt ) {
+        var weightFunction = $( "#weight-function" ).val();
+        if( clickable === null || weightFunction === "mvc" || weightFunction === "shepherd" )
+        {
+            add_handle_click( evt );
+        }
         } );
 }
 // Creates a new handle. NOTE: It does not send the new handle position to the server.
@@ -1301,6 +1312,7 @@ function createHandleAtPosition( x, y )
     // because the shape under this can't be clicked.
     var r0 = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r0.attr({
+        class: 'handle-original',
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.,
@@ -1309,6 +1321,7 @@ function createHandleAtPosition( x, y )
     
     var r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
     r.attr({
+        class: 'handle',
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.
@@ -1338,7 +1351,7 @@ function createHandleAtPosition( x, y )
 	var M0;
 	r.drag(
 		// drag move
-		function( dx, dy ) {
+		function( dx, dy, x, y, evt ) {
 		    var M;
 			var trans_type = $('#handle-widgets select').val();
 			if( trans_type === "translation" ) 
@@ -1385,8 +1398,8 @@ function createHandleAtPosition( x, y )
             sendHandleTransformation( handle_index );
 		},
 		// drag start
-		function() {
-			// Store the current transform state.
+		function( x, y, evt ) {
+		    // Store the current transform state.
 			M0 = this.transform().localMatrix;
 			
 			// Setup the table when clicking on an already-created rect.
@@ -1398,10 +1411,19 @@ function createHandleAtPosition( x, y )
             }
 			setupHandleControls( handle_index );
 		},
-		function() {
+		function( evt ) {
 		    // Let the backend know it can do some processing.
 		    sendHandleDragFinished();
 		} );
+	
+	// I need to do this to eat click events:
+	r.click( function(evt) { evt.stopPropagation(); } );
+	r0.click( function(evt) { evt.stopPropagation(); } );
+	
+	// Finally, update the z-order with appendTo()'s in back-to-front order.
+	var svg = $('#svg-overlay-handles > svg' );
+	svg.find( '.handle-original' ).appendTo( svg );
+	svg.find( '.handle' ).appendTo( svg );
 }
 // Sets the transform for a handle.
 // NOTE: This does not call sendHandleTransformation(). Call that yourself, afterwards.
