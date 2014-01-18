@@ -257,24 +257,26 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
+	odd = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 	#print 'odd system size:', odd.system_size
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
+		# even = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms ):
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
-		#print 'the first result: ', solutions
+		print 'the first result: ', solutions
 		
 		all_solutions.append( solutions )
 		pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
-		smoothness = [ constraint[0] for constraint in constraints ]
+		# smoothness = [ constraint[0] for constraint in constraints ]
+		smoothness = []
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
