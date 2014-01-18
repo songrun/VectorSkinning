@@ -178,16 +178,16 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 	def retrieve_energy( self )	:
 	
-		energy, polylines, distances = self.engine.compute_energy_and_maximum_distance()
+		energies, polylines, all_distances = self.engine.compute_energy_and_maximum_distance()
 		
 		energy_and_polyline = [
 			[
-				{ 'target-curve-polyline': points.tolist(), 'energy': energy }
-				for energy, points in zip( path_energy, path_points )
+				{ 'target-curve-polyline': points.tolist(), 'energy': energy, 'distance': distance }
+				for energy, points, distance in zip( path_energy, path_points, path_distances )
 			]
-			for path_energy, path_points in zip( energy, polylines )
+			for path_energy, path_points, path_distances in zip( energies, polylines, all_distances )
 			]
-		print energy_and_polyline, distances
+# 		print energy_and_polyline, distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 

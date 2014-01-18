@@ -164,9 +164,7 @@ Transformation type:
 <div class="checkbox"><label>BBW <input id="isBBWEnabled" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
-    <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div>
-    <div class="checkbox"><label>Show largest distance <input id="showLargestDistance" type="checkbox" disabled /></label></div>
-</div>
+    <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div></div>
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 
@@ -487,6 +485,7 @@ function updateTargetCurve( new_paths_energies )
             var target_curve_info = path_info[ segment_index ];
             var pts = target_curve_info['target-curve-polyline'];
             var energy = target_curve_info['energy'];
+            var distance = target_curve_info['distance'];
             
             var path_string = 'M' + pts[0][0] + ',' + pts[0][1];
             for( var si = 1; si < pts.length; ++si )
@@ -501,6 +500,15 @@ function updateTargetCurve( new_paths_energies )
                 strokeWidth: 3,
                 fillOpacity: 0.,
                 strokeDasharray: "20,10,5,5,5,10"
+                });
+                   	
+        	var dist = ui.line( distance.spline_pos[0], distance.spline_pos[1], distance.target_pos[0],distance.target_pos[1] );
+            dist.attr({
+                class: 'distance-line',
+                stroke: 'blue',
+                strokeWidth: 2,
+                fillOpacity: 0.,
+//                 strokeDasharray: "5,5"
                 });
         }
     }
@@ -1478,7 +1486,6 @@ function setupGlobalUI()
     // Set it up and trigger it.
     $("#showTargetCurves").change( function() {
         var checked = $(this).prop('checked');
-        $('#liveTargetCurves').prop( 'disabled', !checked );
         $('#showLargestDistance').prop( 'disabled', !checked );
         $('#svg-overlay-target').toggle( checked );
     } ).change();
