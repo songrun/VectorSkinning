@@ -275,8 +275,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
-		# smoothness = [ constraint[0] for constraint in constraints ]
-		smoothness = []
+		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
@@ -379,6 +378,8 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
 		all_pts.append( pts )
 		all_ts.append( ts )
+		
+		#debugger()
 		
 		## Compute all_lengths
 		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]

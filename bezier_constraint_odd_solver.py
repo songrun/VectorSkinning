@@ -202,6 +202,9 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
 		
+		#dtts = zeros(len(ts))
+		#dtts[1:] += dts*.5
+		#dtts[:-1] += dts*.5
 		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
 			ds = dts[i]

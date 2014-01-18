@@ -195,6 +195,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
+		#debugger()
 
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
@@ -255,9 +256,13 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
+		#debugger()
 		
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
+		#dtts = zeros(len(ts))
+		#dtts[1:] += dts*.5
+		#dtts[:-1] += dts*.5
 		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
 			ds = dts[i]

@@ -471,6 +471,9 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 	R = zeros( ( 4, 4 ) )
 	tbar = ones( 4 ).reshape( (4,1) )
 	
+	#dtts = zeros(len(ts))
+	#dtts[1:] += dts*.5
+	#dtts[:-1] += dts*.5
 	for i in range(len(dts)):
 		t = (ts[i] + ts[i+1])/2
 		dt = dts[i]
