@@ -175,6 +175,7 @@ Weight type:
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div></div>
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
+<div class="checkbox"><label>C1-only while dragging <input id="c1-while-dragging" type="checkbox"/></label></div>
 
 <hr>
 
@@ -741,6 +742,10 @@ function sendHandleDragFinished()
 {
     gSocket.send( "handle-transform-drag-finished" );
 }
+function sendSetIterations( whether )
+{
+    gSocket.send( "iterations " + JSON.stringify( whether ) );
+}
 function sendControlPointConstraintsChanged( path_index, segment_index )
 {
     "use strict";
@@ -1245,7 +1250,12 @@ function createDeformedBezierUIForSVG()
     $( '#svg-overlay-beziers-deformed .undeformed-curve' ).remove();
     
     // Change the size of the blue dots.
-    $( '#svg-overlay-beziers-deformed circle.control-point-handle' ).attr('r',5);
+    // $( '#svg-overlay-beziers-deformed circle.control-point-handle' ).attr('r',5);
+    // Change the size of all dots.
+    $( '#svg-overlay-beziers-deformed circle' ).attr('r',2.5);
+    
+    // Change the stroke thickness.
+    $( '#svg-overlay-beziers-deformed' ).find( 'circle, line' ).css( 'stroke-width', 1. );
 }
 function createHandleUIForSVG()
 {
@@ -1411,6 +1421,8 @@ function createHandleAtPosition( x, y )
 		},
 		// drag start
 		function( x, y ) {
+		    if( $('#c1-while-dragging').prop( 'checked' ) ) sendSetIterations( false );
+		    
 		    // Store the current transform state.
 			M0 = this.transform().localMatrix;
 			
@@ -1425,6 +1437,14 @@ function createHandleAtPosition( x, y )
 		},
 		function() {
 		    // Let the backend know it can do some processing.
+		    // NOTE: This is actually early, because we queue up handle transform change
+		    //       events. So G1 may be turning on at the same time as a last
+		    //       transformation change. The right thing to do is probably to queue
+		    //       server events all together (and squash duplicates).
+		    //       The user can ensure they don't see both changes at once by
+		    //       waiting with the mouse button held until the last transformation
+		    //       comes back.
+		    if( $('#c1-while-dragging').prop( 'checked' ) ) sendSetIterations( true );
 		    sendHandleDragFinished();
 		} );
 	
@@ -1637,6 +1657,7 @@ function setupGlobalUI()
     // Set it up and trigger it.
     $("#showTargetCurves").change( function() {
         var checked = $(this).prop('checked');
+        $('#liveTargetCurves').prop( 'disabled', !checked );
         $('#showLargestDistance').prop( 'disabled', !checked );
         $('#svg-overlay-target').toggle( checked );
     } ).change();
