@@ -1,4 +1,4 @@
 kG1andAconstraints = True
-kClampOn = False
+kClampOn = True
 kArcLengthDefault = False
 kVerbose = 0
