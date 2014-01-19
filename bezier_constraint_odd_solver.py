@@ -75,10 +75,10 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				dir1 = dir_allow_zero( P[1] - P[0] )
 				dir2 = dir_allow_zero( P[2] - P[3] )
 			
-				if dot( self.bundles[i].directions[0], dir1 ) < 0:
+				if dot( self.bundles[i].directions[0], dir1 ) == -1:
 					P[1] = P[0] + clamp_offset * self.bundles[i].directions[0]
 					self.bundles[i].magnitudes[0] = clamp_offset
-				if dot( self.bundles[i].directions[1], dir2 ) < 0:
+				if dot( self.bundles[i].directions[1], dir2 ) == -1:
 					P[2] = P[3] + clamp_offset * self.bundles[i].directions[1]
 					self.bundles[i].magnitudes[1] = clamp_offset
 			

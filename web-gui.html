@@ -1637,7 +1637,7 @@ function setupGlobalUI()
     // Set it up and trigger it.
     $("#showTargetCurves").change( function() {
         var checked = $(this).prop('checked');
-        $('#showLargestDistance').prop( 'disabled', !checked );
+        $('#liveTargetCurves').prop( 'disabled', !checked );
         $('#svg-overlay-target').toggle( checked );
     } ).change();
     $("#showDeformedControlPoints").change( function() {

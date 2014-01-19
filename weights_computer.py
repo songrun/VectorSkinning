@@ -601,7 +601,7 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 	bbw_curve = asarray ( bbw_curve )
 	skin_spline_curve = asarray( skin_spline_curve )
 	
-	offset = 0
+	offset = 10
 	distances = []
 	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
 		
@@ -609,25 +609,22 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
 		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
 
-		bbw_comparator = concatenate( ( ones( (offset, 2) ) * bbw_samplings[0], bbw_samplings, ones( (offset, 2) ) * bbw_samplings[-1] ), axis=0 ) 
-		
-		all_mins = []
-		for j in arange( offset*2 + 1 ):
-			diffs = map( mag, spline_samplings - bbw_comparator[ j: num + j ] )
-			## only find the first largest distance.	
-			spline_index = argmin( diffs )
-			bbw_index = spline_index - offset + j
+		min_dists = []
+		target_indices = []
+		for i in arange( num ):
+			start = i - offset
+			if start < 0: start = 0
 			
-			## take the first or last element if bbw_index is out of bound
-			if bbw_index < 0:	bbw_index = 0
-			if bbw_index > num - 1: bbw_index = num - 1
-# 			debugger()	
-			all_mins.append( { 'spline_pos': spline_samplings[ spline_index ].tolist(), 'target_pos': bbw_samplings[ bbw_index ].tolist(),  'maximum_distance': diffs[ spline_index ] } )
+			target_segment = bbw_samplings[ start: start + 2*offset + 1 ]
+			diffs = map( mag, ones( ( len( target_segment ), 2 ) ) * spline_samplings[i] - target_segment )
+			target_index = argmin( diffs )
+			target_indices.append( target_index + start )
+			min_dists.append( diffs[ target_index ] )
+			
+		hausdorff_index = argmax( min_dists )	
 		
-		dist_array = [ dist_info[ 'maximum_distance' ] for dist_info in all_mins ]
+		distances.append( { 'spline_pos': spline_samplings[ hausdorff_index ].tolist(), 'target_pos': bbw_samplings[ target_indices[ hausdorff_index ] ].tolist(),  'maximum_distance': min_dists[ hausdorff_index ] } )
 		
-		distances.append( all_mins[ argsort( dist_array )[-1] ] )
-	
 		
 	return distances		
 

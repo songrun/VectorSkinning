@@ -46,7 +46,7 @@ def compute_angle( bundle0, bundle1 ):
 			
 		if cross(vec0, vec1) < 0:	
 			sin_theta = -sin_theta
-			
+		
 		return [ cos_theta, sin_theta ]
 
 class BezierConstraintSolver( object ):
