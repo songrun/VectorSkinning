@@ -601,6 +601,8 @@ def main():
 	'''
 	bbw_curve, spline_curve = get_test_distances()					   
 	distances = compute_maximum_distances( bbw_curve, spline_curve )
+	
+	print distances
 	print 'HAHA ~ '
 	
 if __name__ == '__main__': main()		
