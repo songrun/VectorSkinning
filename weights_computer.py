@@ -611,7 +611,7 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 		bbw_comparator = concatenate( ( ones( (offset, 2) ) * bbw_samplings[0], bbw_samplings, ones( (offset, 2) ) * bbw_samplings[-1] ), axis=0 ) 
 		
 		all_mins = []
-		for j in arange( offset*2 ):
+		for j in arange( offset*2 + 1 ):
 			diffs = map( mag, spline_samplings - bbw_comparator[ j: num + j ] )
 			## only find the first largest distance.	
 			spline_index = argmin( diffs )
@@ -624,6 +624,7 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 			all_mins.append( { 'spline_pos': spline_samplings[ spline_index ].tolist(), 'target_pos': bbw_samplings[ bbw_index ].tolist(),  'maximum_distance': diffs[ spline_index ] } )
 		
 		dist_array = [ dist_info[ 'maximum_distance' ] for dist_info in all_mins ]
+		
 		distances.append( all_mins[ argsort( dist_array )[-1] ] )
 	
 		
