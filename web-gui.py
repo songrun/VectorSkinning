@@ -174,7 +174,11 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
-				
+		
+		elif msg.startswith( 'iterations ' ):
+			iterations = json.loads( msg[ len( 'iterations ' ): ] )
+			self.engine.set_iterations( iterations )
+		
 		elif msg.startswith( 'handle-transform-drag-finished' ):
 			
 			self.retrieve_energy()

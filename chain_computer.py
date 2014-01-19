@@ -33,6 +33,7 @@ class Engine:
 		self.precomputed_parameter_table = []
 		self.weight_function = 'bbw'
 		self.is_arc_enabled = kArcLengthDefault
+		self.perform_multiple_iterations = True
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
@@ -113,7 +114,6 @@ class Engine:
 		
 		is_arc_enabled = self.is_arc_enabled
 		
-		result = []
 		self.fast_update_functions = []
 		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
 			W_matrices = precomputed_parameters.W_matrices[i]
@@ -123,11 +123,6 @@ class Engine:
 			
 			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dts, is_arc_enabled )
 			self.fast_update_functions.append( fast_update )
-			
-			result.append(	fast_update( transforms ) )
-		
-		self.solutions = result	
-		return result	
 		
 	
 	def solve_transform_change( self ):
@@ -136,7 +131,7 @@ class Engine:
 		'''
 		result = []
 		for fast_update in self.fast_update_functions:
-			result.append(	fast_update( self.transforms ) )
+			result.append(	fast_update( self.transforms, self.perform_multiple_iterations ) )
 		
 		self.solutions = result	
 		return result
@@ -168,6 +163,9 @@ class Engine:
 		get is_arc_enabled flag
 		'''
 		return self.is_arc_enabled
+	
+	def set_iterations( self, whether ):
+		self.perform_multiple_iterations = whether
 			
 			
 			
@@ -273,22 +271,24 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		#print 'even system size:', even.system_size
 	
-	def update_with_transforms( transforms ):
+	def update_with_transforms( transforms, multiple_iterations = True ):
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
 # 		print 'the first result: ', solutions
+		if not multiple_iterations: return solutions
 		
 		if kPickleDebug:
 			all_solutions.append( solutions )
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
+		iteration = -1
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
 			
-			for iter in xrange( 10 ):
+			for iteration in xrange( 10 ):
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
 				solutions = even.solve()
@@ -308,6 +308,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 		
+		print 'iterations:', iteration
 		return solutions
 	
 	return update_with_transforms					
