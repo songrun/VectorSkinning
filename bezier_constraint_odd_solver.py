@@ -11,10 +11,20 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		solution = asarray(solution)
 		num = len(self.bundles)
 		assert solution.shape == (num, 4, 2)
-		magnitudes = [[mag( solution[i][1]-solution[i][0] ), mag( solution[i][2]-solution[i][3] )] for i in range(num) ]
 		
 		for i in range(num):
-			self.bundles[i].magnitudes = magnitudes[i]
+			dir1 = dir_allow_zero( solution[i][1]-solution[i][0] )
+			dir2 = dir_allow_zero( solution[i][2]-solution[i][3] )
+			
+			self.bundles[i].directions[0] = dir1
+			self.bundles[i].directions[1] = dir2
+			
+			mag1 = mag( solution[i][1]-solution[i][0] )
+			mag2 = mag( solution[i][2]-solution[i][3] )
+			
+			self.bundles[i].magnitudes[0] = mag1
+			self.bundles[i].magnitudes[1] = mag2			
+		
 		
 		## The lagrange multipliers changed, but not the locations of the zeros.
 		self._update_bundles( lagrange_only = True )
@@ -55,12 +65,26 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		### Return a nicely formatted chain of bezier curves.
 		x = array( x[:self.total_dofs] ).reshape(-1,4).T
 		
-		result = []
+		solution = []
 		for i in range(num):
 			P = x[:, i*dim:(i+1)*dim ]
-			result.append( P )		
+			## clamp if the direction changes
+			
+			if kClampOn == True:
+				clamp_offset = 0.1
+				dir1 = dir_allow_zero( P[1] - P[0] )
+				dir2 = dir_allow_zero( P[2] - P[3] )
+			
+				if dot( self.bundles[i].directions[0], dir1 ) < 0:
+					P[1] = P[0] + clamp_offset * self.bundles[i].directions[0]
+					self.bundles[i].magnitudes[0] = clamp_offset
+				if dot( self.bundles[i].directions[1], dir2 ) < 0:
+					P[2] = P[3] + clamp_offset * self.bundles[i].directions[1]
+					self.bundles[i].magnitudes[1] = clamp_offset
+			
+			solution.append( P )		
 		
-		return result	
+		return solution	
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]

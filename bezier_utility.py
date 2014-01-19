@@ -1,9 +1,8 @@
 from math import *
 from numpy import *
 from myarray import *
-
+from parameters import *
 kEps = 1e-7
-kG1andAconstraints = False
 
 try:
    from pydb import debugger

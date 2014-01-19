@@ -6,7 +6,6 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-kArcLengthDefault = False
 
 class Engine:
 	'''
@@ -267,12 +266,11 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
+	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
-		# even = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms ):

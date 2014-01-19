@@ -14,12 +14,18 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		assert solution.shape == (num, 4, 2)
 	
 		for i in range(num):
-			#self.bundles[i].directions = directions[i]
 			dir1 = dir_allow_zero( solution[i][1]-solution[i][0] )
 			dir2 = dir_allow_zero( solution[i][2]-solution[i][3] )
 			
-			if mag2( dir1 ) > 0: self.bundles[i].directions[0] = dir1
-			if mag2( dir2 ) > 0: self.bundles[i].directions[1] = dir2
+			self.bundles[i].directions[0] = dir1
+			self.bundles[i].directions[1] = dir2
+			
+			mag1 = mag( solution[i][1]-solution[i][0] )
+			mag2 = mag( solution[i][2]-solution[i][3] )
+			
+			self.bundles[i].magnitudes[0] = mag1
+			self.bundles[i].magnitudes[1] = mag2
+			
 		
 		self._update_bundles( )
 		self.system_factored = None
