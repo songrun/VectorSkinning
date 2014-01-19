@@ -13,6 +13,7 @@ except ImportError:
 
 ## All payloads are JSON-formatted.
 import json
+import parameters
 from chain_computer import *
 from tictoc import tic, toc, tictoc_dec
 from itertools import izip as zip
@@ -28,7 +29,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 	@tictoc_dec
 	def onMessage( self, msg, binary ):
 		### BEGIN DEBUGGING
-		if kVerbose >= 2:
+		if parameters.kVerbose >= 2:
 			if not binary:
 				from pprint import pprint
 				space = msg.find( ' ' )
@@ -37,11 +38,11 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				else:
 					print msg[ :space ]
 					pprint( json.loads( msg[ space+1 : ] ) )
-		elif kVerbose >= 1:
+		elif parameters.kVerbose >= 1:
 			if not binary:
 				print msg[:72] + ( ' ...' if len( msg ) > 72 else '' )
 		### END DEBUGGING
-		if kStubOnly: return
+		
 		
 		if binary:
 			print 'Received unknown message: binary of length', len( msg )
@@ -198,7 +199,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			for path_energy, path_points, path_distances in zip( energies, polylines, all_distances )
 			]
 
-# 		if kVerbose >= 2:
+# 		if parameters.kVerbose >= 2:
 # 			print energy_and_polyline, energies, all_distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
@@ -218,39 +219,59 @@ def make_chain_from_control_groups( all_paths ):
 		
 	return all_positions
 
+class StubServerProtocol( WebSocketServerProtocol ):
+	def connectionMade( self ):
+		WebSocketServerProtocol.connectionMade( self )
+		print 'CONNECTED'
+	
+	@tictoc_dec
+	def onMessage( self, msg, binary ):
+		if binary:
+			print 'Received unknown message: binary of length', len( msg )
+		else:
+			from pprint import pprint
+			space = msg.find( ' ' )
+			if space == -1:
+				print msg
+			else:
+				print msg[ :space ]
+				pprint( json.loads( msg[ space+1 : ] ) )
 
-def setupWebSocket( address, engine ):
+def setupWebSocket( address, engine, protocol ):
 	'''
 	Listen for WebSocket connections at the given address.
 	'''
 	
 	factory = WebSocketServerFactory( address )
 	factory.engine = engine
-	factory.protocol = WebGUIServerProtocol
+	factory.protocol = protocol
 	listenWS( factory )
 	
 	print "Listening for WebSocket connections at:", address
 
-if __name__ == '__main__':
+def main():
 	import os, sys
 	
-	if 'stub' in sys.argv[1:]:
-		kStubOnly = True
-	
 	if 'verbose' in sys.argv[1:]:
-		kVerbose = int( sys.argv[ sys.argv.index( 'verbose' ) + 1 ] )
+		parameters.kVerbose = int( sys.argv[ sys.argv.index( 'verbose' ) + 1 ] )
 	
-	print 'Verbosity level:', kVerbose
-	print 'Stub only:', kStubOnly
+	print 'Verbosity level:', parameters.kVerbose
+	
+	protocol = WebGUIServerProtocol
+	
+	if 'stub' in sys.argv[1:]:
+		print 'Stub only!'
+		protocol = StubServerProtocol
 	
 	## Create engine:
 	# engine = ...
 	engine = Engine()
-	
-	setupWebSocket( "ws://localhost:9123", engine )
+	setupWebSocket( "ws://localhost:9123", engine, protocol )
 	
 	## Maybe you find this convenient
 	if 'open' in sys.argv[1:]:
 		os.system( 'open web-gui.html' )
 	
 	reactor.run()
+
+if __name__ == '__main__': main()

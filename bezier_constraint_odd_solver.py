@@ -70,7 +70,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			P = x[:, i*dim:(i+1)*dim ]
 			## clamp if the direction changes
 			
-			if kClampOn == True:
+			if parameters.kClampOn == True:
 				clamp_offset = 0.1
 				dir1 = dir_allow_zero( P[1] - P[0] )
 				dir2 = dir_allow_zero( P[2] - P[3] )

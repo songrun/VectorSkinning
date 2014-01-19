@@ -1,7 +1,7 @@
 from math import *
 from numpy import *
 from myarray import *
-from parameters import *
+import parameters
 kEps = 1e-7
 
 try:
@@ -169,14 +169,14 @@ def make_constraints_from_control_points( control_group, close=True ):
 				break
 		
 		if allclose( dir1, dir2, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
-			if kG1andAconstraints:
+			if parameters.kG1andAconstraints:
 				## G1
 				constraints[ (i+1)%num ][0] = 'G1' 
 			else:
 				## C1
 				constraints[ (i+1)%num ][0] = 'C1'
 		elif allclose( dot( dir1, dir2 ), 0, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
-			if kG1andAconstraints:
+			if parameters.kG1andAconstraints:
 				## fixed angle
 				constraints[ (i+1)%num ][0] = 'A'	 
 			else:

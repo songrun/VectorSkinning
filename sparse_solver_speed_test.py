@@ -5,9 +5,9 @@ print "===> Starting setup"
 import sys
 excepthook = sys.excepthook
 import chain_computer, bezier_utility, generate_chain_system, systems_and_solvers
-systems_and_solvers.kDefaultSystemSolvePackage = '%s'
-systems_and_solvers.kDefaultBuildType = '%s'
-bezier_utility.kG1andAconstraints = %s
+FIXME this wont work now because no one uses the default: systems_and_solvers.kDefaultSystemSolvePackage = '%s'
+FIXME this wont work now because no one uses the default: systems_and_solvers.kDefaultBuildType = '%s'
+bezier_utility.parameters.kG1andAconstraints = %s
 
 sys.excepthook = excepthook
 

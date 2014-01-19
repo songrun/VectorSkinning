@@ -32,7 +32,7 @@ class Engine:
 		self.handle_positions = []	
 		self.precomputed_parameter_table = []
 		self.weight_function = 'bbw'
-		self.is_arc_enabled = kArcLengthDefault
+		self.is_arc_enabled = parameters.kArcLengthDefault
 		self.perform_multiple_iterations = True
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
