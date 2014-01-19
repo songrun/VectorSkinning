@@ -1352,7 +1352,7 @@ function createHandleAtPosition( x, y )
 	var M0;
 	r.drag(
 		// drag move
-		function( dx, dy, x, y, evt ) {
+		function( dx, dy ) {
 		    var M;
 			var trans_type = $('#handle-widgets select').val();
 			if( trans_type === "translation" ) 
@@ -1402,7 +1402,7 @@ function createHandleAtPosition( x, y )
             maybeConnectHandlesHack();
 		},
 		// drag start
-		function( x, y, evt ) {
+		function( x, y ) {
 		    // Store the current transform state.
 			M0 = this.transform().localMatrix;
 			
@@ -1415,7 +1415,7 @@ function createHandleAtPosition( x, y )
             }
 			setupHandleControls( handle_index );
 		},
-		function( evt ) {
+		function() {
 		    // Let the backend know it can do some processing.
 		    sendHandleDragFinished();
 		} );
