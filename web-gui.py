@@ -186,7 +186,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			print 'Received unknown message:', msg
 			
 	def retrieve_energy( self )	:
-	
+		'''
 		energies, polylines, all_distances = self.engine.compute_energy_and_maximum_distance()
 		
 		energy_and_polyline = [
@@ -199,6 +199,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 # 		print energy_and_polyline, distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
+		'''
 
 def make_chain_from_control_groups( all_paths ):
 	

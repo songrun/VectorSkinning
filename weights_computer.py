@@ -601,7 +601,7 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 	bbw_curve = asarray ( bbw_curve )
 	skin_spline_curve = asarray( skin_spline_curve )
 	
-	offset = 50
+	offset = 0
 	distances = []
 	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
 		
@@ -621,7 +621,7 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 			## take the first or last element if bbw_index is out of bound
 			if bbw_index < 0:	bbw_index = 0
 			if bbw_index > num - 1: bbw_index = num - 1
-			
+# 			debugger()	
 			all_mins.append( { 'spline_pos': spline_samplings[ spline_index ].tolist(), 'target_pos': bbw_samplings[ bbw_index ].tolist(),  'maximum_distance': diffs[ spline_index ] } )
 		
 		dist_array = [ dist_info[ 'maximum_distance' ] for dist_info in all_mins ]

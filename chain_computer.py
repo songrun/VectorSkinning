@@ -240,7 +240,7 @@ class Engine:
 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
 			
 			bbw_curves.append( asarray( bbw_curve ).reshape( len( bbw_curve ), -1, 2 ) )
-			
+
 			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
 		
 		return energy, bbw_curves, distances
@@ -552,7 +552,7 @@ def main():
 	argv = list( sys.argv )
 	## Remove the first item in argv, which is always the program name itself.
 	argv.pop(0)
-	
+	'''
 	if len( argv ) == 1:
 		if argv[0].isdigit():
 			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_infinite(' + argv[0] + ')' )
@@ -581,13 +581,9 @@ def main():
 
 	engine.set_handle_positions( skeleton_handle_vertices )
 	
-#	engine.set_transforms()
 	engine.precompute_configuration()
 	engine.prepare_to_solve()
 	all_paths = engine.solve_transform_change()
-	# from random import randint
-	# engine.transform_change( 0, [[1,0,randint(-20,20)],[0,1,randint(-20,20)]] )
-	# all_paths = engine.solve_transform_change()
 	
 	for path in all_paths:
 		if len( path ) > 1:
@@ -598,8 +594,9 @@ def main():
 		print chain
 		
  	engine.compute_energy_and_maximum_distance()	
-						   
-	
+	'''
+	bbw_curve, spline_curve = get_test_distances()					   
+	distances = compute_maximum_distances( bbw_curve, spline_curve )
 	print 'HAHA ~ '
 	
 if __name__ == '__main__': main()		
