@@ -174,15 +174,15 @@ def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, whic
 	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
 	a sequence of M skeleton handle vertices, and
 	the index into 'all_pts' of the boundary_curve (may be -1 for no boundary),
-	a parameter 'which' specifying the style of weights ('bbw' or 'shepherd' or 'mvc'),
+	a parameter 'which' specifying the style of weights ('bbw' or 'shepard' or 'mvc'),
 	returns
 		a sequence of vertices,
 		a M-dimensional weight for each vertex,
 		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
 	'''
 	
-	## To try shepherd no matter what:
-	# which = 'shepherd'
+	## To try shepard no matter what:
+	# which = 'shepard'
 	
 	if which is None: which = 'bbw'
 	
@@ -191,18 +191,18 @@ def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, whic
 			return compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 		except bbw.BBWError as e:
 			print 'BBW Computation failed:', e
-			print 'Falling back to Shepherd weights.'
-			which = 'shepherd'
+			print 'Falling back to Shepard weights.'
+			which = 'shepard'
 	
 	if 'mvc' == which:
 		return compute_all_weights_mvc( all_pts, skeleton_handle_vertices )
 	
-	if 'shepherd' == which:
-		return compute_all_weights_shepherd( all_pts, skeleton_handle_vertices )
+	if 'shepard' == which:
+		return compute_all_weights_shepard( all_pts, skeleton_handle_vertices )
 	
 	raise RuntimeError( "Unknown weight type" )
 
-def compute_all_weights_shepherd( all_pts, skeleton_handle_vertices ):
+def compute_all_weights_shepard( all_pts, skeleton_handle_vertices ):
 	'''
 	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
 	and a sequence of M skeleton handle vertices
@@ -223,8 +223,8 @@ def compute_all_weights_shepherd( all_pts, skeleton_handle_vertices ):
 	all_maps = unflatten_data( pts_maps, all_shapes )
 	
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
-	print 'Computing Shepherd weights...'
-	all_weights = shepherd( all_clean_pts, skeleton_handle_vertices )
+	print 'Computing Shepard weights...'
+	all_weights = shepard( all_clean_pts, skeleton_handle_vertices )
 	print '...finished.'
 	
 	return all_clean_pts, all_weights, all_maps
@@ -255,7 +255,6 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
 	a sequence of M skeleton handle vertices, and
 	the index into 'all_pts' of the boundary_curve (may be -1 for no boundary),
-	a parameter 'which' specifying the style of weights ('bbw' or 'shepherd'),
 	returns
 		a sequence of vertices,
 		a M-dimensional weight for each vertex,
@@ -346,7 +345,7 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	
 	return vs, all_weights, all_maps
 
-def shepherd( vs, skeleton_handle_vertices ):
+def shepard( vs, skeleton_handle_vertices ):
 	'''
 	Given an N-by-(2 or 3) sequence 'vs' of 2D or 3D vertices and
 	an H-by-(2 or 3) sequence 'skeleton_handle_vertices' of 2D or 3D vertices,
@@ -361,7 +360,7 @@ def shepherd( vs, skeleton_handle_vertices ):
 	weights = ones( ( len( vs ), len( skeleton_handle_vertices ) ) )
 	for vi, p in enumerate( vs ):
 		for hi in range( len( skeleton_handle_vertices ) ):
-			weights[ vi, hi ] = shepherd_w_i( skeleton_handle_vertices, hi, p )
+			weights[ vi, hi ] = shepard_w_i( skeleton_handle_vertices, hi, p )
 	
 	return weights
 
@@ -524,7 +523,7 @@ def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling,
 #	ts = [ a + ( ti + .5 ) * dt for ti in xrange( num_samples ) ]
 #	return ts, dts
 
-def shepherd_w_i( handle_positions, i, p ):	  
+def shepard_w_i( handle_positions, i, p ):	  
 	'''
 	Given an N-by-(2 or 3) numpy array 'vertices' of 2D or 3D vertices,
 	an M-by-3 numpy array 'faces' of indices into 'vertices',

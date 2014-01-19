@@ -166,7 +166,7 @@ Mouse dragging controls:
 Weight type:
         <select id="weight-function" disabled>
         <option value="bbw" selected>BBW</option>
-        <option value="shepherd">Shepherd</option>
+        <option value="shepard">Shepard</option>
         <option value="mvc">MVC</option>
         </select>
 </div>
@@ -1294,11 +1294,11 @@ function createHandleUIForSVG()
         clickable.click( add_handle_click );
     }
     
-    // For MVC and Shepherd, allow users to click anywhere.
+    // For MVC and Shepard, allow users to click anywhere.
     // Also if we don't have any closed paths, allow users to click anywhere.
     ui.click( function( evt ) {
         var weightFunction = $( "#weight-function" ).val();
-        if( clickable === null || weightFunction === "mvc" || weightFunction === "shepherd" )
+        if( clickable === null || weightFunction === "mvc" || weightFunction === "shepard" )
         {
             add_handle_click( evt );
         }
@@ -1490,7 +1490,7 @@ function maybeConnectHandlesHack_inner( handles, attrs )
     handles.remove();
     
     var weightFunction = $( "#weight-function" ).val();
-    if( weightFunction === "bbw" || weightFunction === "shepherd" ) return;
+    if( weightFunction === "bbw" || weightFunction === "shepard" ) return;
     
     var closed = weightFunction === "mvc";
     
