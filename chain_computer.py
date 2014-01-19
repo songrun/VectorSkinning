@@ -257,6 +257,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	### 3 refine the solutions based on the error of each curve. If it is larger than a threshold, split the curve into two.
 	'''
 	
+	kPickleDebug = False
 	if kPickleDebug:
 		import cPickle as pickle
 		debug_out = 'solutions-arc' + str(kArcLength) + '.pickle'
