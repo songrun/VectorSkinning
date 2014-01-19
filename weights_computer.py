@@ -360,7 +360,7 @@ def shepherd( vs, skeleton_handle_vertices ):
 	
 	weights = ones( ( len( vs ), len( skeleton_handle_vertices ) ) )
 	for vi, p in enumerate( vs ):
-		for hi, p in enumerate( skeleton_handle_vertices ):
+		for hi in range( len( skeleton_handle_vertices ) ):
 			weights[ vi, hi ] = shepherd_w_i( skeleton_handle_vertices, hi, p )
 	
 	return weights

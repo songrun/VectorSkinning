@@ -3,3 +3,4 @@
 *.pyc
 *.pyo
 profile.out
+/*.pickle

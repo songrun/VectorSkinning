@@ -1,0 +1,8 @@
+## Python module dependencies
+
+numpy
+scipy
+cffi
+
+autobahn
+twisted
