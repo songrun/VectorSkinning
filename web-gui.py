@@ -97,7 +97,6 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			tic( 'engine.solve()' )
 			all_paths = self.engine.solve_transform_change()	
-#			debugger()
 			toc()
 
 			tic( 'make_chain_from_control_groups' )
@@ -119,6 +118,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			constraint[1] = paths_info[2][ u'fixed' ]
 			
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
+# 			debugger()
 			
 			try:
 				self.engine.prepare_to_solve()
@@ -190,17 +190,17 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def retrieve_energy( self )	:
 		
 		energies, polylines, all_distances = self.engine.compute_energy_and_maximum_distance()
-		
-		energy_and_polyline = [
-			[
-				{ 'target-curve-polyline': points.tolist(), 'energy': energy, 'distance': distance }
-				for energy, points, distance in zip( path_energy, path_points, path_distances )
-			]
-			for path_energy, path_points, path_distances in zip( energies, polylines, all_distances )
-			]
 
-# 		if parameters.kVerbose >= 2:
-# 			print energy_and_polyline, energies, all_distances
+		energy_and_polyline = [
+				[
+					{ 'target-curve-polyline': points.tolist(), 'energy': energy, 'distance': distance }
+					for energy, points, distance in zip( path_energy, path_points, path_distances )
+				]
+				for path_energy, path_points, path_distances in zip( energies, polylines, all_distances )
+				]
+
+		if parameters.kVerbose >= 2:
+			print energies, all_distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 		
