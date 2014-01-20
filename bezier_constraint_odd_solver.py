@@ -47,6 +47,11 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		dim = 2
 		num = len(self.bundles)
 		
+		#print 'system:'
+		#print self.system.tolist()
+		#print 'rhs:'
+		#print self.rhs.tolist()
+		
 		if self.system_symbolic_factored is None:
 			#print 'odd symbolic factoring'
 			system = self.to_system_solve_t( self.system )
