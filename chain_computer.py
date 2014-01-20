@@ -628,7 +628,8 @@ def compute_transformed_by_control_points( all_pts, skeleton_handle_vertices, tr
 
 			As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
 			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
-			tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+			#tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+			tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
 		
 			path_controls.append(tps)
 		result.append( path_controls )
