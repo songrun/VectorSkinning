@@ -58,7 +58,12 @@ def min_distanceSqr_edge_t_to_edges( pts, edges ):
     '''
     Input parameter 'pts' has dimensions #pts x 2 (x,y).
     Input parameter 'edges' has dimensions ... x #edges x 2 endpoints x 2 coordinates (x,y).
-    Returns an array of the minimum distance to edges with dimensions #pts.
+    Returns the tuple three things, each of which has length #pts and stores:
+        (
+        squared distance to the closest edge on 'line_strip',
+        index of edge in 'edges' which contains the closest point,
+        t along the edge such that the closest point is (1-t)*edges[index][0] + t*(edges[index][1])
+        ).
     '''
     
     distancesSqr, cond = distancesSqr_and_t_to_edges( pts, edges )

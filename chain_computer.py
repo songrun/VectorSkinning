@@ -177,6 +177,7 @@ class Engine:
 		### 3 
 		bbw_curves = []
 		for indices in path_indices:
+			'''
 			tps = []	
 			for i in indices:
 				m = zeros((3,3))
@@ -185,9 +186,16 @@ class Engine:
 					m = m + transforms[h]*all_weights[i,h]
 		
 				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-				tps = tps + [p[0], p[1]]	
+				tps = tps + [p[0], p[1]]
+			'''
+			
+			## http://jameshensman.wordpress.com/2010/06/14/multiple-matrix-multiplication-in-numpy/
+			As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+			tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+			
 			bbw_curves.append(tps)
-	
+		
 		return bbw_curves
 
 	def compute_tkinter_curve_per_path_solutions( self, solutions, all_ts ):
@@ -196,12 +204,15 @@ class Engine:
 		'''
 		spline_skin_curves = []
 		for k, solution in enumerate(solutions):
+			'''
 			tps = []
 			for t in asarray(all_ts)[k]:
 				tbar = asarray([t**3, t**2, t, 1.])
 				p = dot(tbar, asarray( M * solution ) )
 				tps = tps + [p[0], p[1]]
-			spline_skin_curves.append(tps)	
+			'''
+			tps = dot( array([all_ts[k]**3, all_ts[k]**2, all_ts[k], ones(all_ts[k].shape)]).T, asarray( dot( M, solution ) ) )
+			spline_skin_curves.append(tps)
 			
 		return spline_skin_curves		
 		
@@ -237,7 +248,7 @@ class Engine:
 			
 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
 			
-			bbw_curves.append( asarray( bbw_curve ).reshape( len( bbw_curve ), -1, 2 ) )
+			bbw_curves.append( bbw_curve )
 
 			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
 		
@@ -545,16 +556,13 @@ def get_test2():
 
 from chain_computer_tests import *
 
-def main():
-	'''
-	a console test.
-	'''
+def test_fancy():
 	
 	import sys
 	argv = list( sys.argv )
 	## Remove the first item in argv, which is always the program name itself.
 	argv.pop(0)
-	'''
+	
 	if len( argv ) == 1:
 		if argv[0].isdigit():
 			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_infinite(' + argv[0] + ')' )
@@ -585,6 +593,10 @@ def main():
 	
 	engine.precompute_configuration()
 	engine.prepare_to_solve()
+	
+	## Transform a handle
+	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+	
 	all_paths = engine.solve_transform_change()
 	
 	for path in all_paths:
@@ -595,12 +607,21 @@ def main():
 			chain = path[0]
 		print chain
 		
- 	engine.compute_energy_and_maximum_distance()	
-	'''
+ 	print engine.compute_energy_and_maximum_distance()
+
+def test_simple():
 	bbw_curve, spline_curve = get_test_distances()					   
 	distances = compute_maximum_distances( bbw_curve, spline_curve )
 	
 	print distances
 	print 'HAHA ~ '
+
+def main():
+	'''
+	a console test.
+	'''
 	
+	test_fancy()
+	#test_simple()
+
 if __name__ == '__main__': main()		
