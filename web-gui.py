@@ -43,7 +43,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				print msg[:72] + ( ' ...' if len( msg ) > 72 else '' )
 		### END DEBUGGING
 		
-		
+		engine = self.engine
 		if binary:
 			print 'Received unknown message: binary of length', len( msg )
 		
@@ -76,10 +76,13 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			## Stop here it if it's empty.
 			if len( handles ) == 0: return
 			
-			self.engine.precompute_configuration()
-			self.engine.prepare_to_solve()
+			if parameters.kTransformControls:
+				all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
+			else:
+				self.engine.precompute_configuration()
+				self.engine.prepare_to_solve()
 			
-			all_paths = self.engine.solve_transform_change()
+				all_paths = self.engine.solve_transform_change()
 
 			all_positions = make_chain_from_control_groups( all_paths )
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
@@ -96,7 +99,10 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			toc()
 			
 			tic( 'engine.solve()' )
-			all_paths = self.engine.solve_transform_change()	
+			if parameters.kTransformControls:
+				all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
+			else:
+				all_paths = self.engine.solve_transform_change()	
 			toc()
 
 			tic( 'make_chain_from_control_groups' )
@@ -118,11 +124,13 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			constraint[1] = paths_info[2][ u'fixed' ]
 			
 			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
-# 			debugger()
 			
 			try:
-				self.engine.prepare_to_solve()
-				all_paths = self.engine.solve_transform_change()
+				if parameters.kTransformControls:
+					all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
+				else:
+					self.engine.prepare_to_solve()
+					all_paths = self.engine.solve_transform_change()
 	
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
@@ -203,7 +211,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			print energies, all_distances
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
-		
+
 
 def make_chain_from_control_groups( all_paths ):
 	

@@ -168,6 +168,10 @@ class BezierConstraintSolver( object ):
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = small_lagrange_system[ :, :dofs ]
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, : dofs_next ] = small_lagrange_system[ :, dofs: ]
 			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
+		
+# 		elif len ( self.bundles ) == 1:
+# 			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_single_bundle( bundles[0] )	
+				
 
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
@@ -196,6 +200,44 @@ class BezierConstraintSolver( object ):
 			dof_offset += dofs
 
 		assert dof_offset == self.total_dofs
+
+	def lagrange_equations_for_single_bundle( self, bundle ):
+		
+		assert len( self.bundles ) == 1
+		dof = sum( self.compute_dofs_per_curve( bundle ) )
+		dim = 2
+		R = zeros( ( dof, dim*2 ) )
+		rhs = zeros( dim * 2 )
+		assert type( bundle.constraints[0][1] ) == bool
+		if bundle.constraints[0][1]:
+
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			
+			for i in range( dim ):
+				R[i*4, i] = 1
+	
+			rhs[ :dim ] = bundle.control_points[0][ :dim ]
+				
+		assert type( bundle.constraints[1][1] ) == bool
+		if bundle.constraints[1][1]:
+
+			fixed = asarray(fixed)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			for i in range( dim ):
+				R[i*4+3, dim+i] = 1
+				
+			rhs[ -dim: ] = bundle.control_points[-1][:dim]
+
+		return R.T, rhs
+
 
 
 	### For subclasses to implement:

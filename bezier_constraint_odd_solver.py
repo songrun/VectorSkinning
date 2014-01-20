@@ -90,6 +90,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			solution.append( P )		
 		
 		return solution	
+			
+	
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
@@ -195,6 +197,8 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 			R = concatenate((R, R2), axis=1)
 			rhs = concatenate((rhs, fixed))
+			
+		## handle the case of open end path.
 	
 		return R.T, rhs
 		
