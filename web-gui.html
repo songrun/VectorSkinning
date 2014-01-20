@@ -1445,7 +1445,7 @@ function createHandleAtPosition( x, y )
 		    //       waiting with the mouse button held until the last transformation
 		    //       comes back.
 		    if( $('#c1-while-dragging').prop( 'checked' ) ) sendSetIterations( true );
-		    sendHandleDragFinished();
+		    if( $('#showTargetCurves').prop( 'checked' ) ) sendHandleDragFinished();
 		} );
 	
 	// I need to do this to eat click events:
@@ -1659,6 +1659,13 @@ function setupGlobalUI()
         var checked = $(this).prop('checked');
         $('#liveTargetCurves').prop( 'disabled', !checked );
         $('#svg-overlay-target').toggle( checked );
+        
+        // This means we just turned on.
+        if( checked )
+        {
+            // Ask for the target curve to be computed.
+            sendHandleDragFinished();
+        }
     } ).change();
     $("#showDeformedControlPoints").change( function() {
         var checked = $(this).prop('checked');
