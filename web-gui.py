@@ -140,10 +140,6 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				pass
 
 			## Solve for the new curve positions given the updated control point constraint.
-			# new_positions = self.engine ...
-			
-			## Send the new positions to the GUI.
-			# self.sendMessage( json.dumps( new_positions ) )
 		
 		elif msg.startswith( 'set-weight-function ' ):
 			weight_function = json.loads( msg[ len( 'set-weight-function ' ): ] )
@@ -196,6 +192,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			print 'Received unknown message:', msg
 			
 	def retrieve_energy( self )	:
+		
+		if kNoOverlays:	return
 		
 		energies, polylines, all_distances = self.engine.compute_energy_and_maximum_distance()
 
