@@ -20,6 +20,7 @@ class Engine:
 		self.boundary_index = boundary_index
 		
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
+		
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
 # 		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
 
@@ -280,12 +281,10 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness: 
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
-		#print 'even system size:', even.system_size
 	
 	def update_with_transforms( transforms, multiple_iterations = True ):
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
-# 		print 'the first result: ', solutions
 		if not multiple_iterations: return solutions
 		
 		if kPickleDebug:

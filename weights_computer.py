@@ -600,8 +600,6 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 	bbw_curve = asarray ( bbw_curve )
 	skin_spline_curve = asarray( skin_spline_curve )
 	
-	from raytri.edge_distances import min_distanceSqr_edge_t_to_edges
-	
 	distances = []
 	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
 		## allDistSqrs[i][j] is the distance squared from bbw_samplings[i] to spline_samplings[j].
@@ -625,32 +623,6 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 			'target_pos': bbw_samplings[ bbw_index ].tolist(),
 			'maximum_distance': dist
 			})
-	
-	'''
-	offset = 10
-	distances = []
-	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
-		
-		num = len( spline_samplings ) / 2
-		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
-		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
-
-		min_dists = []
-		target_indices = []
-		for i in arange( num ):
-			start = i - offset
-			if start < 0: start = 0
-			
-			target_segment = bbw_samplings[ start: start + 2*offset + 1 ]
-			diffs = map( mag, ones( ( len( target_segment ), 2 ) ) * spline_samplings[i] - target_segment )
-			target_index = argmin( diffs )
-			target_indices.append( target_index + start )
-			min_dists.append( diffs[ target_index ] )
-			
-		hausdorff_index = argmax( min_dists )	
-		
-		distances.append( { 'spline_pos': spline_samplings[ hausdorff_index ].tolist(), 'target_pos': bbw_samplings[ target_indices[ hausdorff_index ] ].tolist(),  'maximum_distance': min_dists[ hausdorff_index ] } )
-	'''
 	
 	return distances		
 

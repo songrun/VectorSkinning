@@ -154,8 +154,6 @@ def make_constraints_from_control_points( control_group, close=True ):
 	constraints = [ ['C0', False] for i in range( num ) ]
 	
 	for i in range( num ):
-# 		dir1 = dir_allow_zero( control_group[i,-1] - control_group[i,-2] )
-# 		dir2 = dir_allow_zero( control_group[(i+1)%num,1] - control_group[(i+1)%num,0] )
 		## find the first control point in the same segment that has a different value with the first and last ones
 		dir1, dir2 = zeros( 2 ), zeros( 2 )
 		for j in range( 2, 5 ):
