@@ -166,9 +166,7 @@ class Engine:
 		return self.is_arc_enabled
 	
 	def set_iterations( self, whether ):
-		self.perform_multiple_iterations = whether
-			
-			
+		self.perform_multiple_iterations = whether		
 			
 	def compute_tkinter_bbw_affected_curve_per_path( self, path_indices, all_vertices, transforms, all_weights ):
 		'''
@@ -572,10 +570,10 @@ def test_fancy():
 		#paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
 		# paths_info, skeleton_handle_vertices, constraint = get_test1()
 		# paths_info, skeleton_handle_vertices, constraint = get_test2()
-		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
-		paths_info, skeleton_handle_vertices, constraint = get_test_box()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
 	
 	engine = Engine()
 	
@@ -591,23 +589,25 @@ def test_fancy():
 
 	engine.set_handle_positions( skeleton_handle_vertices )
 	
-	engine.precompute_configuration()
-	engine.prepare_to_solve()
+# 	engine.precompute_configuration()
+# 	engine.prepare_to_solve()
+	direct = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
+	
 	
 	## Transform a handle
-	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
-	
-	all_paths = engine.solve_transform_change()
-	
-	for path in all_paths:
-		if len( path ) > 1:
-			chain = concatenate( asarray(path)[:-1, :-1] )
-			chain = concatenate( ( chain, path[-1] ) )
-		else:
-			chain = path[0]
-		print chain
-		
- 	print engine.compute_energy_and_maximum_distance()
+# 	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+# 	
+# 	all_paths = engine.solve_transform_change()
+# 	
+# 	for path in all_paths:
+# 		if len( path ) > 1:
+# 			chain = concatenate( asarray(path)[:-1, :-1] )
+# 			chain = concatenate( ( chain, path[-1] ) )
+# 		else:
+# 			chain = path[0]
+# 		print chain
+# 		
+#  	print engine.compute_energy_and_maximum_distance()
 
 def test_simple():
 	bbw_curve, spline_curve = get_test_distances()					   
@@ -615,6 +615,25 @@ def test_simple():
 	
 	print distances
 	print 'HAHA ~ '
+	
+
+def compute_transformed_by_control_points( all_pts, skeleton_handle_vertices, transforms ):
+	
+	all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_pts, skeleton_handle_vertices )
+	
+	result = []
+	for path_indices in all_indices:
+		path_controls = []
+		for indices in path_indices:
+
+			As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+			tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+		
+			path_controls.append(tps)
+		result.append( path_controls )
+			
+	return result		
 
 def main():
 	'''
@@ -623,5 +642,6 @@ def main():
 	
 	test_fancy()
 	#test_simple()
+
 
 if __name__ == '__main__': main()		
