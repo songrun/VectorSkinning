@@ -1,9 +1,9 @@
 ## Don't do "from parameters import *", or you won't be able to see or make programmatic
 ## changes to these values.
 
-kG1andAconstraints = False
+kG1andAconstraints = True
 kClampOn = True
 kArcLengthDefault = False
 kVerbose = 0
-kTransformControls = True
-kNoOverlays = False		
+kTransformControls = False
+kNoOverlays = False

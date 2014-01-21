@@ -193,7 +193,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 	def retrieve_energy( self )	:
 		
-		if kNoOverlays:	return
+		if parameters.kNoOverlays:	return
 		
 		energies, polylines, all_distances = self.engine.compute_energy_and_maximum_distance()
 
