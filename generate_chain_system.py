@@ -39,13 +39,11 @@ def compute_angle( bundle0, bundle1 ):
 		
 		if  mag(vec0)*mag(vec1) != 0:
 			cos_theta = dot(vec0, vec1)/( mag(vec0)*mag(vec1) )
-			sin_theta = (1.-cos_theta**2) ** 0.5
+			sin_theta = cross(vec0, vec1)/( mag(vec0)*mag(vec1) )
 		else:
 			cos_theta = 1.0
 			sin_theta = 0.0
 			
-		if cross(vec0, vec1) < 0:	
-			sin_theta = -sin_theta
 		
 		return [ cos_theta, sin_theta ]
 

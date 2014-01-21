@@ -1,0 +1,192 @@
+## Shepard black cat
+
+iterations: 3
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 1
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+
+++ compute_energy_and_distances
+path_num:  39
+curve_num:  229
+energy sum:  156.4754499
+energy: 94.7618785008 0.00182856925382 0.266230738393
+distances: 0.956765408422 0.021435612941 0.0986330972647
+-- compute_energy_and_distances 0.319472
+
+## bbw turble-two
+
+iterations: 3
+iterations: 3
+iterations: 2
+Singular matrix
+iterations: 4
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+Singular matrix
+iterations: 3
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+++ compute_energy_and_distances
+path_num:  61
+curve_num:  585
+energy sum:  3562.58771999
+energy: 326.860767314 4.49393546502e-14 5.44121344696
+distances: 2.73939287823 0.138336917671 1.00050883982
+-- compute_energy_and_distances 0.944934
+
+## Shepard fish
+
+iterations: 3
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 1
+iterations: 1
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 1
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 5
+iterations: 21
+iterations: 3
+iterations: 2
+iterations: 4
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 21
+iterations: 1
+iterations: 2
+Singular matrix
+iterations: 4
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 21
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+iterations: 2
+++ compute_energy_and_distances
+path_num:  57
+curve_num:  294
+energy sum:  8869.21035738
+energy: 5621.83231651 2.54549056793e-15 17.5617903953
+distances: 12.3102696126 0.068252960181 0.339760431953
+-- compute_energy_and_distances 0.44807
+
+
