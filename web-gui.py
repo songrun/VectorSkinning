@@ -26,7 +26,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		print 'CONNECTED'
 	
-	@tictoc_dec
+	#@tictoc_dec
 	def onMessage( self, msg, binary ):
 		### BEGIN DEBUGGING
 		if parameters.kVerbose >= 2:
@@ -188,6 +188,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		
 		elif msg.startswith( 'iterations ' ):
 			iterations = json.loads( msg[ len( 'iterations ' ): ] )
+			print 'multiple iterations:', iterations
 			self.engine.set_iterations( iterations )
 		
 		elif msg.startswith( 'handle-transform-drag-finished' ):

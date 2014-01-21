@@ -10,8 +10,8 @@ G1: 50
 
 # handles 3
 
-++ Precomputing W_i...
--- Precomputing W_i... 0.505758
+- Precomputing W_i... 0.03773
+- Generating system matrices... 0.115631
 
 1 iteration
 -- engine.solve_transform_change() 0.016

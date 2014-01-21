@@ -10,18 +10,22 @@ A: 687
 C0: 706
 G1: 9690
 
--- Precomputing W_i... 111.539564
+3 handles
+-- Precomputing W_i... 6.014055
+- Generating system matrices... 15.351313
 
 1 iteration:
-1.841436
-2.085645
-2.134551
-2.097633
-1.67221
-= 9.831475 / 5 = 1.966
+-- engine.solve_transform_change() 2.435241
+-- engine.solve_transform_change() 2.995629
+-- engine.solve_transform_change() 2.807721
+-- engine.solve_transform_change() 3.095805
+-- engine.solve_transform_change() 2.923077
+-- engine.solve_transform_change() 2.507697
+= 16.76517 / 6 = 2.79
 
 2 and 21 iterations:
--- engine.solve_transform_change() 23.148389
--- engine.solve_transform_change() 25.905753
--- engine.solve_transform_change() 22.135407
-= 71.189549/3 = 23.7298
+-- engine.solve_transform_change() 19.428487
+-- engine.solve_transform_change() 18.527515
+-- engine.solve_transform_change() 18.876711
+-- 18.389563
+= 18.805

@@ -9,9 +9,10 @@ Constraint-type counts
 C0: 134
 G1: 261
 
--- Precomputing W_i... 2.452862
 
 2 handles
+- Precomputing W_i... 0.170003
+- Generating system matrices... 0.583186
 
 1 iteration
 -- engine.solve_transform_change() 0.08

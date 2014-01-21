@@ -10,7 +10,8 @@ A: 12
 C0: 280
 G1: 370
 
--- Precomputing W_i... 3.960886
+- Precomputing W_i... 0.230211
+- Generating system matrices... 1.334738
 
 2 handles
 

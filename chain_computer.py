@@ -117,6 +117,7 @@ class Engine:
 		
 		is_arc_enabled = self.is_arc_enabled
 		
+		tic( 'Generating system matrices...' )
 		self.fast_update_functions = []
 		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
 			W_matrices = precomputed_parameters.W_matrices[i]
@@ -126,6 +127,7 @@ class Engine:
 			
 			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dts, is_arc_enabled )
 			self.fast_update_functions.append( fast_update )
+		toc()
 		
 	
 	def solve_transform_change( self ):
@@ -295,7 +297,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
-			#print 'here in even'
+			## TODO Q: Why does is sometimes seem like this code only runs if there
+			##         a print statement inside? It seems haunted.
+			print 'here in even'
 			even.update_rhs_for_handles( transforms )
 			
 			for i in xrange( 10 ):
@@ -324,7 +328,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 					
 					
 		
-		print 'iterations:', iteration
+		#print 'iterations:', iteration
 		return solutions
 	
 	return update_with_transforms					
@@ -617,6 +621,60 @@ def test_fancy():
 #		
 #	print engine.compute_energy_and_maximum_distance()
 
+def test_actually_solve():
+	
+	import sys
+	argv = list( sys.argv )
+	## Remove the first item in argv, which is always the program name itself.
+	argv.pop(0)
+	
+	if len( argv ) == 1:
+		if argv[0].isdigit():
+			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_infinite(' + argv[0] + ')' )
+		else:
+			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
+	else:
+		#paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
+		# paths_info, skeleton_handle_vertices, constraint = get_test1()
+		# paths_info, skeleton_handle_vertices, constraint = get_test2()
+		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
+	
+	engine = Engine()
+	
+	try:
+		boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+	except ValueError:
+		boundary_index = -1
+	
+	engine.set_control_positions( paths_info, boundary_index )
+	
+	if constraint is not None:
+		engine.constraint_change( constraint[0], constraint[1], constraint[2] )
+
+	engine.set_handle_positions( skeleton_handle_vertices )
+	
+	engine.precompute_configuration()
+	engine.prepare_to_solve()
+	
+	
+	## Transform a handle
+	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+	
+	all_paths = engine.solve_transform_change()
+	
+	for path in all_paths:
+		if len( path ) > 1:
+			chain = concatenate( asarray(path)[:-1, :-1] )
+			chain = concatenate( ( chain, path[-1] ) )
+		else:
+			chain = path[0]
+		print chain
+		
+	print engine.compute_energy_and_maximum_distance()
+
 def test_simple():
 	bbw_curve, spline_curve = get_test_distances()					   
 	distances = compute_maximum_distances( bbw_curve, spline_curve )
@@ -649,8 +707,9 @@ def main():
 	a console test.
 	'''
 	
-	test_fancy()
+	#test_fancy()
 	#test_simple()
+	test_actually_solve()
 
 
 if __name__ == '__main__': main()		

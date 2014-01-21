@@ -415,9 +415,21 @@ def precompute_W_i( vs, weights, i, sampling_index2vs_index, sampling, ts, dts )
 		return weights[ vi, i ]
 	
 	result[:] = precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )		
-				
-	return result
 	
+	return result
+
+def precompute_W_i_fast( vs, weights, i, sampling_index2vs_index, sampling, ts, dts ):
+	sampling_weights = weights[ sampling_index2vs_index, i ]
+	
+	wdt = .5*(sampling_weights[:-1] + sampling_weights[1:])*dts
+	midts = .5*(ts[:-1] + ts[1:])
+	tbars = array([midts**3, midts**2, midts, ones(midts.shape).squeeze()]).T
+	
+	C_P = dot( asarray( M ), tbars.T )
+	R = dot( ( wdt[:,newaxis]*tbars ).T, C_P.T )
+	return R
+
+precompute_W_i = precompute_W_i_fast
 
 # def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 #	'''
