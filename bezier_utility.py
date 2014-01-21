@@ -166,7 +166,7 @@ def make_constraints_from_control_points( control_group, close=True ):
 				dir2 = dir( control_group[(i+1)%num,j] - control_group[(i+1)%num,0 ] )
 				break
 		
-		if allclose( dot( dir1, dir2 ), 1.0, atol=1e-03 ) and mag(dir1) != 0 and mag(dir2) != 0:
+		if allclose( dot( dir1, dir2 ), 1.0, atol=1e-02 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			if parameters.kG1andAconstraints:
 				## G1
 				constraints[ (i+1)%num ][0] = 'G1' 

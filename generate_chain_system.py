@@ -169,7 +169,7 @@ class BezierConstraintSolver( object ):
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, : dofs_next ] = small_lagrange_system[ :, dofs: ]
 			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 		
-# 		elif len ( self.bundles ) == 1:
+# 		if len ( self.bundles ) == 1:
 # 			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_single_bundle( bundles[0] )	
 				
 

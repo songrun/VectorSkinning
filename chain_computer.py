@@ -281,6 +281,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 	
 	def update_with_transforms( transforms, multiple_iterations = True ):
+		iteration = 1
 		odd.update_rhs_for_handles( transforms )
 		last_solutions = solutions = odd.solve()
 		if not multiple_iterations: return solutions
@@ -290,13 +291,13 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
-		iteration = -1
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
 			
-			for iteration in xrange( 10 ):
+			for i in xrange( 10 ):
+				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
 				solutions = even.solve()
@@ -307,14 +308,19 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
-			
+				
+				
+				
 				## Check if error is low enough and terminate
+				iteration += 1
 				odd.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
 				solutions = odd.solve()
-			
+				
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
+					
+					
 		
 		print 'iterations:', iteration
 		return solutions
