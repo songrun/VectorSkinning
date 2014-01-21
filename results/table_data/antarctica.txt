@@ -1,0 +1,21 @@
+Antarctica solo
+
+Opening a file with 1 paths.
+A total of 662.0 cubic bezier curves.
+Longest number of curves in a path: 662.0
+Average number of curves in a path: 662.0
+Median number of curves in a path: 662.0
+Constraint-type counts
+A: 12
+C0: 280
+G1: 370
+
+-- Precomputing W_i... 3.960886
+
+2 handles
+
+1 iteration
+-- engine.solve_transform_change() 0.11414
+
+iterations: 2
+-- engine.solve_transform_change() 1.191432

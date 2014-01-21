@@ -24,12 +24,12 @@ class Engine:
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
-# 		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
+#		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
 
 		self.num_of_paths = len( all_controls )
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
-#  		self.all_lengths = all_lengths
+#		self.all_lengths = all_lengths
 		
 		self.transforms = []
 		self.handle_positions = []	
@@ -74,7 +74,7 @@ class Engine:
 		self.handle_positions = asarray( new_handle_positions ).tolist()
 		## Initialize all the transforms to the identity matrix.
 		## NOTE: We don't directly use 'new_transforms' here, because they're
-		##       in a different format.
+		##		 in a different format.
 		self.transforms = [ identity(3) for i in range(len( new_handle_positions )) ]
 		
 		## Set the corresponding transformations.
@@ -136,7 +136,7 @@ class Engine:
 		for fast_update in self.fast_update_functions:
 			result.append(	fast_update( self.transforms, self.perform_multiple_iterations ) )
 		
-		self.solutions = result	
+		self.solutions = result 
 		return result
 	
 	def set_weight_function( self, weight_function ):
@@ -295,7 +295,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
-	
+			#print 'here in even'
 			even.update_rhs_for_handles( transforms )
 			
 			for i in xrange( 10 ):
@@ -344,42 +344,42 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 
 
 # def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
-# 	'''
-# 	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
-# 	'''
-# 	assert len( bbw_curves ) == len( spline_skin_curves )
-# 	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
-# 	print 'differences: ', diffs
-# 	
-# 	new_controls = []
-# 	partition = [0.5, 0.5]
-# 	threshold = 100 
-# 	
-# 	all_pos = asarray([x.position for x in controls])
-# 	
-# 	for k, diff in enumerate( diffs ):
-# 		control_pos = all_pos[ k*3 : k*3+4 ]
-# 		if len(control_pos) == 3:	
-# 			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
-# 		
-# 		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
-# 			splitted = split_cublic_beizer_curve( control_pos, partition )
-# 			splitted = asarray( splitted ).astype(int)
-# 			
-# 			new_controls.append( controls[ k*3 ] )
-# 			for j, each in enumerate(splitted):
-# 				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
-# 				if j != len(splitted)-1:
-# 					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
-# 			
-# 		else:
-# 			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
-# 			
-# 	'''
-# 	if is not closed, add the last control at the end.
-# 	'''
-# 	
-# 	return new_controls
+#	'''
+#	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
+#	'''
+#	assert len( bbw_curves ) == len( spline_skin_curves )
+#	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
+#	print 'differences: ', diffs
+#	
+#	new_controls = []
+#	partition = [0.5, 0.5]
+#	threshold = 100 
+#	
+#	all_pos = asarray([x.position for x in controls])
+#	
+#	for k, diff in enumerate( diffs ):
+#		control_pos = all_pos[ k*3 : k*3+4 ]
+#		if len(control_pos) == 3:	
+#			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
+#		
+#		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
+#			splitted = split_cublic_beizer_curve( control_pos, partition )
+#			splitted = asarray( splitted ).astype(int)
+#			
+#			new_controls.append( controls[ k*3 ] )
+#			for j, each in enumerate(splitted):
+#				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
+#				if j != len(splitted)-1:
+#					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
+#			
+#		else:
+#			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
+#			
+#	'''
+#	if is not closed, add the last control at the end.
+#	'''
+#	
+#	return new_controls
 
 
 def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, weight_function = 'bbw', kArcLength=False ):
@@ -597,25 +597,25 @@ def test_fancy():
 
 	engine.set_handle_positions( skeleton_handle_vertices )
 	
-# 	engine.precompute_configuration()
-# 	engine.prepare_to_solve()
+#	engine.precompute_configuration()
+#	engine.prepare_to_solve()
 	direct = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
 	
 	
 	## Transform a handle
-# 	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
-# 	
-# 	all_paths = engine.solve_transform_change()
-# 	
-# 	for path in all_paths:
-# 		if len( path ) > 1:
-# 			chain = concatenate( asarray(path)[:-1, :-1] )
-# 			chain = concatenate( ( chain, path[-1] ) )
-# 		else:
-# 			chain = path[0]
-# 		print chain
-# 		
-#  	print engine.compute_energy_and_maximum_distance()
+#	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+#	
+#	all_paths = engine.solve_transform_change()
+#	
+#	for path in all_paths:
+#		if len( path ) > 1:
+#			chain = concatenate( asarray(path)[:-1, :-1] )
+#			chain = concatenate( ( chain, path[-1] ) )
+#		else:
+#			chain = path[0]
+#		print chain
+#		
+#	print engine.compute_energy_and_maximum_distance()
 
 def test_simple():
 	bbw_curve, spline_curve = get_test_distances()					   

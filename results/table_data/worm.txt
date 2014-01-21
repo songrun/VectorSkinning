@@ -1,0 +1,20 @@
+worm
+
+Opening a file with 33 paths.
+A total of 395.0 cubic bezier curves.
+Longest number of curves in a path: 77.0
+Average number of curves in a path: 11.9696969697
+Median number of curves in a path: 9.0
+Constraint-type counts
+C0: 134
+G1: 261
+
+-- Precomputing W_i... 2.452862
+
+2 handles
+
+1 iteration
+-- engine.solve_transform_change() 0.08
+
+iterations: 2
+-- engine.solve_transform_change() 0.40
