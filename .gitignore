@@ -4,3 +4,4 @@
 *.pyo
 profile.out
 /*.pickle
+/node_modules
