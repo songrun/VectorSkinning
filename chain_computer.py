@@ -2,6 +2,8 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
+from tictoc import tic, toc
+
 class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
@@ -418,7 +420,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 	
 	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, weight_function )
 	
-	print 'Precomputing W_i...'
+	tic( 'Precomputing W_i...' )
 	W_matrices = []
 	for j, control_pos in enumerate( all_control_positions ):
 		W_matrices.append( zeros( ( len( control_pos ), len( skeleton_handle_vertices ), 4, 4 ) ) )		
@@ -429,7 +431,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 				W_matrices[j][k,i] = precompute_W_i( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
-	print '...finished.'
+	toc()
 	
 	class Layer( object ): pass
 	layer = Layer()

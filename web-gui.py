@@ -57,6 +57,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			self.engine.set_control_positions( paths_info, boundary_index )
 			all_constraints = self.engine.all_constraints
 
+			print_paths_info_stats( paths_info, all_constraints )
+			
 			for i, constraints in enumerate( all_constraints ):
 				for j, constraint in enumerate( constraints ):
 	
@@ -101,7 +103,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				self.engine.transform_change( handle_index, handle_transform )
 			toc()
 			
-			tic( 'engine.solve()' )
+			tic( 'engine.solve_transform_change()' )
 			if parameters.kTransformControls:
 				all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
 			else:
@@ -234,6 +236,26 @@ def make_chain_from_control_groups( all_paths ):
 		all_positions.append( new_positions )
 		
 	return all_positions
+
+def print_paths_info_stats( paths_info, all_constraints ):
+	print 'Opening a file with', len( paths_info ), 'paths.'
+	curve_couts = [ ( len( path['cubic_bezier_chain'] ) - 1 ) / 3. for path in paths_info ]
+	print 'A total of', sum( curve_couts ), 'cubic bezier curves.'
+	print 'Longest number of curves in a path:', max( curve_couts )
+	print 'Average number of curves in a path:', average( curve_couts )
+	print 'Median number of curves in a path:', median( curve_couts )
+	
+	counts = {}
+	for i, constraints in enumerate( all_constraints ):
+		for j, constraint in enumerate( constraints ):
+			
+			continuity = constraint[0]
+			counts.setdefault( continuity, 0 )
+			counts[ continuity ] += 1
+	
+	print 'Constraint-type counts'
+	for name in sorted( counts.iterkeys() ):
+		print '%s: %s' % ( name, counts[ name ] )
 
 class StubServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):

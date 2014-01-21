@@ -2,6 +2,7 @@ from bezier_utility import *
 from triangle import *
 from bbw_wrapper import bbw
 from itertools import izip as zip
+from tictoc import tic, toc
 
 # kEnableBBW = True
 kBarycentricProjection = False
@@ -70,17 +71,17 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	out: [0, 1, 2, 3, 4, 5, 6, 7, 8]
 	'''
 	
-	print 'Barycentric projection...'
+	tic( 'Barycentric projection...' )
 	
 	from raytri import raytri
 	
 	pts = asarray( pts )
 	
-	print 'Removing duplicate points...'
+	tic( 'Removing duplicate points...' )
 	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
 	## points.
 	unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
-	print '...finished.'
+	toc()
 	
 	edges = zeros( ( len( boundary_edges ), 2, len( vs[0] ) ) )
 	for bi, ( e0, e1 ) in enumerate( boundary_edges ):
@@ -133,7 +134,7 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	else:
 		print 'Barycentric projection:', misses, 'points missed the mesh. Average distance was', misses_total_distance/misses, ' and maximum distance was', misses_max_distance
 	
-	print '...finished.'
+	toc()
 	
 	return unique_pts, unique_weights, unique_map
 
@@ -214,18 +215,18 @@ def compute_all_weights_shepard( all_pts, skeleton_handle_vertices ):
 	
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
-	print 'Removing duplicate points...'
+	tic( 'Removing duplicate points...' )
 	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
 	## points.
 	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
-	print '...finished.'
+	toc()
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
 	
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
-	print 'Computing Shepard weights...'
+	tic( 'Computing Shepard weights...' )
 	all_weights = shepard( all_clean_pts, skeleton_handle_vertices )
-	print '...finished.'
+	toc()
 	
 	return all_clean_pts, all_weights, all_maps
 
@@ -242,9 +243,9 @@ def compute_all_weights_mvc( all_pts, cage_loop ):
 	all_pts, all_shapes = flatten_paths( all_pts )
 	all_maps = unflatten_data( range(len( all_pts )), all_shapes )
 	
-	print 'Computing Mean Value Coordinate weights...'
+	tic( 'Computing Mean Value Coordinate weights...' )
 	all_weights = bbw.mvc( all_pts, cage_loop )
-	print '...finished.'
+	toc()
 	
 	return all_pts, all_weights, all_maps
 
@@ -266,9 +267,9 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
-	print 'Removing duplicate points...'
+	tic( 'Removing duplicate points...' )
 	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts )
-	print '...finished.'
+	toc()
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
@@ -321,16 +322,16 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	print 'Computing triangulation...'
+	tic( 'Computing triangulation...' )
 	vs, faces = triangles_for_points( registered_pts, boundary_edges )
-	print '...finished.'
+	toc()
 	
 	vs = asarray(vs)[:, :2] 
 	faces = asarray(faces)
 	
-	print 'Computing BBW...'
+	tic( 'Computing BBW...' )
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
-	print '...finished.'
+	toc()
 	
 	if kBarycentricProjection:
 		if __debug__: old_weights = asarray([ all_weights[i] for i in pts_maps ])
