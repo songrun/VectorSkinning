@@ -1,0 +1,64 @@
+
+<<<<<<<<<<<<<<<<<<<<<<<< C1 and G1 comparison >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+### simple-closed-with-dots:
+
+## 	G1
+
+iterations: 21
+iterations: 1
+iterations: 2
+iterations: 1
+
+path_num:  4
+curve_num:  8
+energy sum:  12292.5513463
+		
+		max				min				average
+energy: 4750.29823153 1.3294692755 774.646277227
+distances: 6.61786827933 0.504902183527 2.36874031768
+
+## C1
+
+iterations: 1
+iterations: 1
+iterations: 1
+iterations: 1
+
+path_num:  4
+curve_num:  8
+energy sum:  31781.0227386
+
+		max				min				average
+energy: 9605.46111028 1.3294692755 1992.69633592
+distances: 10.5904118607 0.504902183527 3.13832954918
+
+
+ ### wide-pebblish:
+ 
+ ## G1
+iterations: 3
+
+path_num:  1
+curve_num:  4
+energy sum:  783.473806021
+
+		max				min				average
+energy: 235.883217898 145.017443695 195.868451505
+distances: 4.60464939964 4.44992852002 4.52728895983
+
+ ## C1
+ 
+iterations: 1
+
+path_num:  1
+curve_num:  4
+energy sum:  24907.4398713
+
+		max				min				average
+energy: 7058.97075792 5515.89616841 6226.85996782
+distances: 14.6496761213 14.5806720722 14.6151740968
+
+
+
+

@@ -213,6 +213,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			energy = asarray( energies )
 			dists = asarray([ [ curve['maximum_distance'] for curve in path ] for path in all_distances ])
 			print 'path_num: ', len( energies )
+			print 'curve_num: ', sum( [len( curve_energy ) for curve_energy in energies] )
+			print 'energy sum: ', sum( [sum( curve_energy ) for curve_energy in energies] )
 			e_data = asarray( [ [ max( e ), min( e ), mean( e ) ] for e in energy ] ).T
 			d_data = asarray( [ [ max( d ), min( d ), mean( d ) ] for d in dists ] ).T
  			print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
