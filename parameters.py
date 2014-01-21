@@ -4,6 +4,6 @@
 kG1andAconstraints = True
 kClampOn = True
 kArcLengthDefault = False
-kVerbose = 0
+kVerbose = 1
 kTransformControls = False
-kNoOverlays = False
+kNoOverlays = False		

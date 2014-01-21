@@ -86,6 +86,9 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 
 			all_positions = make_chain_from_control_groups( all_paths )
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			tic( 'compute_energy_and_distances' )
+			self.retrieve_energy()
+			toc()
 
 			## Generate the triangulation and the BBW weights.
 			# self.engine ...
@@ -109,6 +112,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			all_positions = make_chain_from_control_groups( all_paths )
 			toc()
 			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+
 
 			## Solve for the new curve positions given the updated transform matrix.
 			# new_positions = engine ...
@@ -206,7 +210,13 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				]
 
 		if parameters.kVerbose >= 2:
-			print energies, all_distances
+			energy = asarray( energies )
+			dists = asarray([ [ curve['maximum_distance'] for curve in path ] for path in all_distances ])
+			print 'path_num: ', len( energies )
+			e_data = asarray( [ [ max( e ), min( e ), mean( e ) ] for e in energy ] ).T
+			d_data = asarray( [ [ max( d ), min( d ), mean( d ) ] for d in dists ] ).T
+ 			print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
+			print 'distances:', max( d_data[0] ),  min( d_data[1] ), mean( d_data[2] )
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 
