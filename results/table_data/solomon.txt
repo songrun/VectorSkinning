@@ -1,0 +1,28 @@
+solomon
+
+Opening a file with 509 paths.
+A total of 9496.0 cubic bezier curves.
+Longest number of curves in a path: 558.0
+Average number of curves in a path: 18.6561886051
+Median number of curves in a path: 8.0
+Constraint-type counts
+A: 20
+C0: 1065
+G1: 8139
+None: 544
+
+-- Precomputing W_i... 63.050017
+
+1 iteration:
+1.841436
+2.085645
+2.134551
+2.097633
+1.67221
+= 9.831475 / 5 = 1.966
+
+2 and 21 iterations:
+-- engine.solve_transform_change() 23.148389
+-- engine.solve_transform_change() 25.905753
+-- engine.solve_transform_change() 22.135407
+= 71.189549/3 = 23.7298

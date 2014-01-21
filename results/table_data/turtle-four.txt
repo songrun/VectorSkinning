@@ -1,0 +1,20 @@
+turtle-four
+
+Opening a file with 464 paths.
+A total of 4810.0 cubic bezier curves.
+Longest number of curves in a path: 55.0
+Average number of curves in a path: 10.3663793103
+Median number of curves in a path: 7.0
+Constraint-type counts
+A: 7
+C0: 1453
+G1: 3329
+None: 42
+
+Precompute W_i: 72.074029
+
+1 iteration
+-- engine.solve_transform_change() 1.406834
+
+2--21 iterations
+-- engine.solve_transform_change() 10.452825

@@ -42,7 +42,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 	
 	def solve( self ):
-		print 'even solver~!!!'
+		# print 'even solver~!!!'
 		### Return a nicely formatted chain of bezier curves, un-substituting the fixed
 		### directions.
 		dofs_per_bundle = self.dofs_per_bundle
