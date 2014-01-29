@@ -220,11 +220,14 @@ def compute_all_weights_shepard( all_pts, skeleton_handle_vertices ):
 	
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
-	tic( 'Removing duplicate points...' )
+	#tic( 'Removing duplicate points...' )
 	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
 	## points.
-	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
-	toc()
+	#all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
+	#toc()
+	## UPDATE: There's no need to remove duplicates.
+	all_clean_pts = all_pts
+	pts_maps = range( len( all_clean_pts ) )
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
 	
@@ -368,8 +371,50 @@ def shepard( vs, skeleton_handle_vertices ):
 		for hi in range( len( skeleton_handle_vertices ) ):
 			weights[ vi, hi ] = shepard_w_i( skeleton_handle_vertices, hi, p )
 	
+	# print 'Shepard fast - slow:', abs( weights - shepard_fast( vs, skeleton_handle_vertices ) ).max()
+	
 	return weights
 
+def shepard_fast( vs, skeleton_handle_vertices ):
+	'''
+	Given an N-by-(2 or 3) sequence 'vs' of 2D or 3D vertices and
+	an H-by-(2 or 3) sequence 'skeleton_handle_vertices' of 2D or 3D vertices,
+	returns a N-by-H numpy.array of weights per vertex per handle.
+	
+	tested
+	
+	>>> skeleton_handle_vertices = [ (0,0), (1,0), (1,1), (0,1) ]
+	>>> vs = [ (0,0), (1,0), (1,1), (0,1), (.2,.1), (.9,.8), (.8,.9), ( -1, -1 ), ( -1, 1 ) ]
+	>>> shepard_fast( vs, skeleton_handle_vertices ) - shepard( vs, skeleton_handle_vertices )
+	>>> abs( shepard_fast( vs, skeleton_handle_vertices ) - shepard( vs, skeleton_handle_vertices ) ).max()
+	'''
+	
+	vs = asarray( vs )
+	skeleton_handle_vertices = asarray( skeleton_handle_vertices )
+	
+	assert len( vs.shape ) == 2
+	assert len( skeleton_handle_vertices.shape ) == 2
+	assert vs.shape[1] == skeleton_handle_vertices.shape[1]
+	
+	diffs = (skeleton_handle_vertices[newaxis,...] - vs[:,newaxis,:])
+	diffs = ( diffs**2 ).sum( -1 )
+	## 'diffs' is N-by-H
+	
+	small = diffs < 1e-8
+	
+	## NOTE: Shepard weights could allow one to take this to a power other than 2,
+	##       which is the implied power since 'diffs' stores the squared distance.
+	diffs = 1./diffs
+	
+	mask = small.any( 1 )[:,newaxis].repeat( diffs.shape[1], 1 )
+	diffs[ mask ] = small[ mask ]
+	
+	## Normalize rows.
+	diffs /= diffs.sum( 1 )[:,newaxis]
+	
+	return diffs
+
+shepard = shepard_fast
 
 def precompute_W_i( vs, weights, i, sampling_index2vs_index, sampling, ts, dts ):
 	'''
