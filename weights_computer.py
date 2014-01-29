@@ -18,6 +18,11 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold =
 	   pts[i] can be found in the unique elements.
 	'''
 	
+	kRemoveDuplicates = True
+	if not kRemoveDuplicates:
+		print 'WARNING: Not actually removing duplicates.'
+		return [ tuple( pt ) for pt in pts ], range( len( pts ) )
+	
 	from collections import OrderedDict
 	unique_pts = OrderedDict()
 	pts_map = []
