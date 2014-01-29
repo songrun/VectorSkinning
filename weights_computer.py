@@ -18,11 +18,6 @@ def uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold =
 	   pts[i] can be found in the unique elements.
 	'''
 	
-	kRemoveDuplicates = True
-	if not kRemoveDuplicates:
-		print 'WARNING: Not actually removing duplicates.'
-		return [ tuple( pt ) for pt in pts ], range( len( pts ) )
-	
 	from collections import OrderedDict
 	unique_pts = OrderedDict()
 	pts_map = []
@@ -82,11 +77,21 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	
 	pts = asarray( pts )
 	
-	tic( 'Removing duplicate points...' )
-	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
-	## points.
-	unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
-	toc()
+	## TODO Q: Should we uniquify points even though we don't have to?
+	kRemoveDuplicates = True
+	## A1: Yes, because our point2d_in_mesh2d_barycentric() function is slow.
+	if kRemoveDuplicates:
+		tic( 'Removing duplicate points...' )
+		## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
+		## points.
+		unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
+		unique_pts = asarray( unique_pts )
+		toc()
+	## A2: No, because we don't have to.
+	else:
+		unique_pts = pts
+		unique_map = range(len( pts ))
+	
 	
 	edges = zeros( ( len( boundary_edges ), 2, len( vs[0] ) ) )
 	for bi, ( e0, e1 ) in enumerate( boundary_edges ):
@@ -99,35 +104,36 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	misses = 0
 	misses_total_distance = 0.
 	misses_max_distance = -31337.
-	unique_weights = zeros( ( len( pts ), len( weights[0] ) ) )
-	for pi, pt in enumerate( pts ):
+	unique_weights = zeros( ( len( unique_pts ), len( weights[0] ) ) )
+	for pi, pt in enumerate( unique_pts ):
 		bary = raytri.point2d_in_mesh2d_barycentric( pt, vs, faces )
 		## Did we hit the mesh?
 		if bary is not None:
 			fi, ( b0, b1, b2 ) = bary
-			assert abs( b0 + b1 + b2 - 1 ) < 1e-5
-			assert b0 > -1e-5
-			assert b1 > -1e-5
-			assert b2 > -1e-5
-			assert b0 < 1+1e-5
-			assert b1 < 1+1e-5
-			assert b2 < 1+1e-5
+			#assert abs( b0 + b1 + b2 - 1 ) < 1e-5
+			#assert b0 > -1e-5
+			#assert b1 > -1e-5
+			#assert b2 > -1e-5
+			#assert b0 < 1+1e-5
+			#assert b1 < 1+1e-5
+			#assert b2 < 1+1e-5
 			unique_weights[pi] = b0*weights[ faces[ fi ][0] ] + b1*weights[ faces[ fi ][1] ] + b2*weights[ faces[ fi ][2] ]
 		else:
+			#print 'pi outside:', pi
 			dist, ei, t = raytri.closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt )
-			assert t > -1e-5
-			assert t < 1+1e-5
+			#assert t > -1e-5
+			#assert t < 1+1e-5
 			dist = sqrt( dist )
 			misses += 1
 			misses_total_distance += dist
 			misses_max_distance = max( misses_max_distance, dist )
 			unique_weights[pi] = (1-t)*weights[ boundary_edges[ ei ][0] ] + t*weights[ boundary_edges[ ei ][1] ]
 	
-	## And indeed it does come out the nearly identical? (See comment d987dsa98d7h above.)
+	## And indeed it does come out nearly identical. (See comment d987dsa98d7h above.)
 	# assert ( unique_weights - pts ).allclose()
 	
-	assert unique_weights.min() > -1e-4
-	assert unique_weights.max() < 1 + 1e-4
+	#assert unique_weights.min() > -1e-4
+	#assert unique_weights.max() < 1 + 1e-4
 	## Clip the weights?
 	# unique_weights = unique_weights.clip( 0, 1 )
 	
@@ -226,7 +232,7 @@ def compute_all_weights_shepard( all_pts, skeleton_handle_vertices ):
 	#all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
 	#toc()
 	## UPDATE: There's no need to remove duplicates.
-	all_clean_pts = all_pts
+	all_clean_pts = asarray( all_pts )
 	pts_maps = range( len( all_clean_pts ) )
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
@@ -276,7 +282,7 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
 	tic( 'Removing duplicate points...' )
-	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts )
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 0 )
 	toc()
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
