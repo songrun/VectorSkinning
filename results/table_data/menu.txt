@@ -1,0 +1,31 @@
+menu
+
+Opening a file with 460 paths.
+A total of 11083.0 cubic bezier curves.
+Longest number of curves in a path: 84.0
+Average number of curves in a path: 24.0934782609
+Median number of curves in a path: 16.0
+Constraint-type counts
+A: 687
+C0: 706
+G1: 9690
+
+3 handles
+-- Precomputing W_i... 6.014055
+- Generating system matrices... 15.351313
+
+1 iteration:
+-- engine.solve_transform_change() 2.435241
+-- engine.solve_transform_change() 2.995629
+-- engine.solve_transform_change() 2.807721
+-- engine.solve_transform_change() 3.095805
+-- engine.solve_transform_change() 2.923077
+-- engine.solve_transform_change() 2.507697
+= 16.76517 / 6 = 2.79
+
+2 and 21 iterations:
+-- engine.solve_transform_change() 19.428487
+-- engine.solve_transform_change() 18.527515
+-- engine.solve_transform_change() 18.876711
+-- 18.389563
+= 18.805

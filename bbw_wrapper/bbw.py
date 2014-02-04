@@ -183,7 +183,7 @@ def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
     assert len( skeleton_point_handles.shape ) == 1
     assert len( skeleton_point_handles ) == len( set( skeleton_point_handles ) )
     
-    Wout = numpy.empty( ( len( vertices ), len( skeleton_handle_vertices ) ), dtype = numpy.float64 )
+    Wout = numpy.empty( ( len( vertices ), len( skeleton_handle_vertices ) ), dtype = real_t )
 #     debugger()
     result = libbbw.bbw(
         len( vertices ),                 ffi.cast( 'real_t*',  vertices.ctypes.data ),
@@ -216,7 +216,7 @@ def mvc( vertices, line_loop ):
     assert len( vertices.shape ) == 2
     assert vertices.shape[1] == 2
     
-    Wout = numpy.empty( ( len( vertices ), len( line_loop ) ), dtype = numpy.float64 )
+    Wout = numpy.empty( ( len( vertices ), len( line_loop ) ), dtype = real_t )
     result = libbbw.mvc(
         len( vertices ),                 ffi.cast( 'real_t*',  vertices.ctypes.data ),
         len( line_loop ),                ffi.cast( 'real_t*',  line_loop.ctypes.data ),

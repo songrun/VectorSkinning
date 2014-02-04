@@ -943,35 +943,47 @@ function loadGlobals( globals )
     if( globals.usingArcLengthParameterization === undefined ) globals.usingArcLengthParameterization = false;
     
     /// Copy to globals.
-    $( "#weight-function" ).val( globals.weightFunction );
-    $( "#usingArcLengthParameterization" ).prop( "checked", globals.usingArcLengthParameterization );
-    
-    // 0 Send BBW weight and arc length status already.
-    //   We send this first, because that way less re-computation has to be done.
-    sendWeightTypeChanged();
-    sendIfUsingArcLengthParameterization();
-    
-    gPathsControlPointConstraints = globals.gPathsControlPointConstraints;
-    
-    /// Now send the new data. The server should check whether anything really changed.
-    // 1 Send control point constraints.
-    for( var path_index = 0; path_index < gPathsControlPointConstraints.length; ++path_index )
+    if( globals.weightFunction !== undefined )
     {
-        var segments = gPathsControlPointConstraints[ path_index ];
-        for( var segment_index = 0; segment_index < segments.length; ++segment_index )
+        $( "#weight-function" ).val( globals.weightFunction );
+        // 0 Send BBW weight and arc length status already.
+        //   We send this first, because that way less re-computation has to be done.
+        sendWeightTypeChanged();
+    }
+    
+    if( globals.usingArcLengthParameterization !== undefined )
+    {
+        $( "#usingArcLengthParameterization" ).prop( "checked", globals.usingArcLengthParameterization );
+        sendIfUsingArcLengthParameterization();
+    }
+    
+    if( globals.gPathsControlPointConstraints !== undefined )
+    {
+        gPathsControlPointConstraints = globals.gPathsControlPointConstraints;
+        
+        /// Now send the new data. The server should check whether anything really changed.
+        // 1 Send control point constraints.
+        for( var path_index = 0; path_index < gPathsControlPointConstraints.length; ++path_index )
         {
-            sendControlPointConstraintsChanged( path_index, segment_index );
+            var segments = gPathsControlPointConstraints[ path_index ];
+            for( var segment_index = 0; segment_index < segments.length; ++segment_index )
+            {
+                sendControlPointConstraintsChanged( path_index, segment_index );
+            }
         }
     }
     
-    // 2 Send handles.
-    for( var handle_index = 0; handle_index < globals.gHandles.length; ++handle_index )
+    if( globals.gHandles !== undefined )
     {
-        var handle = globals.gHandles[ handle_index ];
-        createHandleAtPosition( handle.pos[0], handle.pos[1] );
-        setHandleTransform( handle_index, handle.transform )
+        // 2 Send handles.
+        for( var handle_index = 0; handle_index < globals.gHandles.length; ++handle_index )
+        {
+            var handle = globals.gHandles[ handle_index ];
+            createHandleAtPosition( handle.pos[0], handle.pos[1] );
+            setHandleTransform( handle_index, handle.transform )
+        }
+        sendHandlePositionsAndTransforms();
     }
-    sendHandlePositionsAndTransforms();
 }
 function loadSVG( svg_text, filename )
 {

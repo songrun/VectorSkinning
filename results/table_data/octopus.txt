@@ -1,0 +1,32 @@
+octopus
+
+Opening a file with 45 paths.
+A total of 1706.0 cubic bezier curves.
+Longest number of curves in a path: 434.0
+Average number of curves in a path: 37.9111111111
+Median number of curves in a path: 11.0
+Constraint-type counts
+A: 1
+C0: 525
+G1: 1180
+
+8 handles
+
+-- Precomputing W_i... 2.451349
+- Generating system matrices... 3.623313
+
+1 iteration
+-- engine.solve_transform_change() 0.851692
+
+many iterations
+-- engine.solve_transform_change() 3.726825
+++ engine.solve_transform_change()
+-- engine.solve_transform_change() 3.972778
+++ engine.solve_transform_change()
+-- engine.solve_transform_change() 4.037498
+++ engine.solve_transform_change()
+-- engine.solve_transform_change() 4.039154
+++ engine.solve_transform_change()
+-- engine.solve_transform_change() 3.336754
+
+=> avg 3.75

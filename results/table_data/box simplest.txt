@@ -1,0 +1,19 @@
+Opening a file with 1 paths.
+A total of 4.0 cubic bezier curves.
+Longest number of curves in a path: 4.0
+Average number of curves in a path: 4.0
+Median number of curves in a path: 4.0
+Constraint-type counts
+A: 4
+
+# handles 2
+
+- Precomputing W_i... 0.002153
+- Generating system matrices... 0.00693
+
+
+1 iteration
+-- engine.solve_transform_change() 0.001112
+
+iterations: 4
+-- engine.solve_transform_change() 0.014487

@@ -1,0 +1,15 @@
+thank you
+
+Opening a file with 28 paths.
+A total of 1981.0 cubic bezier curves.
+Longest number of curves in a path: 195.0
+Average number of curves in a path: 70.75
+Median number of curves in a path: 63.5
+Constraint-type counts
+A: 10
+C0: 279
+G1: 1692
+
+MVC 6 handles
+-- Precomputing W_i... 38.120025
+

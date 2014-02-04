@@ -1,0 +1,15 @@
+cactus
+
+Opening a file with 259 paths.
+A total of 2403.0 cubic bezier curves.
+Longest number of curves in a path: 418.0
+Average number of curves in a path: 9.27799227799
+Median number of curves in a path: 4.0
+Constraint-type counts
+C0: 1730
+G1: 673
+
+4 handles
+
+
+can't bbw, only shepard

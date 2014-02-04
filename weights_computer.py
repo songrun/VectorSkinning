@@ -2,6 +2,7 @@ from bezier_utility import *
 from triangle import *
 from bbw_wrapper import bbw
 from itertools import izip as zip
+from tictoc import tic, toc
 
 # kEnableBBW = True
 kBarycentricProjection = False
@@ -70,17 +71,27 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	out: [0, 1, 2, 3, 4, 5, 6, 7, 8]
 	'''
 	
-	print 'Barycentric projection...'
+	tic( 'Barycentric projection...' )
 	
 	from raytri import raytri
 	
 	pts = asarray( pts )
 	
-	print 'Removing duplicate points...'
-	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
-	## points.
-	unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
-	print '...finished.'
+	## TODO Q: Should we uniquify points even though we don't have to?
+	kRemoveDuplicates = True
+	## A1: Yes, because our point2d_in_mesh2d_barycentric() function is slow.
+	if kRemoveDuplicates:
+		tic( 'Removing duplicate points...' )
+		## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
+		## points.
+		unique_pts, unique_map = uniquify_points_and_return_input_index_to_unique_index_map( pts, threshold = 7 )
+		unique_pts = asarray( unique_pts )
+		toc()
+	## A2: No, because we don't have to.
+	else:
+		unique_pts = pts
+		unique_map = range(len( pts ))
+	
 	
 	edges = zeros( ( len( boundary_edges ), 2, len( vs[0] ) ) )
 	for bi, ( e0, e1 ) in enumerate( boundary_edges ):
@@ -93,35 +104,36 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	misses = 0
 	misses_total_distance = 0.
 	misses_max_distance = -31337.
-	unique_weights = zeros( ( len( pts ), len( weights[0] ) ) )
-	for pi, pt in enumerate( pts ):
+	unique_weights = zeros( ( len( unique_pts ), len( weights[0] ) ) )
+	for pi, pt in enumerate( unique_pts ):
 		bary = raytri.point2d_in_mesh2d_barycentric( pt, vs, faces )
 		## Did we hit the mesh?
 		if bary is not None:
 			fi, ( b0, b1, b2 ) = bary
-			assert abs( b0 + b1 + b2 - 1 ) < 1e-5
-			assert b0 > -1e-5
-			assert b1 > -1e-5
-			assert b2 > -1e-5
-			assert b0 < 1+1e-5
-			assert b1 < 1+1e-5
-			assert b2 < 1+1e-5
+			#assert abs( b0 + b1 + b2 - 1 ) < 1e-5
+			#assert b0 > -1e-5
+			#assert b1 > -1e-5
+			#assert b2 > -1e-5
+			#assert b0 < 1+1e-5
+			#assert b1 < 1+1e-5
+			#assert b2 < 1+1e-5
 			unique_weights[pi] = b0*weights[ faces[ fi ][0] ] + b1*weights[ faces[ fi ][1] ] + b2*weights[ faces[ fi ][2] ]
 		else:
+			#print 'pi outside:', pi
 			dist, ei, t = raytri.closest_distsqr_and_edge_index_and_t_on_edges_to_point( edges, pt )
-			assert t > -1e-5
-			assert t < 1+1e-5
+			#assert t > -1e-5
+			#assert t < 1+1e-5
 			dist = sqrt( dist )
 			misses += 1
 			misses_total_distance += dist
 			misses_max_distance = max( misses_max_distance, dist )
 			unique_weights[pi] = (1-t)*weights[ boundary_edges[ ei ][0] ] + t*weights[ boundary_edges[ ei ][1] ]
 	
-	## And indeed it does come out the nearly identical? (See comment d987dsa98d7h above.)
+	## And indeed it does come out nearly identical. (See comment d987dsa98d7h above.)
 	# assert ( unique_weights - pts ).allclose()
 	
-	assert unique_weights.min() > -1e-4
-	assert unique_weights.max() < 1 + 1e-4
+	#assert unique_weights.min() > -1e-4
+	#assert unique_weights.max() < 1 + 1e-4
 	## Clip the weights?
 	# unique_weights = unique_weights.clip( 0, 1 )
 	
@@ -133,7 +145,7 @@ def barycentric_projection( vs, faces, boundary_edges, weights, pts ):
 	else:
 		print 'Barycentric projection:', misses, 'points missed the mesh. Average distance was', misses_total_distance/misses, ' and maximum distance was', misses_max_distance
 	
-	print '...finished.'
+	toc()
 	
 	return unique_pts, unique_weights, unique_map
 
@@ -214,18 +226,21 @@ def compute_all_weights_shepard( all_pts, skeleton_handle_vertices ):
 	
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
-	print 'Removing duplicate points...'
+	#tic( 'Removing duplicate points...' )
 	## Use 7 digits of accuracy. We're really only looking to remove actual duplicate
 	## points.
-	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
-	print '...finished.'
+	#all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 7 )
+	#toc()
+	## UPDATE: There's no need to remove duplicates.
+	all_clean_pts = asarray( all_pts )
+	pts_maps = range( len( all_clean_pts ) )
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
 	
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
-	print 'Computing Shepard weights...'
+	tic( 'Computing Shepard weights...' )
 	all_weights = shepard( all_clean_pts, skeleton_handle_vertices )
-	print '...finished.'
+	toc()
 	
 	return all_clean_pts, all_weights, all_maps
 
@@ -242,9 +257,9 @@ def compute_all_weights_mvc( all_pts, cage_loop ):
 	all_pts, all_shapes = flatten_paths( all_pts )
 	all_maps = unflatten_data( range(len( all_pts )), all_shapes )
 	
-	print 'Computing Mean Value Coordinate weights...'
+	tic( 'Computing Mean Value Coordinate weights...' )
 	all_weights = bbw.mvc( all_pts, cage_loop )
-	print '...finished.'
+	toc()
 	
 	return all_pts, all_weights, all_maps
 
@@ -266,9 +281,9 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
-	print 'Removing duplicate points...'
-	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts )
-	print '...finished.'
+	tic( 'Removing duplicate points...' )
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 0 )
+	toc()
 	
 	all_maps = unflatten_data( pts_maps, all_shapes )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
@@ -321,16 +336,16 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	print 'Computing triangulation...'
+	tic( 'Computing triangulation...' )
 	vs, faces = triangles_for_points( registered_pts, boundary_edges )
-	print '...finished.'
+	toc()
 	
 	vs = asarray(vs)[:, :2] 
 	faces = asarray(faces)
 	
-	print 'Computing BBW...'
+	tic( 'Computing BBW...' )
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
-	print '...finished.'
+	toc()
 	
 	if kBarycentricProjection:
 		if __debug__: old_weights = asarray([ all_weights[i] for i in pts_maps ])
@@ -362,8 +377,50 @@ def shepard( vs, skeleton_handle_vertices ):
 		for hi in range( len( skeleton_handle_vertices ) ):
 			weights[ vi, hi ] = shepard_w_i( skeleton_handle_vertices, hi, p )
 	
+	# print 'Shepard fast - slow:', abs( weights - shepard_fast( vs, skeleton_handle_vertices ) ).max()
+	
 	return weights
 
+def shepard_fast( vs, skeleton_handle_vertices ):
+	'''
+	Given an N-by-(2 or 3) sequence 'vs' of 2D or 3D vertices and
+	an H-by-(2 or 3) sequence 'skeleton_handle_vertices' of 2D or 3D vertices,
+	returns a N-by-H numpy.array of weights per vertex per handle.
+	
+	tested
+	
+	>>> skeleton_handle_vertices = [ (0,0), (1,0), (1,1), (0,1) ]
+	>>> vs = [ (0,0), (1,0), (1,1), (0,1), (.2,.1), (.9,.8), (.8,.9), ( -1, -1 ), ( -1, 1 ) ]
+	>>> shepard_fast( vs, skeleton_handle_vertices ) - shepard( vs, skeleton_handle_vertices )
+	>>> abs( shepard_fast( vs, skeleton_handle_vertices ) - shepard( vs, skeleton_handle_vertices ) ).max()
+	'''
+	
+	vs = asarray( vs )
+	skeleton_handle_vertices = asarray( skeleton_handle_vertices )
+	
+	assert len( vs.shape ) == 2
+	assert len( skeleton_handle_vertices.shape ) == 2
+	assert vs.shape[1] == skeleton_handle_vertices.shape[1]
+	
+	diffs = (skeleton_handle_vertices[newaxis,...] - vs[:,newaxis,:])
+	diffs = ( diffs**2 ).sum( -1 )
+	## 'diffs' is N-by-H
+	
+	small = diffs < 1e-8
+	
+	## NOTE: Shepard weights could allow one to take this to a power other than 2,
+	##       which is the implied power since 'diffs' stores the squared distance.
+	diffs = 1./diffs
+	
+	mask = small.any( 1 )[:,newaxis].repeat( diffs.shape[1], 1 )
+	diffs[ mask ] = small[ mask ]
+	
+	## Normalize rows.
+	diffs /= diffs.sum( 1 )[:,newaxis]
+	
+	return diffs
+
+shepard = shepard_fast
 
 def precompute_W_i( vs, weights, i, sampling_index2vs_index, sampling, ts, dts ):
 	'''
@@ -414,9 +471,21 @@ def precompute_W_i( vs, weights, i, sampling_index2vs_index, sampling, ts, dts )
 		return weights[ vi, i ]
 	
 	result[:] = precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts )		
-				
-	return result
 	
+	return result
+
+def precompute_W_i_fast( vs, weights, i, sampling_index2vs_index, sampling, ts, dts ):
+	sampling_weights = weights[ sampling_index2vs_index, i ]
+	
+	wdt = .5*(sampling_weights[:-1] + sampling_weights[1:])*dts
+	midts = .5*(ts[:-1] + ts[1:])
+	tbars = array([midts**3, midts**2, midts, ones(midts.shape).squeeze()]).T
+	
+	C_P = dot( asarray( M ), tbars.T )
+	R = dot( ( wdt[:,newaxis]*tbars ).T, C_P.T )
+	return R
+
+precompute_W_i = precompute_W_i_fast
 
 # def precompute_W_i_with_weight_function_and_sampling( weight_function, sampling, ts, dts ):
 #	'''

@@ -2,6 +2,8 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
+from tictoc import tic, toc
+
 class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
@@ -22,12 +24,12 @@ class Engine:
 		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
 		
 		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
-# 		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
+#		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
 
 		self.num_of_paths = len( all_controls )
 		self.all_controls = all_controls
 		self.all_constraints = all_constraints	
-#  		self.all_lengths = all_lengths
+#		self.all_lengths = all_lengths
 		
 		self.transforms = []
 		self.handle_positions = []	
@@ -72,7 +74,7 @@ class Engine:
 		self.handle_positions = asarray( new_handle_positions ).tolist()
 		## Initialize all the transforms to the identity matrix.
 		## NOTE: We don't directly use 'new_transforms' here, because they're
-		##       in a different format.
+		##		 in a different format.
 		self.transforms = [ identity(3) for i in range(len( new_handle_positions )) ]
 		
 		## Set the corresponding transformations.
@@ -115,6 +117,7 @@ class Engine:
 		
 		is_arc_enabled = self.is_arc_enabled
 		
+		tic( 'Generating system matrices...' )
 		self.fast_update_functions = []
 		for i, controls, constraints in zip( range( len( all_controls ) ), all_controls, all_constraints ):
 			W_matrices = precomputed_parameters.W_matrices[i]
@@ -124,6 +127,7 @@ class Engine:
 			
 			fast_update = prepare_approximate_beziers( controls, constraints, handles, transforms, lengths, W_matrices, ts, dts, is_arc_enabled )
 			self.fast_update_functions.append( fast_update )
+		toc()
 		
 	
 	def solve_transform_change( self ):
@@ -134,7 +138,7 @@ class Engine:
 		for fast_update in self.fast_update_functions:
 			result.append(	fast_update( self.transforms, self.perform_multiple_iterations ) )
 		
-		self.solutions = result	
+		self.solutions = result 
 		return result
 	
 	def set_weight_function( self, weight_function ):
@@ -295,7 +299,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
-	
+			## TODO Q: Why does is sometimes seem like this code only runs if there
+			##         a print statement inside? It seems haunted.
+			print 'here in even'
 			even.update_rhs_for_handles( transforms )
 
 					
@@ -337,7 +343,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			######### temp end ###########	
 			'''			
 		
-		print 'iterations:', iteration
+		#print 'iterations:', iteration
 		return solutions
 	
 	return update_with_transforms					
@@ -357,42 +363,42 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 
 
 # def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
-# 	'''
-# 	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
-# 	'''
-# 	assert len( bbw_curves ) == len( spline_skin_curves )
-# 	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
-# 	print 'differences: ', diffs
-# 	
-# 	new_controls = []
-# 	partition = [0.5, 0.5]
-# 	threshold = 100 
-# 	
-# 	all_pos = asarray([x.position for x in controls])
-# 	
-# 	for k, diff in enumerate( diffs ):
-# 		control_pos = all_pos[ k*3 : k*3+4 ]
-# 		if len(control_pos) == 3:	
-# 			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
-# 		
-# 		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
-# 			splitted = split_cublic_beizer_curve( control_pos, partition )
-# 			splitted = asarray( splitted ).astype(int)
-# 			
-# 			new_controls.append( controls[ k*3 ] )
-# 			for j, each in enumerate(splitted):
-# 				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
-# 				if j != len(splitted)-1:
-# 					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
-# 			
-# 		else:
-# 			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
-# 			
-# 	'''
-# 	if is not closed, add the last control at the end.
-# 	'''
-# 	
-# 	return new_controls
+#	'''
+#	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
+#	'''
+#	assert len( bbw_curves ) == len( spline_skin_curves )
+#	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
+#	print 'differences: ', diffs
+#	
+#	new_controls = []
+#	partition = [0.5, 0.5]
+#	threshold = 100 
+#	
+#	all_pos = asarray([x.position for x in controls])
+#	
+#	for k, diff in enumerate( diffs ):
+#		control_pos = all_pos[ k*3 : k*3+4 ]
+#		if len(control_pos) == 3:	
+#			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
+#		
+#		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
+#			splitted = split_cublic_beizer_curve( control_pos, partition )
+#			splitted = asarray( splitted ).astype(int)
+#			
+#			new_controls.append( controls[ k*3 ] )
+#			for j, each in enumerate(splitted):
+#				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
+#				if j != len(splitted)-1:
+#					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
+#			
+#		else:
+#			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
+#			
+#	'''
+#	if is not closed, add the last control at the end.
+#	'''
+#	
+#	return new_controls
 
 
 def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, weight_function = 'bbw', kArcLength=False ):
@@ -432,7 +438,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 	
 	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, weight_function )
 	
-	print 'Precomputing W_i...'
+	tic( 'Precomputing W_i...' )
 	W_matrices = []
 	for j, control_pos in enumerate( all_control_positions ):
 		W_matrices.append( zeros( ( len( control_pos ), len( skeleton_handle_vertices ), 4, 4 ) ) )		
@@ -443,7 +449,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 				W_matrices[j][k,i] = precompute_W_i( all_vertices, all_weights, i, all_indices[j][k], all_pts[j][k], all_ts[j][k], all_dts[j][k])
 				
 	W_matrices = asarray( W_matrices )
-	print '...finished.'
+	toc()
 	
 	class Layer( object ): pass
 	layer = Layer()
@@ -609,25 +615,79 @@ def test_fancy():
 
 	engine.set_handle_positions( skeleton_handle_vertices )
 	
-# 	engine.precompute_configuration()
-# 	engine.prepare_to_solve()
+#	engine.precompute_configuration()
+#	engine.prepare_to_solve()
 	direct = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
 	
 	
 	## Transform a handle
-# 	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
-# 	
-# 	all_paths = engine.solve_transform_change()
-# 	
-# 	for path in all_paths:
-# 		if len( path ) > 1:
-# 			chain = concatenate( asarray(path)[:-1, :-1] )
-# 			chain = concatenate( ( chain, path[-1] ) )
-# 		else:
-# 			chain = path[0]
-# 		print chain
-# 		
-#  	print engine.compute_energy_and_maximum_distance()
+#	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+#	
+#	all_paths = engine.solve_transform_change()
+#	
+#	for path in all_paths:
+#		if len( path ) > 1:
+#			chain = concatenate( asarray(path)[:-1, :-1] )
+#			chain = concatenate( ( chain, path[-1] ) )
+#		else:
+#			chain = path[0]
+#		print chain
+#		
+#	print engine.compute_energy_and_maximum_distance()
+
+def test_actually_solve():
+	
+	import sys
+	argv = list( sys.argv )
+	## Remove the first item in argv, which is always the program name itself.
+	argv.pop(0)
+	
+	if len( argv ) == 1:
+		if argv[0].isdigit():
+			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_infinite(' + argv[0] + ')' )
+		else:
+			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
+	else:
+		#paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
+		# paths_info, skeleton_handle_vertices, constraint = get_test1()
+		# paths_info, skeleton_handle_vertices, constraint = get_test2()
+		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
+	
+	engine = Engine()
+	
+	try:
+		boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+	except ValueError:
+		boundary_index = -1
+	
+	engine.set_control_positions( paths_info, boundary_index )
+	
+	if constraint is not None:
+		engine.constraint_change( constraint[0], constraint[1], constraint[2] )
+
+	engine.set_handle_positions( skeleton_handle_vertices )
+	
+	engine.precompute_configuration()
+	engine.prepare_to_solve()
+	
+	
+	## Transform a handle
+	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+	
+	all_paths = engine.solve_transform_change()
+	
+	for path in all_paths:
+		if len( path ) > 1:
+			chain = concatenate( asarray(path)[:-1, :-1] )
+			chain = concatenate( ( chain, path[-1] ) )
+		else:
+			chain = path[0]
+		print chain
+		
+	print engine.compute_energy_and_maximum_distance()
 
 def test_simple():
 	bbw_curve, spline_curve = get_test_distances()					   
@@ -661,8 +721,9 @@ def main():
 	a console test.
 	'''
 	
-	test_fancy()
+	#test_fancy()
 	#test_simple()
+	test_actually_solve()
 
 
 if __name__ == '__main__': main()		

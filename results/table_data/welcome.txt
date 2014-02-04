@@ -1,0 +1,13 @@
+A total of 5140.0 cubic bezier curves.
+Longest number of curves in a path: 175.0
+Average number of curves in a path: 14.3977591036
+Median number of curves in a path: 9.0
+Constraint-type counts
+A: 59
+C0: 1054
+G1: 4027
+
+# handles 3
+
+++ Precomputing W_i...
+-- Precomputing W_i... 47.117478

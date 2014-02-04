@@ -1,0 +1,25 @@
+turtle-four
+
+Opening a file with 106 paths.
+A total of 1073.0 cubic bezier curves.
+Longest number of curves in a path: 27.0
+Average number of curves in a path: 10.1226415094
+Median number of curves in a path: 7.0
+Constraint-type counts
+A: 3
+C0: 301
+G1: 764
+None: 10
+
+4 handles
+-- Precomputing W_i... 0.950793
+- Generating system matrices... 1.514242
+
+1 iteration
+[0.46496, 0.439009, 0.474814, 0.484653, 0.469753, 0.452408, 0.453267, 0.484816, 0.491722, 0.469241, 0.460117, 0.465072, 0.478262, 0.46895, 0.390509, 0.303529, 0.381375, 0.327638, 0.378485, 0.331572, 0.366517, 0.340084, 0.350807, 0.380592, 0.341649]
+average: 0.41799204000000001
+
+2 iterations
+[1.863728, 1.74185, 1.581339, 1.739443, 1.920979, 2.037103, 1.955791, 1.894598, 1.920092, 1.93239, 1.920832, 1.942968, 1.943614, 1.800888, 1.61906]
+>>> average( map( float, a.strip().split() ) )
+1.854311666666667
