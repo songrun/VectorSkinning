@@ -290,12 +290,15 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			all_solutions.append( solutions )
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
+		print 'even first: '
+		return solutions
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 	
 			even.update_rhs_for_handles( transforms )
-			
+
+					
 			for i in xrange( 10 ):
 				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
@@ -309,8 +312,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 				
-				
-				
+						
 				## Check if error is low enough and terminate
 				iteration += 1
 				odd.update_system_with_result_of_previous_iteration( solutions )
@@ -319,8 +321,21 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
-					
-					
+			'''
+			######### temp begin ###########
+				
+			for i in xrange( 1 ):
+				iteration += 1
+				even.update_system_with_result_of_previous_iteration( solutions )
+				last_solutions = solutions
+				solutions = even.solve()
+				
+				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
+					break
+			
+			print 'even solution: '	, solutions	
+			######### temp end ###########	
+			'''			
 		
 		print 'iterations:', iteration
 		return solutions
@@ -400,8 +415,6 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		all_pts.append( pts )
 		all_ts.append( ts )
 		
-		#debugger()
-		
 		## Compute all_lengths
 		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
 		dss = asarray( dss )
@@ -409,6 +422,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		all_lengths.append( lengths )
 		## Then normalize dss
 		dss = [ ds / length for ds, length in zip( dss, lengths ) ]
+		
 		
 		if kArcLength:
 			all_dts.append( dss )

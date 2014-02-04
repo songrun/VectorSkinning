@@ -123,10 +123,13 @@ class BezierConstraintSolver( object ):
 			dofs = sum(dofs_per_bundle[i])
 			
 			if not lagrange_only:
+# 				small_system = self.system_for_curve_with_arc_length( bundle )
+				
 				if kArcLength:
 					small_system = self.system_for_curve_with_arc_length( bundle )
 				else:
 					small_system = self.system_for_curve( bundle )
+				
 				small_rhs = self.rhs_for_curve( bundle, transforms)
 				### 4
 				system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
