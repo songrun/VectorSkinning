@@ -300,7 +300,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			## TODO Q: Why does is sometimes seem like this code only runs if there
 			##         a print statement inside? It seems haunted.
 			even.update_rhs_for_handles( transforms )
-			'''
+			
 			for i in xrange( 10 ):
 				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
@@ -322,28 +322,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				solutions = odd.solve()
 				
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-					break
-			'''
-			iteration += 1
-			even.update_system_with_result_of_previous_iteration( solutions )
-			last_solutions = solutions
-			solutions = even.solve()
-				
-			'''
-			######### temp begin ###########
-				
-			for i in xrange( 1 ):
-				iteration += 1
-				even.update_system_with_result_of_previous_iteration( solutions )
-				last_solutions = solutions
-				solutions = even.solve()
-				
-				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-					break
-			
-			print 'even solution: '	, solutions	
-			######### temp end ###########	
-			'''			
+					break	
 		
 		print 'iterations:', iteration
 		return solutions

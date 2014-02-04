@@ -43,14 +43,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 	
 	def solve( self ):
 
-		'''
-		if self.kArcLength:
-			print 'arc length system: '
-		else:
-			print 'normal system: '	
-		print self.system[ :self.total_dofs, :self.total_dofs ]
-		'''
-
 		### Return a nicely formatted chain of bezier curves, un-substituting the fixed
 		### directions.
 		dofs_per_bundle = self.dofs_per_bundle
@@ -249,7 +241,6 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
-		#debugger()
 		
 		if array_equal(dofs, (4,4)):
 			
