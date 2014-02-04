@@ -141,29 +141,22 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			lambda4 * ( w_q(P4y' - P3y') + w_p(Q1y' - Q2y')) = 0
 			'''
 			R = zeros( ( dofs, 2*dim ) )
+			## about bundle0
 			if dofs0[1] == 3:
-				R[dofs0[0] : dofs0[0]+dim, :dim] = identity(dim)
-				R[dofs0[0] : dofs0[0]+dim, -dim:] = identity(dim)
+				R[ dofs0[0] : dofs0[0]+dim, :dim ] = identity( dim )
+				R[ sum(dofs0)-1, -dim: ] = -mag1*dirs0[1]
 			else:
-				R[sum(dofs0)-dim : sum(dofs0), :dim] = identity(dim)
-				R[sum(dofs0)-dim : sum(dofs0), -dim:] = identity(dim)
+				R[ sum(dofs0)-dim : sum(dofs0), :dim ] = identity( dim )
+				R[ sum(dofs0)-dim : sum(dofs0), -dim: ] = identity( dim ) * mag1
+				R[ dofs0[0] : dofs0[0]+dim, -dim: ] = -identity( dim ) * mag1
+			## about bundle1
+			R[ sum(dofs0) : sum(dofs0)+dim, :dim ] = -identity( dim )
+			R[ sum(dofs0) : sum(dofs0)+dim, -dim: ] = identity( dim ) * mag0
+			if dofs1[0] == 4:
+				R[ sum(dofs0)+dofs1[0]-dim : sum(dofs0)+dofs1[0], -dim:] = -mag0 * identity( dim )
+			elif dofs1[0] == 3:
+				R[ sum(dofs0)+dofs1[0]-1, -dim: ] = -mag0 * dirs1[0]
 				
-			R[sum(dofs0) : sum(dofs0)+dim, :dim] = identity(dim) * -1
-			R[sum(dofs0) : sum(dofs0)+dim, -dim:] = identity(dim)
-			
-			if dofs0[0] == 4:
-				R[sum(dofs0)-2*dim : sum(dofs0)-dim, -dim:] = identity(dim) * -1
-			elif dofs0[0] == 3:
-				R[dofs0[0], -dim:] = -dirs0[1]
-				
-			if dofs1[1] == 4:
-				R[sum(dofs0)+dim : sum(dofs0)+2*dim, -dim:] = identity(dim) * -1
-			elif dofs1[1] == 3:
-				R[sum(dofs0)+dofs1[0], -dim:] = -dirs1[0]
-				
-			## multiply by w_q and w_p
-			R[ :sum(dofs0), dim: ] *= mag1
-			R[ sum(dofs0):, dim: ] *= mag0
 				
 		elif smoothness == 'G1':        ## G1
 			R = zeros( ( dofs, dim ) )

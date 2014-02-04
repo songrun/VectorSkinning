@@ -294,17 +294,13 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			all_solutions.append( solutions )
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
-		print 'even first: '
-		return solutions
 		### 2
 		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 			## TODO Q: Why does is sometimes seem like this code only runs if there
 			##         a print statement inside? It seems haunted.
-			print 'here in even'
 			even.update_rhs_for_handles( transforms )
-
-					
+			'''
 			for i in xrange( 10 ):
 				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
@@ -328,6 +324,12 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 			'''
+			iteration += 1
+			even.update_system_with_result_of_previous_iteration( solutions )
+			last_solutions = solutions
+			solutions = even.solve()
+				
+			'''
 			######### temp begin ###########
 				
 			for i in xrange( 1 ):
@@ -343,7 +345,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			######### temp end ###########	
 			'''			
 		
-		#print 'iterations:', iteration
+		print 'iterations:', iteration
 		return solutions
 	
 	return update_with_transforms					
