@@ -47,8 +47,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		dim = 2
 		num = len(self.bundles)
 		
-		#print 'system:'
-		#print self.system.tolist()
 		#print 'rhs:'
 		#print self.rhs.tolist()
 		
@@ -159,7 +157,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			## add weights to lambda	 
 			R[ :sum(dofs0), dim: ] *= mag1
 			R[ sum(dofs0):, dim: ] *= mag0
-
 		elif smoothness == 'G1':		 ## G1
 			R = zeros( ( dofs, 2*dim ) )
 			for i in range( dim ):
@@ -211,9 +208,10 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		## MAM is computed using Sage. MAM = M * A * M
 		'''
 		length = bundle.length
-		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,	3./35, 9./140,	1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,	1./35,	1./14,	 1./7]] )
+# 		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,	3./35, 9./140,	1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,	1./35,	1./14,	 1./7]] )
+		MAM = asarray( self.get_default_MAM() )
+		
 		dim = 2
-
 		Left = zeros((8, 8))
 
 		for i in range(dim):		

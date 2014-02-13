@@ -74,6 +74,7 @@ class BezierConstraintSolver( object ):
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
 		self.lambdas_per_joint = [ self.constraint_number_per_joint( constraint ) for constraint in constraints]
+		self.sample_num = len( ts[0] )
 		
 		### 2
 		self.total_dofs = sum( self.dofs_per_bundle ) 
@@ -97,6 +98,7 @@ class BezierConstraintSolver( object ):
 		self.transforms = transforms
 		self.is_closed = is_closed
 		self.kArcLength = kArcLength
+		self.MAM = None
 		
 		self._update_bundles( )
 
@@ -239,7 +241,33 @@ class BezierConstraintSolver( object ):
 
 		return R.T, rhs
 
+	def get_default_MAM( self ):
+		
+		if self.MAM != None:
+			return self.MAM
+			
+		num_samples = self.sample_num	
+		
+		ts = linspace( 0, 1, num_samples )
+		dts = ones( num_samples-1 ) * (1./(num_samples-1) )
+		
+		tbar = ones( ( 4, 1 ) )
+		MAM = zeros( ( 4, 4 ) )
+		
+		for i in range(len(dts)):
+			t = (ts[i] + ts[i+1])/2
+			dt = dts[i]
+			
+			tbar[0] = t**3
+			tbar[1] = t**2
+			tbar[2] = t
+			
+			Mtbar = dot( M.T, tbar )
 
+			MAM += dot( Mtbar, Mtbar.T )*dt
+	
+		self.MAM = MAM
+		return MAM
 
 	### For subclasses to implement:
 	def update_system_with_result_of_previous_iteration( self, previous_solution ):
