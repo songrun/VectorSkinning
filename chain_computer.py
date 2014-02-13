@@ -306,7 +306,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			##         a print statement inside? It seems haunted.
 			even.update_rhs_for_handles( transforms )
 			
-			for i in xrange( 10 ):
+			for i in xrange( 1 ):
 				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
@@ -319,7 +319,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 				
-						
+				return solutions		
 				## Check if error is low enough and terminate
 				iteration += 1
 				odd.update_system_with_result_of_previous_iteration( solutions )

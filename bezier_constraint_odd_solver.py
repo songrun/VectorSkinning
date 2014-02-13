@@ -208,8 +208,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		## MAM is computed using Sage. MAM = M * A * M
 		'''
 		length = bundle.length
-# 		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,	3./35, 9./140,	1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,	1./35,	1./14,	 1./7]] )
-		MAM = asarray( self.get_default_MAM() )
+		MAM = asarray( self.MAM )
 		
 		dim = 2
 		Left = zeros((8, 8))

@@ -74,7 +74,9 @@ class BezierConstraintSolver( object ):
 		self.dofs_per_bundle = [ self.compute_dofs_per_curve( bundle ) for bundle in self.bundles ]
 						
 		self.lambdas_per_joint = [ self.constraint_number_per_joint( constraint ) for constraint in constraints]
-		self.sample_num = len( ts[0] )
+
+		self.MAM = self.get_default_MAM()
+		self.coefficient_matrices = self.get_default_left_matrices_for_even_iterations()
 		
 		### 2
 		self.total_dofs = sum( self.dofs_per_bundle ) 
@@ -98,7 +100,6 @@ class BezierConstraintSolver( object ):
 		self.transforms = transforms
 		self.is_closed = is_closed
 		self.kArcLength = kArcLength
-		self.MAM = None
 		
 		self._update_bundles( )
 
@@ -241,19 +242,14 @@ class BezierConstraintSolver( object ):
 
 		return R.T, rhs
 
-	def get_default_MAM( self ):
-		
-		if self.MAM != None:
-			return self.MAM
-			
-		num_samples = self.sample_num	
+	def get_default_MAM( self, num_samples = 100 ):
 		
 		ts = linspace( 0, 1, num_samples )
 		dts = ones( num_samples-1 ) * (1./(num_samples-1) )
 		
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
-		
+# 		MAM = asarray( [[  1./7,  1./14,  1./35, 1./140], [ 1./14,	3./35, 9./140,	1./35], [ 1./35, 9./140,  3./35,  1./14], [1./140,	1./35,	1./14,	 1./7]] )
 		for i in range(len(dts)):
 			t = (ts[i] + ts[i+1])/2
 			dt = dts[i]
@@ -265,9 +261,140 @@ class BezierConstraintSolver( object ):
 			Mtbar = dot( M.T, tbar )
 
 			MAM += dot( Mtbar, Mtbar.T )*dt
-	
-		self.MAM = MAM
+
 		return MAM
+		
+	def get_default_left_matrices_for_even_iterations( self ):
+	
+		MAM = self.MAM	
+		if MAM == None:	
+			MAM = self.get_default_MAM()
+			
+		Left1 = zeros( ( 8, 8 ) )	
+		Left1[ : : 2, : : 2 ] = MAM
+		Left1[ 1: : 2, 1: : 2 ] = MAM
+		
+		Left2 = zeros( ( 7,  7 ) )
+		## right bottom
+		Left2[ 3: : 2, 3: : 2 ] = MAM[-2:,-2:]
+		Left2[ 4: : 2, 4: : 2 ] = MAM[-2:,-2:]
+		## left botton
+		Left2[ 3: : 2, 0 ] = Left2[ 4: : 2, 1 ] = MAM[-2:,0] + MAM[-2:,1]
+		Left2[ 3: : 2, 2 ] = Left2[ 4: : 2, 2 ] = MAM[-2:, 1]
+		## right top
+		Left2[ :3, 3: ] = Left2[ 3:, :3 ].T
+		## left top
+		Left2[0,0] = Left2[1,1] = MAM[0,0] + MAM[0,1] + MAM[1,0] + MAM[1,1]
+		Left2[2,0] = Left2[0,2] = Left2[2,1] = Left2[1,2] = ( MAM[1,0] + MAM[1,1] )
+		Left2[2,2] = MAM[1,1]
+		
+		Left3 = zeros( ( 7,  7 ) )
+		## left top
+		Left3[ :4 : 2, :4 : 2 ] = Left3[ 1:4 : 2, 1:4 : 2 ] = MAM[:2, :2]
+		## right top
+		Left3[ :4 : 2, -3 ] = Left3[ 1:4 : 2, -2 ] = MAM[:2,-2] + MAM[:2,-1]
+		Left3[ :4 : 2, -1 ] = Left3[ 1:4 : 2, -1 ] = MAM[:2, -2]
+		## left bottom
+		Left3[ 4:, :4 ] = Left3[ :4, 4: ].T
+		## right bottom
+		Left3[-3,-3] = Left3[-2,-2] = MAM[-1,-1] + MAM[-1,-2] + MAM[-2,-1] + MAM[-2,-2]
+		Left3[-1,-3] = Left3[-3,-1] = Left3[-1,-2] = Left3[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] )
+		Left3[-1,-1] = MAM[-2,-2]
+		
+		Left4 = zeros( ( 6,  6 ) )
+		## left top
+		Left4[0,0] = Left4[1,1] = MAM[0,0] + MAM[0,1] + MAM[1,0] + MAM[1,1]
+		Left4[2,0] = Left4[0,2] = Left4[2,1] = Left4[1,2] = ( MAM[1,0] + MAM[1,1] )
+		Left4[2,2] = MAM[1,1]
+		## right top
+		Left4[0,-3] = Left4[1,-2] = MAM[0,-2] + MAM[0,-1] + MAM[1,-2] + MAM[1,-1]
+		Left4[2,-3] = Left4[2,-2] = ( MAM[0,-2] + MAM[1,-2] ) 
+		Left4[0,-1] = Left4[1,-1] = ( MAM[1,-2] + MAM[1,-1] )
+		Left4[2,-1] = MAM[1,-2]
+		## left bottom
+		Left4[ 3:, :3 ] = Left4[ :3, 3: ].T
+		## right bottom
+		Left4[-3,-3] = Left4[-2,-2] = MAM[-1,-1] + MAM[-1,-2] + MAM[-2,-1] + MAM[-2,-2]
+		Left4[-1,-3] = Left4[-3,-1] = Left4[-1,-2] = Left4[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] )
+		Left4[-1,-1] = MAM[-2,-2]
+		'''
+		standard1 = asarray( [[1./7, 0., 1./14, 0., 1./35, 0., 1./140, 0.],
+					[0., 1./7, 0., 1./14, 0., 1./35, 0., 1./140],
+					[1./14, 0., 3./35, 0., 9./140, 0., 1./35, 0.],
+					[0., 1./14, 0., 3./35, 0., 9./140, 0., 1./35],
+					[1./35, 0., 9./140, 0., 3./35, 0., 1./14, 0.],
+					[0., 1./35, 0., 9./140, 0., 3./35, 0., 1./14],
+					[1./140, 0., 1./35, 0., 1./14, 0., 1./7, 0.],
+					[0., 1./140, 0., 1./35, 0., 1./14, 0., 1./7]] )
+					
+		standard2 = asarray( [[13./35, 0., 11./70, 13./140, 0., 1./28, 0.],
+					[0., 13./35, 11./70, 0., 13./140, 0., 1./28],
+					[11./70, 11./70, 3./35, 9./140, 9./140, 1./35, 1./35],
+					[13./140, 0., 9./140, 3./35, 0., 1./14, 0.],
+					[0., 13./140, 9./140, 0., 3./35, 0., 1./14],
+					[1./28, 0., 1./35, 1./14, 0., 1./7, 0.],
+					[0., 1./28, 1./35, 0., 1./14, 0., 1./7]] )			
+					
+		standard3 = asarray(
+					[[1./7, 0., 1./14, 0., 1./28, 0., 1./35],
+					[0., 1./7, 0., 1./14, 0., 1./28, 1./35],
+					[1./14, 0., 3./35, 0., 13./140, 0., 9./140],
+					[0., 1./14, 0., 3./35, 0., 13./140, 9./140],
+					[1./28, 0., 13./140, 0., 13./35, 0., 11./70],
+					[0., 1./28, 0., 13./140, 0., 13./35, 11./70],
+					[1./35, 1./35, 9./140, 9./140, 11./70, 11./70, 3./35]]
+					)	
+		standard4 = asarray(
+					[[13./35, 0., 11./70, 9./70, 0., 13./140],
+					[0., 13./35, 11./70, 0., 9./70, 13./140],
+					[11./70, 11./70, 3./35, 13./140, 13./140, 9./140],
+					[9./70, 0., 13./140, 13./35, 0., 11./70],
+					[0., 9./70, 13./140, 0., 13./35, 11./70],
+					[13./140, 13./140, 9./140, 22./140, 22./140, 3./35]]
+					)
+					
+		'''						
+		'''
+		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
+		if array_equal(dofs, (4,4)):
+			Left = [[1./7, 0., 1./14, 0., 1./35, 0., 1./140, 0.],
+					[0., 1./7, 0., 1./14, 0., 1./35, 0., 1./140],
+					[1./14, 0., 3./35, 0., 9./140, 0., 1./35, 0.],
+					[0., 1./14, 0., 3./35, 0., 9./140, 0., 1./35],
+					[1./35, 0., 9./140, 0., 3./35, 0., 1./14, 0.],
+					[0., 1./35, 0., 9./140, 0., 3./35, 0., 1./14],
+					[1./140, 0., 1./35, 0., 1./14, 0., 1./7, 0.],
+					[0., 1./140, 0., 1./35, 0., 1./14, 0., 1./7]]
+		## p1x, p1y, s, p3x, p3y, p4x, p4y
+		elif array_equal(dofs, (3,4)):
+			Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
+					[0., 13./35, 11./70*dirs[0,1], 0., 13./140, 0., 1./28],
+					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 1./35*dirs[0,0], 1./35*dirs[0,1]],
+					[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
+					[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
+					[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
+					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]	
+		## p1x, p1y, p2x, p2y, p4x, p4y, u
+		elif array_equal(dofs, (4,3)):
+			Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
+					[0., 1./7, 0., 1./14, 0., 1./28, 1./35*dirs[1,1]],
+					[1./14, 0., 3./35, 0., 13./140, 0., 9./140*dirs[1,0]],
+					[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
+					[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
+					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
+					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]	
+		## p1x, p1y, s, p4x, p4y, u
+		elif array_equal(dofs, (3,3)):
+			Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
+					[0., 13./35, 11./70*dirs[0,1], 0., 9./70, 13./140*dirs[1,1]],
+					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
+					[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
+					[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
+					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]	
+		'''	
+		
+		return [ Left1, Left2, Left3, Left4 ]
+		
 
 	### For subclasses to implement:
 	def update_system_with_result_of_previous_iteration( self, previous_solution ):
