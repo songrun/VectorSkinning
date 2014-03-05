@@ -203,8 +203,11 @@ int main( int argc, char ** argv ) {
 	
 	Eigen::MatrixXd V;
 	Eigen::MatrixXi F;
-	const int err = igl::readOBJ( argv[1], V, F );
-	if( 0 != err ) usage(argv[0]);
+	const int success = igl::readOBJ( argv[1], V, F );
+	if( !success ) usage(argv[0]);
+	
+	std::cout << "V:\n" << V << '\n';
+	std::cout << "F:\n" << F << '\n';
 	
 	return 0;
 }
