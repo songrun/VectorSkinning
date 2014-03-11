@@ -229,11 +229,11 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			
 			schneider_curves = []
 			for spline in energy_and_polyline:
-				schneider_curves.append( FitCurve( list( itertools.chain( *[ curve['target-curve-polyline'] for curve in spline ] ) ) ).tolist() )
+				schneider_curves.append( FitCurve( list( itertools.chain( *[ curve['target-curve-polyline'] for curve in spline ] ) ), 10 ).tolist() )
 			
-			from pprint import pprint
-			pprint( schneider_curves )
-			self.sendMessage( 'update-comparison-curves ' + json.dumps( schneider_curves ) )
+			#from pprint import pprint
+			#pprint( schneider_curves )
+			self.sendMessage( 'update-comparison-curve ' + json.dumps( schneider_curves ) )
 		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 

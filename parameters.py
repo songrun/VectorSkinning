@@ -7,4 +7,5 @@ kArcLengthDefault = False
 kVerbose = 1
 kTransformControls = False
 kNoOverlays = False		
-kComputeComparisonCurves = True
+## Show comparison curves to Schneider 1990?
+kComputeComparisonCurves = False

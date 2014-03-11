@@ -75,7 +75,7 @@ def DrawBezierCurve( n, curve ):
 libFitCurves.DrawBezierCurve = DrawBezierCurve
 
 curve_in_progress = None
-def FitCurve( vertices ):
+def FitCurve( vertices, error = 1e-1 ):
     '''
     Given an N-by-2 numpy array 'vertices' of 2D vertices representing a line strip,
     returns an N-by-4-by-2 numpy.array of N cubic bezier curves approximating 'vertices'.
@@ -97,7 +97,7 @@ def FitCurve( vertices ):
     libFitCurves.FitCurve(
         ffi.cast( 'Point2*',  vertices.ctypes.data ),
         len( vertices ),
-        1e-1
+        error
         )
     result = asarray( curve_in_progress )
     curve_in_progress = None
