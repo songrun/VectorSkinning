@@ -224,8 +224,13 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			print 'distances:', max( d_data[0] ),  min( d_data[1] ), mean( d_data[2] )
 		
 		if parameters.kComputeComparisonCurves:
-			import FitCurves
-			schneider_curves = [ FitCurves.FitCurves( e_and_p['target-curve-polyline'] ) for e_and_p in energy_and_polyline ]
+			from FitCurves.FitCurves import FitCurve
+			import itertools
+			
+			schneider_curves = []
+			for spline in energy_and_polyline:
+				schneider_curves.append( FitCurve( list( itertools.chain( *[ curve['target-curve-polyline'] for curve in spline ] ) ) ).tolist() )
+			
 			from pprint import pprint
 			pprint( schneider_curves )
 			self.sendMessage( 'update-comparison-curves ' + json.dumps( schneider_curves ) )

@@ -35,14 +35,9 @@ static	Vector2		V2SubII();
 
 #define MAXPOINTS	1000		/* The most points you can have */
 
-#ifdef TESTMODE
+void (*DrawBezierCurve)(int n, BezierCurve curve) = NULL;
 
-DrawBezierCurve(n, curve)
-int n;
-BezierCurve curve;
-{
-	/* You'll have to write this yourself. */
-}
+#ifdef TESTMODE
 
 /*
  *  main:
