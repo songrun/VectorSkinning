@@ -158,8 +158,9 @@ def flatten_paths( all_pts ):
 	all_pts = asarray( all_pts )
 	all_shapes = [ asarray( pts ).shape[:-1] for pts in all_pts ]
 	
-	all_pts = concatenate( [ concatenate( curve_pts ) for curve_pts in all_pts ] )
-	return all_pts, all_shapes
+	all_new_pts = concatenate( [ concatenate( curve_pts ) for curve_pts in all_pts ] )
+
+	return all_new_pts, all_shapes
 
 def unflatten_data( flattened, all_shapes ):
 	'''

@@ -4,7 +4,7 @@
 kG1andAconstraints = True
 kClampOn = True
 kArcLengthDefault = False
-kVerbose = 1
+kVerbose = 2
 kTransformControls = False
 kNoOverlays = False		
 ## Show comparison curves to Schneider 1990?

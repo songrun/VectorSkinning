@@ -42,7 +42,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		
 	
 	def solve( self ):
-		# print 'even solver~!!!'
+		
 		### Return a nicely formatted chain of bezier curves, un-substituting the fixed
 		### directions.
 		dofs_per_bundle = self.dofs_per_bundle
@@ -133,29 +133,22 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 			lambda4 * ( w_q(P4y' - P3y') + w_p(Q1y' - Q2y')) = 0
 			'''
 			R = zeros( ( dofs, 2*dim ) )
+			## about bundle0
 			if dofs0[1] == 3:
-				R[dofs0[0] : dofs0[0]+dim, :dim] = identity(dim)
-				R[dofs0[0] : dofs0[0]+dim, -dim:] = identity(dim)
+				R[ dofs0[0] : dofs0[0]+dim, :dim ] = identity( dim )
+				R[ sum(dofs0)-1, -dim: ] = -mag1*dirs0[1]
 			else:
-				R[sum(dofs0)-dim : sum(dofs0), :dim] = identity(dim)
-				R[sum(dofs0)-dim : sum(dofs0), -dim:] = identity(dim)
+				R[ sum(dofs0)-dim : sum(dofs0), :dim ] = identity( dim )
+				R[ sum(dofs0)-dim : sum(dofs0), -dim: ] = identity( dim ) * mag1
+				R[ dofs0[0] : dofs0[0]+dim, -dim: ] = -identity( dim ) * mag1
+			## about bundle1
+			R[ sum(dofs0) : sum(dofs0)+dim, :dim ] = -identity( dim )
+			R[ sum(dofs0) : sum(dofs0)+dim, -dim: ] = identity( dim ) * mag0
+			if dofs1[0] == 4:
+				R[ sum(dofs0)+dofs1[0]-dim : sum(dofs0)+dofs1[0], -dim:] = -mag0 * identity( dim )
+			elif dofs1[0] == 3:
+				R[ sum(dofs0)+dofs1[0]-1, -dim: ] = -mag0 * dirs1[0]
 				
-			R[sum(dofs0) : sum(dofs0)+dim, :dim] = identity(dim) * -1
-			R[sum(dofs0) : sum(dofs0)+dim, -dim:] = identity(dim)
-			
-			if dofs0[0] == 4:
-				R[sum(dofs0)-2*dim : sum(dofs0)-dim, -dim:] = identity(dim) * -1
-			elif dofs0[0] == 3:
-				R[dofs0[0], -dim:] = -dirs0[1]
-				
-			if dofs1[1] == 4:
-				R[sum(dofs0)+dim : sum(dofs0)+2*dim, -dim:] = identity(dim) * -1
-			elif dofs1[1] == 3:
-				R[sum(dofs0)+dofs1[0], -dim:] = -dirs1[0]
-				
-			## multiply by w_q and w_p
-			R[ :sum(dofs0), dim: ] *= mag1
-			R[ sum(dofs0):, dim: ] *= mag0
 				
 		elif smoothness == 'G1':        ## G1
 			R = zeros( ( dofs, dim ) )
@@ -193,49 +186,97 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
-
+		
+		def analytical_matrices():
+			if array_equal(dofs, (4,4)):
+				Left = [[1./7, 0., 1./14, 0., 1./35, 0., 1./140, 0.],
+						[0., 1./7, 0., 1./14, 0., 1./35, 0., 1./140],
+						[1./14, 0., 3./35, 0., 9./140, 0., 1./35, 0.],
+						[0., 1./14, 0., 3./35, 0., 9./140, 0., 1./35],
+						[1./35, 0., 9./140, 0., 3./35, 0., 1./14, 0.],
+						[0., 1./35, 0., 9./140, 0., 3./35, 0., 1./14],
+						[1./140, 0., 1./35, 0., 1./14, 0., 1./7, 0.],
+						[0., 1./140, 0., 1./35, 0., 1./14, 0., 1./7]]
+			## p1x, p1y, s, p3x, p3y, p4x, p4y
+			elif array_equal(dofs, (3,4)):
+				Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
+						[0., 13./35, 11./70*dirs[0,1], 0., 13./140, 0., 1./28],
+						[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 1./35*dirs[0,0], 1./35*dirs[0,1]],
+						[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
+						[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
+						[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
+						[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]	
+			## p1x, p1y, p2x, p2y, p4x, p4y, u
+			elif array_equal(dofs, (4,3)):
+				Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
+						[0., 1./7, 0., 1./14, 0., 1./28, 1./35*dirs[1,1]],
+						[1./14, 0., 3./35, 0., 13./140, 0., 9./140*dirs[1,0]],
+						[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
+						[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
+						[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
+						[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]	
+			## p1x, p1y, s, p4x, p4y, u
+			elif array_equal(dofs, (3,3)):
+				Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
+						[0., 13./35, 11./70*dirs[0,1], 0., 9./70, 13./140*dirs[1,1]],
+						[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
+						[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
+						[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
+						[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]
+					
+			return Left			
+		
+		Lefts = self.get_default_left_matrices_for_even_iterations()
 		## p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y
 		if array_equal(dofs, (4,4)):
-			Left = [[1./7, 0., 1./14, 0., 1./35, 0., 1./140, 0.],
-					[0., 1./7, 0., 1./14, 0., 1./35, 0., 1./140],
-					[1./14, 0., 3./35, 0., 9./140, 0., 1./35, 0.],
-					[0., 1./14, 0., 3./35, 0., 9./140, 0., 1./35],
-					[1./35, 0., 9./140, 0., 3./35, 0., 1./14, 0.],
-					[0., 1./35, 0., 9./140, 0., 3./35, 0., 1./14],
-					[1./140, 0., 1./35, 0., 1./14, 0., 1./7, 0.],
-					[0., 1./140, 0., 1./35, 0., 1./14, 0., 1./7]]
+			Left = Lefts[0]
+			
 		## p1x, p1y, s, p3x, p3y, p4x, p4y
 		elif array_equal(dofs, (3,4)):
-			Left = [[13./35, 0., 11./70*dirs[0,0], 13./140, 0., 1./28, 0.],
-					[0., 13./35, 11./70*dirs[0,1], 0., 13./140, 0., 1./28],
-					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 9./140*dirs[0,0], 9./140*dirs[0,1], 1./35*dirs[0,0], 1./35*dirs[0,1]],
-					[13./140, 0., 9./140*dirs[0,0], 3./35, 0., 1./14, 0.],
-					[0., 13./140, 9./140*dirs[0,1], 0., 3./35, 0., 1./14],
-					[1./28, 0., 1./35*dirs[0,0], 1./14, 0., 1./7, 0.],
-					[0., 1./28, 1./35*dirs[0,1], 0., 1./14, 0., 1./7]]	
+			Left = Lefts[1]
+			Left[ 3: : 2, 2 ] *= dirs[0,0]
+			Left[ 4: : 2, 2 ] *= dirs[0,1]
+			Left[0,2] *= dirs[0,0]
+			Left[1,2] *= dirs[0,1]
+			Left[2,2] *= mag2(dirs[0])
+			Left[2] = Left[:, 2]
+			
 		## p1x, p1y, p2x, p2y, p4x, p4y, u
 		elif array_equal(dofs, (4,3)):
-			Left = [[1./7, 0., 1./14, 0., 1./28, 0., 1./35*dirs[1,0]],
-					[0., 1./7, 0., 1./14, 0., 1./28, 1./35*dirs[1,1]],
-					[1./14, 0., 3./35, 0., 13./140, 0., 9./140*dirs[1,0]],
-					[0., 1./14, 0., 3./35, 0., 13./140, 9./140*dirs[1,1]],
-					[1./28, 0., 13./140, 0., 13./35, 0., 11./70*dirs[1,0]],
-					[0., 1./28, 0., 13./140, 0., 13./35, 11./70*dirs[1,1]],
-					[1./35*dirs[1,0], 1./35*dirs[1,1], 9./140*dirs[1,0], 9./140*dirs[1,1], 11./70*dirs[1,0], 11./70*dirs[1,1], 3./35*mag2(dirs[1])]]	
+			Left = Lefts[2]
+			Left[ :6 : 2, -1 ] *= dirs[1,0]
+			Left[ 1:6 : 2, -1 ] *= dirs[1,1]
+			Left[ -1, -1 ] *= mag2(dirs[1])
+			Left[ -1 ] = Left[ :, -1 ]
+	
 		## p1x, p1y, s, p4x, p4y, u
 		elif array_equal(dofs, (3,3)):
-			Left = [[13./35, 0., 11./70*dirs[0,0], 9./70, 0., 13./140*dirs[1,0]],
-					[0., 13./35, 11./70*dirs[0,1], 0., 9./70, 13./140*dirs[1,1]],
-					[11./70*dirs[0,0], 11./70*dirs[0,1], 3./35*mag2(dirs[0]), 13./140*dirs[0,0], 13./140*dirs[0,1], 9./140*dot(dirs[0], dirs[1])],
-					[9./70, 0., 13./140*dirs[0,0], 13./35, 0., 11./70*dirs[1,0]],
-					[0., 9./70, 13./140*dirs[0,1], 0., 13./35, 11./70*dirs[1,1]],
-					[13./140*dirs[1,0], 13./140*dirs[1,1], 9./140*dot(dirs[0], dirs[1]), 22./140*dirs[1,0], 22./140*dirs[1,1], 3./35*mag2(dirs[1])]]	
+			Left = Lefts[3]
+			Left[ 0, 2 ] *= dirs[0,0]
+			Left[ 1, 2 ] *= dirs[0,1]
+			Left[ 0, 5 ] *= dirs[1,0]
+			Left[ 1, 5 ] *= dirs[1,1]
+			Left[ 2, 2 ] *= mag2(dirs[0])
+			Left[ 2, 5 ] *= dot(dirs[0], dirs[1])
+			
+			Left[ 3, 2 ] *= dirs[0,0]
+			Left[ 4, 2 ] *= dirs[0,1]
+			Left[ 3, 5 ] *= dirs[1,0]
+			Left[ 4, 5 ] *= dirs[1,1]
+			Left[ 5, 2 ] *= dot(dirs[0], dirs[1])
+			Left[ 5, 5 ] *= mag2(dirs[1])
+			
+			Left[ 2 ] = Left[ :, 2 ]
+			Left[ 5 ] = Left[ :, 5 ]
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 		
+# 		Left_ref = analytical_matrices()
+
 		return asarray( Left )*length
 		
+	
 	def system_for_curve_with_arc_length( self, bundle ):
 		'''
 		## Solve the same integral as system__for_curve only with dt replaced by ds
@@ -247,22 +288,22 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		dofs = self.compute_dofs_per_curve(bundle)
 		dirs = asarray(bundle.directions)
 		length = bundle.length
-		#debugger()
-		
-		tbar = ones( ( 4, 1 ) )
-		MAM = zeros( ( 4, 4 ) )
-		for i in range(len(dts)):
-			t = (ts[i] + ts[i+1])/2
- 			ds = dts[i]
-		
-			tbar[0] = t**3
-			tbar[1] = t**2
-			tbar[2] = t
-		
-			Mtbar = dot( M.T, tbar )
-			MAM += dot( Mtbar, Mtbar.T )*ds
 		
 		if array_equal(dofs, (4,4)):
+			
+			tbar = ones( ( 4, 1 ) )
+			MAM = zeros( ( 4, 4 ) )
+			for i in range(len(dts)):
+				t = (ts[i] + ts[i+1])/2
+				ds = dts[i]
+		
+				tbar[0] = t**3
+				tbar[1] = t**2
+				tbar[2] = t
+		
+				Mtbar = dot( M.T, tbar )
+				MAM += dot( Mtbar, Mtbar.T )*ds
+			
 			Left = zeros( ( 8, 8 ) )	
 			Left[ : : 2, : : 2 ] = MAM
 			Left[ 1: : 2, 1: : 2 ] = MAM
@@ -271,67 +312,116 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		## p1x, p1y, s, p3x, p3y, p4x, p4y
 		elif array_equal(dofs, (3,4)):
 			Left = zeros( ( 7,  7 ) )
-			## right bottom
-			Left[ 3: : 2, 3: : 2 ] = MAM[-2:,-2:]
-			Left[ 4: : 2, 4: : 2 ] = MAM[-2:,-2:]
-			## left botton
-			Left[ 3: : 2, 0 ] = Left[ 4: : 2, 1 ] = MAM[-2:,0] + MAM[-2:,1]
-			Left[ 3: : 2, 2 ] = MAM[-2:, 1]*dirs[0,0]
-			Left[ 4: : 2, 2 ] = MAM[-2:, 1]*dirs[0,1]
-			## right top
-			Left[ :3, 3: ] = Left[ 3:, :3 ].T
-			## left top
-			Left[0,0] = Left[1,1] = MAM[0,0] + MAM[0,1] + MAM[1,0] + MAM[1,1]
-			Left[2,0] = Left[0,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,0]
-			Left[2,1] = Left[1,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,1]
-			Left[2,2] = MAM[1,1]*mag2(dirs[0])
+			
+			coefs = zeros( 4 )
+			for i in range(len(dts)):
+				temp = zeros( ( 7,  7 ) )
+				t = (ts[i] + ts[i+1])/2
+				ds = dts[i]
+		
+				coefs[0] = 2*t**3 - 3*t**2 + 1
+				coefs[1] = 3*( t**3 - 2*t**2 + t )
+				coefs[2] = -3*( t**3 - t**2 )
+				coefs[3] = t**3
+			
+				## top half
+				temp[0,0] = temp[1,1] = coefs[0]
+				temp[0,2] = coefs[1] * dirs[0,0]
+				temp[1,2] = coefs[1] * dirs[0,1]
+				temp[0,3] = temp[1,4] = coefs[2]
+				temp[0,5] = temp[1,6] = coefs[3]			
+				temp[2] = temp[0] * coefs[1] * dirs[0,0] + temp[1] * coefs[1] * dirs[0,1]
+				temp[0] = temp[0] * coefs[0]
+				temp[1] = temp[1] * coefs[0]
+				## bottom half
+				temp[3,0] = temp[4,1] = temp[5,0] = temp[6,1] = coefs[0]
+				temp[3,2] = temp[5,2] = coefs[1] * dirs[0,0]
+				temp[4,2] = temp[6,2] = coefs[1] * dirs[0,1]
+				temp[3,3] = temp[4,4] = temp[5,3] = temp[6,4] = coefs[2]				
+				temp[3,5] = temp[4,6] = temp[5,5] = temp[6,6] = coefs[3]
+				temp[3:5] *= coefs[2]
+				temp[5:7] *= coefs[3]
+				
+				Left = Left + temp * ds
+
 						
 		## p1x, p1y, p2x, p2y, p4x, p4y, u
 		elif array_equal(dofs, (4,3)):
 			Left = zeros( ( 7,  7 ) )
-			## left top
-			Left[ :4 : 2, :4 : 2 ] = MAM[:2, :2]
-			Left[ 1:4 : 2, 1:4 : 2 ] = MAM[:2, :2]
-			## right top
-			Left[ :4 : 2, -3 ] = Left[ 1:4 : 2, -2 ] = MAM[:2,-2] + MAM[:2,-1]
-			Left[ :4 : 2, -1 ] = MAM[:2, -2]*dirs[1,0]
-			Left[ 1:4 : 2, -1 ] = MAM[:2, -2]*dirs[1,1]
-			## left bottom
-			Left[ 4:, :4 ] = Left[ :4, 4: ].T
-			## right bottom
-			Left[-3,-3] = Left[-2,-2] = MAM[-1,-1] + MAM[-1,-2] + MAM[-2,-1] + MAM[-2,-2]
-			Left[-1,-3] = Left[-3,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,0]
-			Left[-1,-2] = Left[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,1]
-			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
+			
+			coefs = zeros( 4 )
+			for i in range(len(dts)):
+				temp = zeros( ( 7,  7 ) )
+				t = (ts[i] + ts[i+1])/2
+				ds = dts[i]
+		
+				coefs[0] = t**3 - 3*t**2 + 3*t - 1
+				coefs[1] = -3*( t**3 - 2*t**2 + t )
+				coefs[2] = 2*t**3 - 3*t**2
+				coefs[3] = 3*( t**3 - t**2 )
+			
+				## top half
+				temp[0,0] = temp[1,1] = temp[2,0] = temp[3,1] = coefs[0]
+				temp[0,2] = temp[1,3] = temp[2,2] = temp[3,3] = coefs[1]				
+				temp[0,4] = temp[1,5] = temp[2,4] = temp[3,5] = coefs[2]
+				temp[0,6] = temp[2,6] = coefs[3] * dirs[1,0]
+				temp[1,6] = temp[3,6] = coefs[3] * dirs[1,1]
+				temp[0:2] *= coefs[0]
+				temp[2:4] *= coefs[1]
+				## bottom half
+				temp[4,0] = temp[5,1] = coefs[0]
+				temp[4,2] = temp[5,3] = coefs[1]
+				temp[4,4] = temp[5,5] = coefs[2]
+				temp[4,6] = coefs[3] * dirs[1,0]
+				temp[5,6] = coefs[3] * dirs[1,1]		
+				temp[6] = temp[4] * coefs[3] * dirs[1,0] + temp[5] * coefs[3] * dirs[1,1]
+				temp[4] = temp[4] * coefs[2]
+				temp[5] = temp[5] * coefs[2]
+				
+				Left = Left + temp * ds
 					
 		## p1x, p1y, s, p4x, p4y, u
 		elif array_equal(dofs, (3,3)):
 			Left = zeros( ( 6,  6 ) )
-			## left top
-			Left[0,0] = Left[1,1] = MAM[0,0] + MAM[0,1] + MAM[1,0] + MAM[1,1]
-			Left[2,0] = Left[0,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,0]
-			Left[2,1] = Left[1,2] = ( MAM[1,0] + MAM[1,1] ) * dirs[0,1]
-			Left[2,2] = MAM[1,1]*mag2(dirs[0])
-			## right top
-			Left[0,-3] = Left[1,-2] = MAM[0,-2] + MAM[0,-1] + MAM[1,-2] + MAM[1,-1]
-			Left[2,-3] = ( MAM[0,-2] + MAM[1,-2] ) * dirs[0,0]
-			Left[2,-2] = ( MAM[0,-2] + MAM[1,-2] ) * dirs[0,1]
-			Left[0,-1] = ( MAM[1,-2] + MAM[1,-1] ) * dirs[1,0]
-			Left[1,-1] = ( MAM[1,-2] + MAM[1,-1] ) * dirs[1,1]
-			Left[2,-1] = MAM[1,-2] * dot(dirs[0], dirs[1])
-			## left bottom
-			Left[ 3:, :3 ] = Left[ :3, 3: ].T
-			## right bottom
-			Left[-3,-3] = Left[-2,-2] = MAM[-1,-1] + MAM[-1,-2] + MAM[-2,-1] + MAM[-2,-2]
-			Left[-1,-3] = Left[-3,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,0]
-			Left[-1,-2] = Left[-2,-1] = ( MAM[-2,-2] + MAM[-2,-1] ) * dirs[1,1]
-			Left[-1,-1] = MAM[-2,-2]*mag2(dirs[1])
+			
+			coefs = zeros( 4 )
+			for i in range(len(dts)):
+				temp = zeros( ( 6,  6 ) )
+				t = (ts[i] + ts[i+1])/2
+				ds = dts[i]
+		
+				coefs[0] = -( 2*t**3 - 3*t**2 + 1 )
+				coefs[1] = 2*t**3 - 3*t**2
+				coefs[2] = -3*( t**3 - 2*t**2 + t )
+				coefs[3] = 3*( t**3 - t**2 )
+			
+				## top half
+				temp[0,0] = temp[1,1] = coefs[0]
+				temp[0,2] = coefs[2] * dirs[0,0]
+				temp[1,2] = coefs[2] * dirs[0,1]
+				temp[0,3] = temp[1,4] = coefs[1]
+				temp[0,5] = coefs[3] * dirs[1,0]
+				temp[1,5] = coefs[3] * dirs[1,1]
+				temp[2] = temp[0] * coefs[2] * dirs[0,0] + temp[1] * coefs[2] * dirs[0,1]
+				temp[0] = temp[0] * coefs[0]
+				temp[1] = temp[1] * coefs[0]
+				## bottom half
+				temp[3,0] = temp[4,1] = coefs[0]
+				temp[3,2] = coefs[2] * dirs[0,0]
+				temp[4,2] = coefs[2] * dirs[0,1]
+				temp[3,3] = temp[4,4] = coefs[1]
+				temp[3,5] = coefs[3] * dirs[1,0]
+				temp[4,5] = coefs[3] * dirs[1,1]
+				temp[5] = temp[3] * coefs[3] * dirs[1,0] + temp[4] * coefs[3] * dirs[1,1]
+				temp[3] = temp[3] * coefs[1]
+				temp[4] = temp[4] * coefs[1]
+				
+				Left = Left + temp * ds
 					
 		else:
 			raise RuntimeError('bundle return wrong dofs.')
 		
 		return Left*length
-		
 		
 	def compute_dofs_per_curve( self, bundle ):
 		dofs = zeros( 2, dtype = int )

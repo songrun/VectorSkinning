@@ -8,7 +8,7 @@ class EngineError( Exception ): pass
 class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
-
+systems = []
 class Engine:
 	'''
 	A data persistant that have all information needed to precompute and the system matrix of the previous state.
@@ -138,7 +138,10 @@ class Engine:
 		for fast_update in self.fast_update_functions:
 			result.append(	fast_update( self.transforms, self.perform_multiple_iterations ) )
 		
-		self.solutions = result 
+		self.solutions = result
+		
+		print self.all_controls
+		print result
 		return result
 	
 	def set_weight_function( self, weight_function ):
@@ -290,6 +293,8 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		last_solutions = solutions = odd.solve()
 		if not multiple_iterations: return solutions
 		
+		systems.append( odd.system )
+		
 		if kPickleDebug:
 			all_solutions.append( solutions )
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
@@ -299,10 +304,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		if 'A' in smoothness or 'G1' in smoothness: 
 			## TODO Q: Why does is sometimes seem like this code only runs if there
 			##         a print statement inside? It seems haunted.
-			print 'here in even'
 			even.update_rhs_for_handles( transforms )
 			
-			for i in xrange( 10 ):
+			for i in xrange( 1 ):
 				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
 				last_solutions = solutions
@@ -318,8 +322,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 				
-				
-				
+				return solutions		
 				## Check if error is low enough and terminate
 				iteration += 1
 				odd.update_system_with_result_of_previous_iteration( solutions )
@@ -329,9 +332,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				#print 'max |last solutions - solutions|:', abs( asarray( last_solutions ) - asarray( solutions ) ).max()
 				#pprint( solutions )
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-					break
-					
-					
+					break	
 		
 		print 'iterations:', iteration
 		return solutions
@@ -411,8 +412,6 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		all_pts.append( pts )
 		all_ts.append( ts )
 		
-		#debugger()
-		
 		## Compute all_lengths
 		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
 		dss = asarray( dss )
@@ -420,6 +419,7 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 		all_lengths.append( lengths )
 		## Then normalize dss
 		dss = [ ds / length for ds, length in zip( dss, lengths ) ]
+		
 		
 		if kArcLength:
 			all_dts.append( dss )
@@ -640,12 +640,13 @@ def test_actually_solve():
 			paths_info, skeleton_handle_vertices, constraint = eval( 'get_test_' + argv[0] + '()' )
 	else:
 		#paths_info, skeleton_handle_vertices, constraint = get_test_steep_closed_curve()
-		# paths_info, skeleton_handle_vertices, constraint = get_test1()
-		# paths_info, skeleton_handle_vertices, constraint = get_test2()
-		paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
+		#paths_info, skeleton_handle_vertices, constraint = get_test1()
+		#paths_info, skeleton_handle_vertices, constraint = get_test2()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
+		paths_info, skeleton_handle_vertices, constraint = get_test_turtle_glasses()
 	
 	engine = Engine()
 	
@@ -662,23 +663,29 @@ def test_actually_solve():
 	engine.set_handle_positions( skeleton_handle_vertices )
 	
 	engine.precompute_configuration()
+# 	engine.set_weight_function( 'shepard' )
 	engine.prepare_to_solve()
 	
 	
 	## Transform a handle
-	engine.transform_change( 0, [[1,0,-20],[0,1,20]] )
+#  	engine.transform_change( 0, [[1,0,-2],[0,1,2]] )
 	
 	all_paths = engine.solve_transform_change()
 	
+	print 'diff: ', (asarray( all_paths ) - asarray( engine.all_controls ))[-2:]
+	print 'error range: ', max( [ (asarray( path ) - asarray( controls )).max() for path, controls in zip( all_paths, engine.all_controls ) ] )
+	
+	debugger()
 	for path in all_paths:
 		if len( path ) > 1:
 			chain = concatenate( asarray(path)[:-1, :-1] )
 			chain = concatenate( ( chain, path[-1] ) )
 		else:
 			chain = path[0]
-		print chain
+			
+# 		print chain
 		
-	print engine.compute_energy_and_maximum_distance()
+# 	print engine.compute_energy_and_maximum_distance()
 
 def test_simple():
 	bbw_curve, spline_curve = get_test_distances()					   

@@ -49,10 +49,9 @@ def sample_cubic_bezier_curve( P, num_samples = 100 ):
 	
 	P = asarray( P )
 	result = []
-	ts = []
 	tbar = ones( (4,1) )
-	for t in linspace( 0, 1, num_samples ):
-		ts.append( t )
+	ts = linspace( 0, 1, num_samples )
+	for t in ts:
 		
 		tbar[0] = t**3
 		tbar[1] = t**2
@@ -75,10 +74,9 @@ def sample_straight_line( begin, end, num_samples = 100 ):
 	if num_samples is None:
 		num_samples = max(int(mag(begin - end) / 1), 2)
 	
-	ts = [] 
-	for t in linspace( 0, 1, num_samples ):
-		ts.append( t )
-		 
+	ts = linspace( 0, 1, num_samples )
+	for t in ts:
+ 
 		point = (end - begin)*t + begin
 		result.append(asarray(point).squeeze())
 		
@@ -166,6 +164,9 @@ def make_constraints_from_control_points( control_group, close=True ):
 				dir2 = dir( control_group[(i+1)%num,j] - control_group[(i+1)%num,0 ] )
 				break
 		
+# 		if i == 5 or i ==10:
+# 			debugger()
+		
 		if allclose( dot( dir1, dir2 ), 1.0, atol=1e-02 ) and mag(dir1) != 0 and mag(dir2) != 0:
 			if parameters.kG1andAconstraints:
 				## G1
@@ -224,4 +225,6 @@ def split_cublic_beizer_curve( controls, partition ):
 	result.append(controls)
 	
 	return asarray(result)
+
+		
 	
