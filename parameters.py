@@ -7,3 +7,4 @@ kArcLengthDefault = False
 kVerbose = 1
 kTransformControls = False
 kNoOverlays = False		
+kComputeComparisonCurves = True

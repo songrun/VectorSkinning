@@ -312,6 +312,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 					all_solutions.append( solutions )
 					pickle.dump( all_solutions, open( debug_out, "wb" ) )
 				
+				#print 'max |last solutions - solutions|:', abs( asarray( last_solutions ) - asarray( solutions ) ).max()
+				#from pprint import pprint
+				#pprint( solutions )
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 				
@@ -323,12 +326,14 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				last_solutions = solutions
 				solutions = odd.solve()
 				
+				#print 'max |last solutions - solutions|:', abs( asarray( last_solutions ) - asarray( solutions ) ).max()
+				#pprint( solutions )
 				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
 					break
 					
 					
 		
-		#print 'iterations:', iteration
+		print 'iterations:', iteration
 		return solutions
 	
 	return update_with_transforms					
