@@ -290,8 +290,11 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	def update_with_transforms( transforms, multiple_iterations = True ):
 		iteration = 1
 		odd.update_rhs_for_handles( transforms )
-		last_solutions = solutions = odd.solve()
+		last_odd_solutions = solutions = odd.solve()
 		if not multiple_iterations: return solutions
+		## Keep track of even and odd solutions separately, because they may converge
+		## separately.
+		last_even_solutions = None
 		
 		systems.append( odd.system )
 		
@@ -306,10 +309,9 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			##         a print statement inside? It seems haunted.
 			even.update_rhs_for_handles( transforms )
 			
-			for i in xrange( 1 ):
+			for i in xrange( 10 ):
 				iteration += 1
 				even.update_system_with_result_of_previous_iteration( solutions )
-				last_solutions = solutions
 				solutions = even.solve()
 				
 				if kPickleDebug:
@@ -319,20 +321,30 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				#print 'max |last solutions - solutions|:', abs( asarray( last_solutions ) - asarray( solutions ) ).max()
 				#from pprint import pprint
 				#pprint( solutions )
-				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-					break
+				if allclose(last_odd_solutions, solutions, atol=1.0, rtol=1e-03):
+				    break
+				if last_even_solutions is not None and allclose(last_even_solutions, solutions, atol=1.0, rtol=1e-03):
+				    break
 				
-				return solutions		
+				last_even_solutions = solutions
+				
+				## For debugging, randomly don't perform the last even iteration.
+				#import random
+				#if i == 9 and random.randint(0,1): break
+				
 				## Check if error is low enough and terminate
 				iteration += 1
 				odd.update_system_with_result_of_previous_iteration( solutions )
-				last_solutions = solutions
 				solutions = odd.solve()
 				
 				#print 'max |last solutions - solutions|:', abs( asarray( last_solutions ) - asarray( solutions ) ).max()
 				#pprint( solutions )
-				if allclose(last_solutions, solutions, atol=1.0, rtol=1e-03):
-					break	
+				if allclose(last_even_solutions, solutions, atol=1.0, rtol=1e-03):
+					break
+				if allclose(last_odd_solutions, solutions, atol=1.0, rtol=1e-03):
+					break
+				
+				last_odd_solutions = solutions
 		
 		print 'iterations:', iteration
 		return solutions

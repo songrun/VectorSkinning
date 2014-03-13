@@ -47,6 +47,29 @@ def compute_angle( bundle0, bundle1 ):
 		
 		return [ cos_theta, sin_theta ]
 
+def clamp_solution( bundles, solution, clamp_offset = 0.1 ):
+    clamped = []
+    for i, P in enumerate( solution ):
+        bundle = bundles[i]
+        ## Clone P
+        P = array( P )
+        
+        ## clamp if the direction changes
+        
+        dir1 = dir_allow_zero( P[1] - P[0] )
+        dir2 = dir_allow_zero( P[2] - P[3] )
+        
+        eps = 1e-3
+        if dot( bundle.directions[0], dir1 ) < eps:
+            P[1] = P[0] + clamp_offset * bundle.directions[0]
+            bundle.magnitudes[0] = clamp_offset
+        if dot( bundle.directions[1], dir2 ) < eps:
+            P[2] = P[3] + clamp_offset * bundle.directions[1]
+            bundle.magnitudes[1] = clamp_offset
+        
+        clamped.append( P )
+    return clamped
+
 class BezierConstraintSolver( object ):
 	def __init__( self, W_matrices, control_points, constraints, transforms, lengths, ts, dts, is_closed, kArcLength ):
 		## compute the weight of each segment according to its length
