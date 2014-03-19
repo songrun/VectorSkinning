@@ -1,3 +1,5 @@
-/catmull-clark
-/cctest_modern
-/SubMatrix
+## CMake things:
+CMakeCache.txt
+CMakeFiles
+Makefile
+/build

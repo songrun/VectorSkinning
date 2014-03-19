@@ -102,41 +102,65 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named SubMatrix
+# Target rules for targets named main
 
 # Build rule for target.
-SubMatrix: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 SubMatrix
-.PHONY : SubMatrix
+main: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 main
+.PHONY : main
 
 # fast build rule for target.
-SubMatrix/fast:
-	$(MAKE) -f CMakeFiles/SubMatrix.dir/build.make CMakeFiles/SubMatrix.dir/build
-.PHONY : SubMatrix/fast
+main/fast:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/build
+.PHONY : main/fast
 
-SubMatrix.o: SubMatrix.cpp.o
-.PHONY : SubMatrix.o
+src/catmull.o: src/catmull.c.o
+.PHONY : src/catmull.o
 
 # target to build an object file
-SubMatrix.cpp.o:
-	$(MAKE) -f CMakeFiles/SubMatrix.dir/build.make CMakeFiles/SubMatrix.dir/SubMatrix.cpp.o
-.PHONY : SubMatrix.cpp.o
+src/catmull.c.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull.c.o
+.PHONY : src/catmull.c.o
 
-SubMatrix.i: SubMatrix.cpp.i
-.PHONY : SubMatrix.i
+src/catmull.i: src/catmull.c.i
+.PHONY : src/catmull.i
 
 # target to preprocess a source file
-SubMatrix.cpp.i:
-	$(MAKE) -f CMakeFiles/SubMatrix.dir/build.make CMakeFiles/SubMatrix.dir/SubMatrix.cpp.i
-.PHONY : SubMatrix.cpp.i
+src/catmull.c.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull.c.i
+.PHONY : src/catmull.c.i
 
-SubMatrix.s: SubMatrix.cpp.s
-.PHONY : SubMatrix.s
+src/catmull.s: src/catmull.c.s
+.PHONY : src/catmull.s
 
 # target to generate assembly for a file
-SubMatrix.cpp.s:
-	$(MAKE) -f CMakeFiles/SubMatrix.dir/build.make CMakeFiles/SubMatrix.dir/SubMatrix.cpp.s
-.PHONY : SubMatrix.cpp.s
+src/catmull.c.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull.c.s
+.PHONY : src/catmull.c.s
+
+src/main.o: src/main.cpp.o
+.PHONY : src/main.o
+
+# target to build an object file
+src/main.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
+
+src/main.i: src/main.cpp.i
+.PHONY : src/main.i
+
+# target to preprocess a source file
+src/main.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
+
+src/main.s: src/main.cpp.s
+.PHONY : src/main.s
+
+# target to generate assembly for a file
+src/main.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
 
 # Help Target
 help:
@@ -144,12 +168,15 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... SubMatrix"
 	@echo "... edit_cache"
+	@echo "... main"
 	@echo "... rebuild_cache"
-	@echo "... SubMatrix.o"
-	@echo "... SubMatrix.i"
-	@echo "... SubMatrix.s"
+	@echo "... src/catmull.o"
+	@echo "... src/catmull.i"
+	@echo "... src/catmull.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
 .PHONY : help
 
 

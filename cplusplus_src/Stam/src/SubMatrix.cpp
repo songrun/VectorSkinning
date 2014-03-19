@@ -2,7 +2,7 @@
 #include <cmath>
 #include <Eigen/LU>
 #include "cctest_modern.c"
-#include "igl/readOBJ.h"
+
 
 #include <iostream>
 
@@ -185,29 +185,9 @@ void SubMatrix::print( ) {
 
 }
 
-void usage( char* argv0, int exit_code = -1 )
-{
-	std::cerr << "Usage: " << argv0 << "path/to/file.obj\n";
-	exit( exit_code );
-}
-
 int main( int argc, char ** argv ) {
 	
-// 	SubMatrix A = SubMatrix(3);
-// 	A.print();
-	
-	if( 2 != argc )
-	{
-		usage(argv[0]);
-	}
-	
-	Eigen::MatrixXd V;
-	Eigen::MatrixXi F;
-	const int success = igl::readOBJ( argv[1], V, F );
-	if( !success ) usage(argv[0]);
-	
-	std::cout << "V:\n" << V << '\n';
-	std::cout << "F:\n" << F << '\n';
-	
-	return 0;
+	SubMatrix A = SubMatrix(3);
+	A.print();
+
 }
