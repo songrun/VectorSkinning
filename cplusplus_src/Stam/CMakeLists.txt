@@ -24,6 +24,10 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 #    SET(EXTRA_LIBS ${COCOA_LIBRARY} ${GLUT_LIBRARY} ${OpenGL_LIBRARY})
 # ENDIF (APPLE)
 
+find_package(OpenGL REQUIRED)
+find_package(GLUT REQUIRED)
+include_directories( ${OPENGL_INCLUDE_DIRS}  ${GLUT_INCLUDE_DIRS} )
+
 set(EXECUTABLE_OUTPUT_PATH 
 	build
 	)
@@ -36,6 +40,8 @@ set(STAM_SOURCES
 	)
 
 add_executable( main ${STAM_SOURCES} )
+
+target_link_libraries(main ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} )
 
 # -Woverloaded-virtual
 set_target_properties( main PROPERTIES COMPILE_FLAGS "-Wall -Winit-self -Wno-sign-compare" )
