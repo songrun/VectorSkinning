@@ -6,9 +6,41 @@
 // #include "igl/readOBJ.h"
 #include <iostream>
 #include "catmull.h"
+#include "catmull_obj.h"
 #include <stdio.h>
 #include <vector>
 #include <string.h>
+
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <GL/glut.h>
+
+namespace
+{
+int gwin;
+GLfloat rot[] = { 20, 40, 0 };
+GLfloat rotx = 0, roty = 1;
+GLfloat ambient[] = { .5f, .5f, .5f, 1.f };
+GLfloat diffuse[] = { .5f, .5f, .5f, .6f };
+GLfloat litepos[] = { 0, 2, 3, 1 };
+GLfloat litepos2[] = { 0, -2, 5, 1 };
+GLfloat color[] = { .3, 1, .6 };
+GLfloat hole[] = { .7, .4, 0 };
+GLfloat color2[] = { .5, .5, .5 };
+GLfloat hole2[] = { .5, .2, 0 };
+GLfloat red[] = {1, 0, 0};
+GLfloat zpos = -6;
+ 
+int max_depth = 7;
+int show_parent = 1;
+int wireframe_mode = 1;
+int face_mode = 1;
+int model_idx = 0;
+int interp_norm = 0;
+
+list models = 0;
+int model_pos = 0;
+}
 
 void usage( char* argv0, int exit_code = -1 )
 {
@@ -22,129 +54,222 @@ void error( std::string message, int exit_code = -1 )
 	exit( exit_code );
 }
 
-int cc_model_add_face(model m, std::vector<int > vs)
+void draw_model(model m)
 {
-	int i, x;
-	list lst = list_new();
- 
-	for (i = 0; i < vs.size(); i++) {
-
-		list_push(lst, elem(m->v, vs[i]));
-	}
- 
-	x = model_add_face_v(m, lst);
-	list_del(lst);
-	return x;
-}
-
-model readOBJ( const std::string obj_file_name )
-{
-	model m = model_new();
-	
-	FILE * obj_file = fopen(obj_file_name.c_str(),"r");
-	if ( NULL==obj_file )
-	{
-		fprintf(stderr,"IOError: %s could not be opened...\n", obj_file_name.c_str());
-		return m;
-	}
-	
-	double x, y, z;
-	char line[LINE_MAX];
-	int line_no = 1;
-	while (fgets(line, LINE_MAX, obj_file) != NULL) {
-		char type[LINE_MAX];
-		// Read first word containing type
-	    if(sscanf(line, "%s",type) == 1) {
-			// Get pointer to rest of line right after type
-			char * l = &line[strlen(type)];
-		
-			if( strcmp(type, "v") == 0 )
-			{
-				int count = sscanf(l,"%lf %lf %lf\n",&x,&y,&z);
-				if(count != 3)
-				{
-					fprintf(stderr, "Error: readOBJ() vertex on line %d should have 3 coordinates", 
-					  line_no);
-					fclose(obj_file);
-					return m;
-				}
-
-				model_add_vertex(m, x, y, z);
-			}
-			else if( strcmp(type, "f") == 0 )
-			{
-				std::vector<int > f;
-				std::vector<int > ftc;
-				std::vector<int > fn;
-				// Read each "word" after type
-				char word[LINE_MAX];
-				int offset;
-				while(sscanf(l,"%s%n",word,&offset) == 1)
-				{
-					// adjust offset
-					l += offset;
-					// Process word
-					unsigned int i,it,in;
-					if (sscanf(word,"%u/%u/%u",&i,&it,&in) == 3)
-					{
-						f.push_back(i-1);
-						ftc.push_back(it-1);
-						fn.push_back(in-1);
-					} else if(sscanf(word,"%u/%u",&i,&it) == 2)
-					{
-						f.push_back(i-1);
-						ftc.push_back(it-1);
-					} else if(sscanf(word,"%u//%u",&i,&in) == 2)
-					{
-						f.push_back(i-1);
-						fn.push_back(in-1);
-					} else if(sscanf(word,"%u",&i) == 1)
-					{
-						f.push_back(i-1);
-					} else
-					{
-						fprintf(stderr,
-							"Error: readOBJ() face on line %d has invalid element format\n",
-							line_no);
-						fclose(obj_file);
-						return m;
-					}
-				}
-				if((f.size()>0 && fn.size() == 0 && ftc.size() == 0) ||
-				   (f.size()>0 && fn.size() == f.size() && ftc.size() == 0) ||
-				   (f.size()>0 && fn.size() == 0 && ftc.size() == f.size()) ||
-				   (f.size()>0 && fn.size() == f.size() && ftc.size() == f.size()))
-				{
-					// No matter what add each type to lists so that lists are the
-					// correct lengths
-					cc_model_add_face(m, f);
-// 					FTC.push_back(ftc);
-// 					FN.push_back(fn);
-				} 
-				else {
-					fprintf(stderr,
-						  "Error: readOBJ() face on line %d has invalid format\n", line_no);
-					fclose(obj_file);
-					return m;
-				}
-			} else if(strlen(type) >= 1 && (type[0] == '#' || 
-				type[0] == 'g'  ||
-				type[0] == 's'  ||
-				strcmp("usemtl",type)==0 ||
-				strcmp("mtllib",type)==0))
-			{
-			//ignore comments or other shit
-			}
+	int i, j;
+	void *rf, *rv;
+	face f;
+	vertex v;
+	foreach(i, rf, m->f) {
+		f = static_cast< face >( rf );
+		glBegin(GL_POLYGON);
+		if (!interp_norm) glNormal3dv(&(f->norm.x));
+		foreach(j, rv, f->v) {
+			v = static_cast< vertex >( rv );
+			if (interp_norm)
+				glNormal3dv(&(v->avg_norm.x));
+			glVertex3dv(&(v->pos.x));
 		}
-		line_no++;
+		glEnd();
 	}
-	fclose(obj_file);
-	
-	model_norms(m);
-	return m;
-	
 }
-
+ 
+void draw_wireframe(model m, GLfloat *color, GLfloat *hole_color)
+{
+	int i;
+	edge e;
+	void *re;
+ 
+	glDisable(GL_LIGHTING);
+	foreach(i, re, m->e) {
+		e = static_cast< edge >( re );
+		if (e->f->n != 2) glColor3fv(hole_color);
+		else		  glColor3fv(color);
+ 
+		glBegin(GL_LINES);
+		glVertex3dv(&(e->v[0]->pos.x));
+		glVertex3dv(&(e->v[1]->pos.x));
+		glEnd();
+	}
+}
+ 
+void draw_faces(model m)
+{
+	glPushMatrix();
+	glLoadIdentity();
+	glEnable(GL_LIGHTING);
+	glLightfv(GL_LIGHT0, GL_AMBIENT,  ambient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE,  diffuse);
+	glLightfv(GL_LIGHT0, GL_POSITION, litepos);
+	glEnable(GL_LIGHT0);
+ 
+	glLightfv(GL_LIGHT1, GL_DIFFUSE,  diffuse);
+	glLightfv(GL_LIGHT1, GL_POSITION, litepos2);
+	glEnable(GL_LIGHT1);
+	glPopMatrix();
+ 
+	if (wireframe_mode) {
+		glEnable(GL_POLYGON_OFFSET_FILL);
+		glPolygonOffset(1.0, 1.0);
+	}
+	draw_model(m);
+	if (wireframe_mode)
+		glDisable(GL_POLYGON_OFFSET_FILL);
+}
+ 
+void keyspecial(int k, int x, int y)
+{
+	switch(k) {
+	case GLUT_KEY_UP:
+		rotx --; break;
+	case GLUT_KEY_DOWN:
+		rotx ++; break;
+	case GLUT_KEY_LEFT:
+		roty --; break;
+	case GLUT_KEY_RIGHT:
+		roty ++; break;
+	}
+}
+ 
+void set_model()
+{
+	int i;
+	void *p;
+ 
+	model_pos = 1;
+	model_idx = (model_idx + 1) % 3;
+ 
+	foreach(i, p, models) model_del( static_cast< model >( p ) );
+ 
+	len(models) = 0;
+ 
+	switch(model_idx) {
+	case 0:
+		list_push(models, cube()); break;
+	case 1:
+		list_push(models, donut()); break;
+	case 2:
+		list_push(models, star()); break;
+	}
+}
+ 
+void keypress(unsigned char key, int x, int y)
+{
+	switch(key) {
+	case 27: case 'q':
+		glFinish();
+		glutDestroyWindow(gwin);
+		return;
+	case 'w':
+		wireframe_mode = (wireframe_mode + 1) % 3;
+		return;
+	case 'l':
+		diffuse[0] += .1;
+		diffuse[1] += .1;
+		diffuse[2] += .1;
+		return;
+	case 'L':
+		diffuse[0] -= .1;
+		diffuse[1] -= .1;
+		diffuse[2] -= .1;
+		return;
+	case ' ':
+		rotx = roty = 0;
+		return;
+	case 'z':
+		zpos ++;
+		return;
+	case 'a':
+		zpos --;
+		return;
+	case 's':
+		interp_norm = !interp_norm;
+		break;
+	case 'p':
+		show_parent = (show_parent + 1) % 3;
+		break;
+ 
+	case '.': case '>':
+		if (++model_pos >= max_depth) model_pos = max_depth;
+		return;
+	case ',': case '<':
+		if (--model_pos < 0) model_pos = 0;
+		return;
+ 
+	case 'm':
+		set_model();
+		break;
+	}
+}
+ 
+void render()
+{
+	if (!len(models)) return;
+	while (model_pos >= len(models))
+		list_push(models, catmull(static_cast< model >( elem(models, len(models) - 1))));
+ 
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+ 
+	glTranslatef(.0f, 0.f, zpos);
+ 
+	rot[0] += rotx / 8.;
+	rot[1] += roty / 8.;
+ 
+	if (rot[0] > 360) rot[0] -= 360;
+	if (rot[0] < 0) rot[0] += 360;
+	if (rot[1] > 360) rot[1] -= 360;
+	if (rot[1] < 0) rot[1] += 360;
+ 
+	glRotatef(rot[0], 1, 0, 0);
+	glRotatef(rot[1], 0, 1, 0);
+ 
+	GLfloat *pcolor = color2;
+	if (model_pos && show_parent) {
+		if (show_parent == 2) pcolor = red;
+		draw_wireframe(static_cast< model >(elem(models, model_pos - 1)), pcolor, hole2);
+	}
+ 
+	model m = static_cast< model >( elem(models, model_pos) );
+	if (wireframe_mode) draw_faces(m);
+	if (wireframe_mode < 2) draw_wireframe(m, color, hole);
+ 
+	glFlush();
+	glFinish();
+	glutSwapBuffers();
+}
+ 
+void resize(int w, int h)
+{
+	printf("size %d %d\n", w, h);
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(45.f, (GLfloat)w / h, .1f, 100.f);
+	glMatrixMode(GL_MODELVIEW);
+}
+ 
+void init_gfx(int *c, char **v) {
+	glutInit(c, v);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+	glutInitWindowSize(640, 480);
+ 
+	gwin = glutCreateWindow("Catmull-Clark");
+	glutReshapeFunc(resize);
+ 
+	glClearColor(.0f, .0f, .0f, .0f);
+	glClearDepth(1.0f);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_DEPTH_TEST);
+	glShadeModel(GL_SMOOTH);
+ 
+	glutKeyboardFunc(keypress);
+	glutSpecialFunc(keyspecial);
+	glutDisplayFunc(render);
+	glutIdleFunc(render);
+	glutMainLoop();
+}
 
 int main(int argc, char **argv)
 {
@@ -160,7 +285,7 @@ int main(int argc, char **argv)
 	init_gfx(&argc, argv);
 
 	foreach(i, p, models) {
-		model model_p = reinterpret_cast<model>(p);
+		model model_p = static_cast<model>(p);
 		model_del(model_p);
 	}
 	list_del(models);

@@ -138,6 +138,30 @@ src/catmull.c.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull.c.s
 .PHONY : src/catmull.c.s
 
+src/catmull_obj.o: src/catmull_obj.cpp.o
+.PHONY : src/catmull_obj.o
+
+# target to build an object file
+src/catmull_obj.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull_obj.cpp.o
+.PHONY : src/catmull_obj.cpp.o
+
+src/catmull_obj.i: src/catmull_obj.cpp.i
+.PHONY : src/catmull_obj.i
+
+# target to preprocess a source file
+src/catmull_obj.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull_obj.cpp.i
+.PHONY : src/catmull_obj.cpp.i
+
+src/catmull_obj.s: src/catmull_obj.cpp.s
+.PHONY : src/catmull_obj.s
+
+# target to generate assembly for a file
+src/catmull_obj.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/catmull_obj.cpp.s
+.PHONY : src/catmull_obj.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -174,6 +198,9 @@ help:
 	@echo "... src/catmull.o"
 	@echo "... src/catmull.i"
 	@echo "... src/catmull.s"
+	@echo "... src/catmull_obj.o"
+	@echo "... src/catmull_obj.i"
+	@echo "... src/catmull_obj.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

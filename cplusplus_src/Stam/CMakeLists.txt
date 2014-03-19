@@ -36,7 +36,7 @@ include_directories( "ext/libigl/include" )
 add_definitions( -DIGL_HEADER_ONLY )
 
 set(STAM_SOURCES
-	src/main.cpp src/catmull.c
+	src/main.cpp src/catmull.c src/catmull_obj.cpp
 	)
 
 add_executable( main ${STAM_SOURCES} )
