@@ -11,11 +11,8 @@
 extern "C" {
 #endif
 
-/* Our scalar type */
+/* Our scalar and point type */
 typedef double catmull_real_t;
-
-
-/* Scalar type */
 typedef struct { catmull_real_t x, y, z; } coord_t, *coord;
 
 
