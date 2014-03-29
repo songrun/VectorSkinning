@@ -10,10 +10,15 @@ The software depends on Python 2.7+ and several modules:
 - numpy
 - scipy
 - autobahn
+- twisted
 - cffi
 - cvxopt (optional; disabled by default)
 
-You can install them with your OS package manager, or using pip:
+(Note: On OS X, you should not install modules into the built-in system Python. Instead,
+install a copy of Python with a package manager such as
+[homebrew](http://brew.sh/) or [macports](http://www.macports.org/), or [fink](http://www.finkproject.org/).)
+
+You can install these modules with your favorite package manager, or using pip:
 
     pip install numpy scipy
     pip install autobahn
@@ -22,6 +27,9 @@ You can install them with your OS package manager, or using pip:
 
 (If you don't have `pip`, install it using your OS package manager or get it from http://www.pip-installer.org/en/latest/installing.html .)
 
+The software depends on several compiled components.
+Binaries are provided in the repository for OS X.
+See below for compilation instructions (for other platforms, or when making changes).
 
 ## Running
 
