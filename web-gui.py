@@ -223,6 +223,18 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
  			print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
 			print 'distances:', max( d_data[0] ),  min( d_data[1] ), mean( d_data[2] )
 		
+		if parameters.kComputeComparisonCurves:
+			from FitCurves.FitCurves import FitCurve
+			import itertools
+			
+			schneider_curves = []
+			for spline in energy_and_polyline:
+				schneider_curves.append( FitCurve( list( itertools.chain( *[ curve['target-curve-polyline'] for curve in spline ] ) ), 10 ).tolist() )
+			
+			#from pprint import pprint
+			#pprint( schneider_curves )
+			self.sendMessage( 'update-comparison-curve ' + json.dumps( schneider_curves ) )
+		
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 
 

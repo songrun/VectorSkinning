@@ -1,4 +1,0 @@
-What's up with small curves?
-Is it the threshold for C1?
-
-What's up with arc-length for fixed direction iterations?

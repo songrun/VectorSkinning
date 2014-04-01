@@ -90,6 +90,7 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 				
 			result.append(solution)
 		
+		if parameters.kClampOn == True: result = clamp_solution( self.bundles, result )
 		return result	
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):

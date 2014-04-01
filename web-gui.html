@@ -90,6 +90,7 @@ From: http://stackoverflow.com/questions/19089384/twitter-bootstrap-3-two-column
 
 <div id="svg-holder" class="text-center">
 <div id="svg-file" class="absolute0"></div>
+<div id="svg-overlay-beziers-comparison" class="absolute0"></div>
 <div id="svg-overlay-beziers-deformed" class="absolute0"></div>
 <div id="svg-overlay-target" class="absolute0"></div>
 <div id="svg-overlay-constraints" class="absolute0"></div>
@@ -296,6 +297,10 @@ function receiveSocketMessage( data )
     else if( data.lastIndexOf( 'update-target-curve ', 0 ) === 0 )
     {
         updateTargetCurve( JSON.parse( data.substring( 'update-target-curve '.length ) ) );
+    }
+    else if( data.lastIndexOf( 'update-comparison-curve ', 0 ) === 0 )
+    {
+        updateComparisonCurve( JSON.parse( data.substring( 'update-comparison-curve '.length ) ) );
     }
     else
     {
@@ -527,6 +532,79 @@ function updateTargetCurve( new_paths_energies )
 					fillOpacity: 0.,
 					});
             }
+        }
+    }
+}
+// updateComparisonCurve() updates the comparison curves in the SVG.
+// Its parameter is an array (one for each path) of arrays of cubic bezier curves (arrays of four points).
+function updateComparisonCurve( comparison_curves )
+{
+    // A hack:
+    $('#svg-overlay-target').css({ opacity: .3 });
+    
+    // Duplicate the loaded SVG, so we get the right viewport, and then clear its contents.
+    $( '#svg-overlay-beziers-comparison' ).html( $('#svg-file > svg').clone().empty() );
+    var ui = Snap( '#svg-overlay-beziers-comparison > svg' );
+    ui.clear();
+    
+    // Add a path for everything in the list.
+    for( var path_index = 0; path_index < comparison_curves.length; ++path_index )
+    {
+        var spline = comparison_curves[ path_index ];
+        
+        for( var curve_index = 0; curve_index < spline.length; ++curve_index )
+        {
+            var curve = spline[ curve_index ];
+            var path_string = 'M' + curve[0][0] + ' ' + curve[0][1]
+                + 'C' + curve[1][0] + ' ' + curve[1][1]
+                + ' ' + curve[2][0] + ' ' + curve[2][1]
+                + ' ' + curve[3][0] + ' ' + curve[3][1]
+                ;
+            
+            var path = ui.path( path_string );
+            path.attr({
+                stroke: '#0f0',
+                strokeWidth: 3,
+                strokeDasharray: "20,10,5,5,5,10",
+                fill: "none"
+                });
+        }
+    }
+    
+    // Add just the control points now.
+    for( var path_index = 0; path_index < comparison_curves.length; ++path_index )
+    {
+        var spline = comparison_curves[ path_index ];
+        
+        for( var curve_index = 0; curve_index < spline.length; ++curve_index )
+        {
+            var curve = spline[ curve_index ];
+            
+            var end_attrs = {
+                class: 'control-point-handle',
+                fill: "#5555da",
+                stroke: "#090",
+                strokeWidth: 2.
+                };
+            var inner_attrs = {
+                class: 'control-point-inner',
+                fill: "#da5555",
+                stroke: "#090",
+                strokeWidth: 2.
+                };
+            var line_attrs = {
+                class: 'control-point-tangents',
+                stroke: "#090",
+                strokeWidth: 2.
+                };
+            
+            var line0 = ui.line( curve[0][0], curve[0][1], curve[1][0], curve[1][1] ).attr( line_attrs );
+            var line1 = ui.line( curve[3][0], curve[3][1], curve[2][0], curve[2][1] ).attr( line_attrs );
+            
+            var end0 = ui.circle( curve[0][0], curve[0][1], 5. ).attr( end_attrs );
+            var end1 = ui.circle( curve[3][0], curve[3][1], 5. ).attr( end_attrs );
+            var inner0 = ui.circle( curve[1][0], curve[1][1], 2.5 ).attr( inner_attrs );
+            var inner1 = ui.circle( curve[2][0], curve[2][1], 2.5 ).attr( inner_attrs );
         }
     }
 }
