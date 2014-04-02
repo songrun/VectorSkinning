@@ -15,4 +15,4 @@ kVerbose = 2
 kNoOverlays = False		
 ## Show comparison curves to Schneider 1990?
 kComputeComparisonCurves = False
-kEngineType = EngineType['FourControls']
+kEngineType = 2

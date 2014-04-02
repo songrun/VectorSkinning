@@ -342,9 +342,6 @@ class NaiveApproachProtocal( WebSocketServerProtocol ):
 			toc()
 			
 			tic( 'engine.solve_transform_change()' )
-# 			if parameters.kTransformControls:
-# 				all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
-# 			else:
 			all_paths = self.engine.solve_transform_change()	
 			toc()
 

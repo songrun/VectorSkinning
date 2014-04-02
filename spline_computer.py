@@ -123,7 +123,7 @@ class FourControlsEngine(Engine) :
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 		boundary_index, weight_function = self.boundary_index, self.weight_function
-		debugger()
+
  		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
 		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
 	
@@ -141,7 +141,7 @@ class FourControlsEngine(Engine) :
 			result.append( path_controls )
 		
 		print "###############", result, "end #######"	
-		print all_weights, all_indices
+
 		return result
 		
 	def compute_energy_and_maximum_distance( self ):
@@ -169,13 +169,30 @@ class FourControlsEngine(Engine) :
 class TwoEndpointsEngine(Engine):
 	'''
 	- apply endpoint deformation to closest interior points
+	return new control points
 	'''
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
-		boundary_index, weight_function = self.boundary_index, self.weight_function
 		
-		all_vertices, all_weights, all_indices = compute_all_weights( all_controls, handle_positions, boundary_index, weight_function )
-		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
+		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
+		
+		all_weights[ 1: : 4] = all_weights[ 0 : : 4 ]
+		all_weights[ 2: : 4] = all_weights[ 3 : : 4 ]
+
+		result = []
+		for path_indices in all_indices:
+			path_controls = []
+			for indices in path_indices:
+
+				As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+				Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+				#tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+				tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
+		
+				path_controls.append(tps)
+			result.append( path_controls )
+			
+		return result
 
 
 	def compute_energy_and_maximum_distance( self ):
