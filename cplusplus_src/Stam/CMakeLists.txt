@@ -36,12 +36,12 @@ include_directories( "ext/libigl/include" )
 add_definitions( -DIGL_HEADER_ONLY )
 
 set(STAM_SOURCES
-	src/main.cpp src/catmull.c src/catmull_obj.cpp
+	src/main.cpp src/catmull.c src/stam_eigen_reader.c src/catmull_obj.cpp
 	)
 
 add_executable( main ${STAM_SOURCES} )
 
 target_link_libraries(main ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} )
 
-# -Woverloaded-virtual
-set_target_properties( main PROPERTIES COMPILE_FLAGS "-Wall -Winit-self -Wno-sign-compare" )
+
+set_target_properties( main PROPERTIES COMPILE_FLAGS "-Wall -Woverloaded-virtual -Winit-self -Wno-sign-compare" )

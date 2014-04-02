@@ -7,6 +7,7 @@
 #include <iostream>
 #include "catmull.h"
 #include "catmull_obj.h"
+#include "stam_eigen_reader.h"
 #include <stdio.h>
 #include <vector>
 #include <string.h>
@@ -34,7 +35,7 @@ GLfloat zpos = -6;
 int max_depth = 7;
 int show_parent = 1;
 int wireframe_mode = 1;
-int face_mode = 1;
+// int face_mode = 1;
 int model_idx = 0;
 int interp_norm = 0;
 
@@ -273,6 +274,24 @@ void init_gfx(int *c, char **v) {
 
 int main(int argc, char **argv)
 {
+	EVALSTRUCT ** ev;
+	int Nmax;
+
+	ev = read_eval ( &Nmax );
+	if ( !ev ) {
+		printf ("Error while reading from Stam data.\n"); 
+		exit ( 1 );
+	}
+
+	print_eval ( ev, Nmax );
+	exit ( 0 );
+
+	return 0;
+}
+   
+ /*  
+int main(int argc, char **argv)
+{
 	int i;
 	void *p;
 
@@ -293,7 +312,7 @@ int main(int argc, char **argv)
 	return 0;
 	
 }
-/*
+
 int main( int argc, char ** argv ) {
 	
 	if( 2 != argc )

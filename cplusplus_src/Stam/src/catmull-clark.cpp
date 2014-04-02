@@ -1,11 +1,11 @@
 #include <iostream>
 #include <Eigen/Dense>
-#include "SubMatrix.h"
-#include "cctest_modern.c"
+// #include "SubMatrix.h"
+#include "data/cctest_modern.c"
 
 using namespace std;
 
-typedef Array<double,1,3> Point3d;
+typedef Eigen::RowVector3d Point3d;
 
 typedef
    struct

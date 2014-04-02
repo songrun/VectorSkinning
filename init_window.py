@@ -2,7 +2,7 @@
 import Tkinter, Tkconstants, tkFileDialog 
 import ttk as ttk
 import tkMessageBox
-from chain_computer import *
+from spline_computer import *
 from svg_parser import *
 
 class Drawing_constants:

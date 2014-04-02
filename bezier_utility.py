@@ -4,17 +4,7 @@ from myarray import *
 import parameters
 kEps = 1e-7
 
-try:
-   from pydb import debugger
 
-   ## Also add an exception hook.
-   import pydb, sys
-   sys.excepthook = pydb.exception_hook
-
-except ImportError:
-   import pdb
-   def debugger():
-	   pdb.set_trace()
 
 ## The bezier curve's coefficient matrix, P(t) = tbar*M*P
 M = matrix('-1. 3. -3. 1.; 3. -6. 3. 0.; -3. 3. 0. 0.; 1. 0. 0. 0.') 

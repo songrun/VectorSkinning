@@ -186,6 +186,30 @@ src/main.cpp.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/stam_eigen_reader.o: src/stam_eigen_reader.c.o
+.PHONY : src/stam_eigen_reader.o
+
+# target to build an object file
+src/stam_eigen_reader.c.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/stam_eigen_reader.c.o
+.PHONY : src/stam_eigen_reader.c.o
+
+src/stam_eigen_reader.i: src/stam_eigen_reader.c.i
+.PHONY : src/stam_eigen_reader.i
+
+# target to preprocess a source file
+src/stam_eigen_reader.c.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/stam_eigen_reader.c.i
+.PHONY : src/stam_eigen_reader.c.i
+
+src/stam_eigen_reader.s: src/stam_eigen_reader.c.s
+.PHONY : src/stam_eigen_reader.s
+
+# target to generate assembly for a file
+src/stam_eigen_reader.c.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/stam_eigen_reader.c.s
+.PHONY : src/stam_eigen_reader.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -204,6 +228,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/stam_eigen_reader.o"
+	@echo "... src/stam_eigen_reader.i"
+	@echo "... src/stam_eigen_reader.s"
 .PHONY : help
 
 
