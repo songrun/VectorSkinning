@@ -8,11 +8,11 @@ EngineType = {
 	'Jacobian' : 3 }
 	
 kG1andAconstraints = True
-kClampOn = True
+kClampOn = False
 kArcLengthDefault = False
 kVerbose = 2
 # kTransformControls = False
 kNoOverlays = False		
 ## Show comparison curves to Schneider 1990?
 kComputeComparisonCurves = False
-kEngineType = 2
+kEngineType = EngineType['Jacobian']

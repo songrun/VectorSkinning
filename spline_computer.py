@@ -112,8 +112,8 @@ class Engine:
 	def solve_transform_change( self ): 
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def compute_energy_and_maximum_distance( self ):
-		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
-	
+		pass
+			
 ############################### Basic Engine End #################################
 
 class FourControlsEngine(Engine) :
@@ -143,28 +143,6 @@ class FourControlsEngine(Engine) :
 		print "###############", result, "end #######"	
 
 		return result
-		
-	def compute_energy_and_maximum_distance( self ):
-		pass
-# 		for i in range( self.num_of_paths ):
-# 
-# 			path_indices = self.all_indices[i]		
-# # 			path_pts = precomputed_parameters.all_pts[i]
-# # 			path_dts = precomputed_parameters.all_dts[i]
-# # 			path_ts = precomputed_parameters.all_ts[i]
-# # 			path_lengths = precomputed_parameters.all_lengths[i]
-# 			
-# 			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
-# 
-# 			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )
-# 			
-# 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
-# 			
-# 			bbw_curves.append( bbw_curve )
-# 
-# 			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
-# 		
-# 		return energy, bbw_curves, distances
 	
 class TwoEndpointsEngine(Engine):
 	'''
@@ -195,19 +173,85 @@ class TwoEndpointsEngine(Engine):
 		return result
 
 
-	def compute_energy_and_maximum_distance( self ):
-		pass		
-
 class JacobianEngine(Engine):
 	'''
 	apply jacobian of endpoint deformation to vector towards closest interior points 
 	(n.b. not the inverse transpose of it; these are tangents, not normals)
+	return new control points 
 	'''
 	def solve_transform_change( self ):
-		pass
+		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+
+		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
 		
-	def compute_energy_and_maximum_distance( self ):
-		pass
+		def shepard_jacobian( handle_positions, transforms, T_p, p ):
+			'''
+			return a 2-by-2 jacobian matrix
+			'''
+			jac = zeros( (2,2) )
+			 
+			def derivative_ws( hs ): 
+				'''
+				compute an array of derivative of w_i with respect to x or y, k = 0 means x, k = 1 means y
+				'''
+				hs = asarray( hs )
+				assert len( hs.shape ) == 2			
+			 	assert hs.shape[1] == p.shape[0]
+			 	
+			 	## Compute the distance squared from each handle position.
+				diffs = hs - p
+				diffs = diffs**2
+				diffs = diffs.sum( axis = 1 )
+				
+				eps = 1e-7
+				## where() gives us the indices where the condition is true.
+				wh = where( abs( diffs ) < eps )
+				assert len( wh ) == 1
+				if len( wh[0] ) > 0: return zeros( len( hs ) )
+
+				der_dists = [-2.*sep_diff/square_sum**2 for sep_diff, square_sum in zip( (hs-p), diffs )]
+			
+				derivatives = [ der_dists[i] / diffs.sum() - der_dists[i] / diffs.sum()**2 * diffs[i] for i in range( len(hs) ) ]
+				
+				return derivatives
+				
+			derivatives = asarray( derivative_ws( handle_positions ) )
+			transforms = asarray( transforms )
+
+			T_x = asarray([d*transform for d, transform in zip(derivatives[:, 0], transforms)]).sum(axis=0).squeeze()
+			T_y = asarray([d*transform for d, transform in zip(derivatives[:, 1], transforms)]).sum(axis=0).squeeze()
+			
+			jac[0,0] = T_p[0,0] + T_x[0,0]*p[0] + T_x[0,1]*p[1] + T_x[0,2]
+ 			jac[0,1] = T_p[0,1] + T_y[0,0]*p[0] + T_y[0,1]*p[1] + T_y[0,2]
+			jac[1,0] = T_p[1,0] + T_x[1,0]*p[0] + T_x[1,1]*p[1] + T_x[1,2]
+ 			jac[1,1] = T_p[1,1] + T_y[1,0]*p[0] + T_y[1,1]*p[1] + T_y[1,2]
+ 			
+ 			return jac
+ 			
+ 			
+		result = []
+		for path_indices in all_indices:
+			path_controls = []
+			for indices in path_indices:
+				assert len( indices ) == 4
+
+				As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+				Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+				
+				tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
+				## replace the two interior control points' position to endpoint + Jacobian * derivative vector
+				vectors = asarray( [all_vertices[indices[1]] - all_vertices[indices[0]],
+									all_vertices[indices[2]] - all_vertices[indices[3]] ] ) 
+				
+				tps[1,:2] = tps[0,:2] + dot( shepard_jacobian( handle_positions, transforms, As[0], all_vertices[indices[0]] ), vectors[0] )
+				tps[2,:2] = tps[3,:2] + dot( shepard_jacobian( handle_positions, transforms, As[3], all_vertices[indices[3]] ), vectors[1] )
+
+				path_controls.append(tps)
+			result.append( path_controls )
+			
+		return result
+		
+
 	
 class YSEngine(Engine):
 	'''
