@@ -199,7 +199,7 @@ class JacobianEngine(Engine):
 			 	assert hs.shape[1] == p.shape[0]
 			 	
 			 	## Compute the distance squared from each handle position.
-				diffs = hs - p
+				diffs = p - hs
 				diffs = diffs**2
 				diffs = diffs.sum( axis = 1 )
 				
@@ -209,9 +209,10 @@ class JacobianEngine(Engine):
 				assert len( wh ) == 1
 				if len( wh[0] ) > 0: return zeros( len( hs ) )
 
-				der_dists = [-2.*sep_diff/square_sum**2 for sep_diff, square_sum in zip( (hs-p), diffs )]
-			
-				derivatives = [ der_dists[i] / diffs.sum() - der_dists[i] / diffs.sum()**2 * diffs[i] for i in range( len(hs) ) ]
+				us = asarray( 1. / diffs )
+				dus = asarray ([-2.*sep_diff/square_sum**2 for sep_diff, square_sum in zip( (p-hs), diffs )])
+				
+				derivatives = [ dus[i] / us.sum() - us[i]*dus.sum(axis=0) / us.sum()**2 for i in range( len(hs) ) ]
 				
 				return derivatives
 				
@@ -225,6 +226,11 @@ class JacobianEngine(Engine):
  			jac[0,1] = T_p[0,1] + T_y[0,0]*p[0] + T_y[0,1]*p[1] + T_y[0,2]
 			jac[1,0] = T_p[1,0] + T_x[1,0]*p[0] + T_x[1,1]*p[1] + T_x[1,2]
  			jac[1,1] = T_p[1,1] + T_y[1,0]*p[0] + T_y[1,1]*p[1] + T_y[1,2]
+ 			
+#  			print 'T_x:', T_x
+#  			print 'T_y:', T_y
+#  			print 'p:', p
+#  			print 'J-T:', jac-T_p[:2,:2]
  			
  			return jac
  			
