@@ -74,6 +74,12 @@ class Engine:
 		'''
 		return self.weight_function
 
+	def get_engine_type( self ):
+		'''
+		gets engine_type
+		'''
+		return self.engine_type
+
 	def compute_tkinter_bbw_affected_curve_per_path( self, path_indices, all_vertices, transforms, all_weights ):
 		'''
 		compute the bbw curves for just one path.
@@ -112,7 +118,39 @@ class Engine:
 	def solve_transform_change( self ): 
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def compute_energy_and_maximum_distance( self ):
-		pass
+		'''
+		compute the error between the skinning spline and the bbw_affected position.
+		'''	
+		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+		solutions = self.solutions
+		boundary_index = self.boundary_index
+		weight_function = self.weight_function
+		
+		num_samples = 100
+		all_pts = []
+		for control_pos in all_controls:
+			pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
+			all_pts.append( pts )
+	
+		all_vertices, all_weights, all_indices = compute_all_weights( all_pts, handle_positions, boundary_index, weight_function )
+
+		energy = []
+		target_curves = []
+		distances = []
+		for i in range( self.num_of_paths ):
+
+			path_indices = all_indices[i]		
+			path_pts = all_pts[i]
+			
+			target_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
+			target_curves.append( target_curve )
+			
+# 			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )			
+# 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
+# 			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
+		
+# 		return energy, target_curves, distances
+		return target_curves
 			
 ############################### Basic Engine End #################################
 
@@ -120,6 +158,10 @@ class FourControlsEngine(Engine) :
 	'''
 	- apply deformation to all control points
 	'''
+	def init_engine( self, paths_info, boundary_index ):
+		Engine.init_engine( self, paths_info, boundary_index )
+		self.engine_type = 'fourcontrols'
+	
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 		boundary_index, weight_function = self.boundary_index, self.weight_function
@@ -141,7 +183,8 @@ class FourControlsEngine(Engine) :
 			result.append( path_controls )
 		
 		print "###############", result, "end #######"	
-
+		self.solutions = result
+		
 		return result
 	
 class TwoEndpointsEngine(Engine):
@@ -149,6 +192,10 @@ class TwoEndpointsEngine(Engine):
 	- apply endpoint deformation to closest interior points
 	return new control points
 	'''
+	def init_engine( self, paths_info, boundary_index ):
+		Engine.init_engine( self, paths_info, boundary_index )
+		self.engine_type = 'twoendpoints'
+		
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 		
@@ -169,7 +216,8 @@ class TwoEndpointsEngine(Engine):
 		
 				path_controls.append(tps)
 			result.append( path_controls )
-			
+		
+		self.solutions = result	
 		return result
 
 
@@ -179,6 +227,10 @@ class JacobianEngine(Engine):
 	(n.b. not the inverse transpose of it; these are tangents, not normals)
 	return new control points 
 	'''
+	def init_engine( self, paths_info, boundary_index ):
+		Engine.init_engine( self, paths_info, boundary_index )
+		self.engine_type = 'jacobian'
+		
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 
@@ -254,7 +306,8 @@ class JacobianEngine(Engine):
 
 				path_controls.append(tps)
 			result.append( path_controls )
-			
+		
+		self.solutions = result	
 		return result
 		
 
@@ -285,6 +338,7 @@ class YSEngine(Engine):
 		self.weight_function = 'bbw'
 		self.is_arc_enabled = parameters.kArcLengthDefault
 		self.perform_multiple_iterations = True
+		self.engine_type = 'ys'
 			
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
@@ -353,8 +407,6 @@ class YSEngine(Engine):
 			result.append(	fast_update( self.transforms, self.perform_multiple_iterations ) )
 		
 		self.solutions = result
-		
-		print self.all_controls
 
 		return result
 	
@@ -505,58 +557,6 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 	return update_with_transforms					
 	
-	
-	### 3
-#	new_controls = adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts )
-#	
-#	if enable_refinement and len( new_controls ) > len( controls ): 
-# #			debugger()
-#		new_control_pos = get_controls( new_controls )[0]
-# 
-#		W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts = precompute_all_when_configuration_change( new_control_pos, handles  )
-#	
-#		solutions, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, new_controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts, False) 
-
-
-
-# def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
-#	'''
-#	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
-#	'''
-#	assert len( bbw_curves ) == len( spline_skin_curves )
-#	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
-#	print 'differences: ', diffs
-#	
-#	new_controls = []
-#	partition = [0.5, 0.5]
-#	threshold = 100 
-#	
-#	all_pos = asarray([x.position for x in controls])
-#	
-#	for k, diff in enumerate( diffs ):
-#		control_pos = all_pos[ k*3 : k*3+4 ]
-#		if len(control_pos) == 3:	
-#			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
-#		
-#		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
-#			splitted = split_cublic_beizer_curve( control_pos, partition )
-#			splitted = asarray( splitted ).astype(int)
-#			
-#			new_controls.append( controls[ k*3 ] )
-#			for j, each in enumerate(splitted):
-#				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
-#				if j != len(splitted)-1:
-#					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
-#			
-#		else:
-#			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
-#			
-#	'''
-#	if is not closed, add the last control at the end.
-#	'''
-#	
-#	return new_controls
-
 
 def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, weight_function = 'bbw', kArcLength=False ):
 	'''

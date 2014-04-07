@@ -165,6 +165,16 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				## No handles yet, so nothing to do.
 				pass
 		
+		elif msg.startswith( 'set-engine-type ' ):
+			engine_type = json.loads( msg[ len( 'set-engine-type ' ): ] )
+			
+			if self.engine.get_weight_function() == engine_type: return
+			
+			self.factory.engine, protocol = build_engine_and_protocal( engine_type )
+			## if newly selected type is ys while the old type is naive, use a naive proctocol.
+			if engine_type != 'ys':
+				self.factory.protocal = protocol
+		
 		elif msg.startswith( 'enable-arc-length ' ):
 			enable_arc_length = json.loads( msg[ len( 'enable-arc-length ' ): ] )
 			
@@ -371,19 +381,43 @@ class NaiveApproachProtocal( WebSocketServerProtocol ):
 				all_paths = self.engine.solve_transform_change()
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-# 				self.retrieve_energy()
+ 				self.retrieve_energy()
 				
 			except NoHandlesError:
 				## No handles yet, so nothing to do.
 				pass
 		
+		elif msg.startswith( 'set-engine-type ' ):
+			engine_type = json.loads( msg[ len( 'set-engine-type ' ): ] )
+			
+			if self.engine.get_weight_function() == engine_type: return
+			
+			self.factory.engine, protocol = build_engine_and_protocal( engine_type )
+			## if newly selected type is ys while the old type is naive, use a YSEngine.
+			if engine_type == 'ys':
+				self.factory.protocol = protocol
+		
 		elif msg.startswith( 'enable-arc-length ' ):	pass
 		elif msg.startswith( 'iterations ' ): 	pass	
-		elif msg.startswith( 'handle-transform-drag-finished' ):	pass
-# 			self.retrieve_energy()
-			
+		elif msg.startswith( 'handle-transform-drag-finished' ):
+			self.retrieve_energy()
+				
 		else:
 			print 'Received unknown message:', msg	
+	
+	def retrieve_energy( self ):
+		target_curves = self.engine.compute_energy_and_maximum_distance()
+		
+		energy_and_polyline = [
+			[
+				{ 'target-curve-polyline': points.tolist(), 'energy': [], 'distance': [] }
+				for points in path_points
+			]
+			for path_points in target_curves
+			]
+			
+		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
+		
 
 def setupWebSocket( address, engine, protocol ):
 	'''
@@ -397,23 +431,10 @@ def setupWebSocket( address, engine, protocol ):
 	
 	print "Listening for WebSocket connections at:", address
 
-def main():
-	import os, sys
-	
-	if 'verbose' in sys.argv[1:]:
-		parameters.kVerbose = int( sys.argv[ sys.argv.index( 'verbose' ) + 1 ] )
-	
-	print 'Verbosity level:', parameters.kVerbose
-	
+def build_engine_and_protocal( type = 'ys' ):
+	engine = None
 	protocol = WebGUIServerProtocol
 	
-	if 'stub' in sys.argv[1:]:
-		print 'Stub only!'
-		protocol = StubServerProtocol
-	
-	## Create engine:
-	# engine = ...
-	engine = None
 	if parameters.EngineType['YSApproach'] == parameters.kEngineType:	
 		engine = YSEngine()
 	elif parameters.EngineType['FourControls'] == parameters.kEngineType:	
@@ -424,10 +445,42 @@ def main():
 		engine = JacobianEngine()
 	else: 
 		raise RuntimeError("Unknown engine selected.")
-		
+
 	if parameters.EngineType['YSApproach'] != parameters.kEngineType:
 		protocol = NaiveApproachProtocal
+
+# 	if 'ys' == type:
+# 		engine = YSEngine()
+# 	elif 'fourcontrols' == type:
+# 		engine = FourControlsEngine()
+# 	elif 'twoendpoints' == type:
+# 		engine = TwoEndpointsEngine()
+# 	elif 'jacobian' == type:
+# 		engine = JacobianEngine()
+# 	else:
+# 		raise RuntimeError("Unknown engine selected.")
+# 
+# 	if 'ys' != type:
+# 		protocol = NaiveApproachProtocal
+			
+	return engine, protocol
 	
+def main():
+	import os, sys
+	
+	if 'verbose' in sys.argv[1:]:
+		parameters.kVerbose = int( sys.argv[ sys.argv.index( 'verbose' ) + 1 ] )
+	
+	print 'Verbosity level:', parameters.kVerbose
+	
+	if 'stub' in sys.argv[1:]:
+		print 'Stub only!'
+		protocol = StubServerProtocol
+	
+	## Create engine:
+	# engine = ...
+	engine, protocol = build_engine_and_protocal()
+
 	setupWebSocket( "ws://localhost:9123", engine, protocol )
 	
 	## Maybe you find this convenient

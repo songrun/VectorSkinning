@@ -171,6 +171,15 @@ Weight type:
         <option value="mvc">MVC</option>
         </select>
 </div>
+<div>
+Approach type:
+        <select id="engine-type" disabled>
+        <option value="ys" selected>YS</option>
+        <option value="fourcontrols">Four Controls</option>
+        <option value="twoendpoints">Two Endpoints</option>
+        <option value="jacobian">Jacobian</option>
+        </select>
+</div>
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div></div>
@@ -838,6 +847,11 @@ function sendWeightTypeChanged()
     "use strict";
     gSocket.send( "set-weight-function " + JSON.stringify( $('#weight-function').val() ) );
 }
+function sendEngineTypeChanged()
+{
+    "use strict";
+    gSocket.send( "set-engine-type " + JSON.stringify( $('#engine-type').val() ) );
+}
 function sendIfUsingArcLengthParameterization()
 {
     "use strict";
@@ -1004,6 +1018,7 @@ function globalsToJSON()
     globals.gInputSVGText = gInputSVGText;
     globals.filename = $('#filename').text();
     globals.weightFunction = $( "#weight-function" ).val();
+    globals.engineType = $( "#engine-type" ).val();
     globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
@@ -1027,6 +1042,14 @@ function loadGlobals( globals )
         // 0 Send BBW weight and arc length status already.
         //   We send this first, because that way less re-computation has to be done.
         sendWeightTypeChanged();
+    }
+    
+    if( globals.engineType !== undefined )
+    {
+        $( "#engine-type" ).val( globals.engineType );
+        // 0 Send BBW weight and arc length status already.
+        //   We send this first, because that way less re-computation has to be done.
+        sendEngineTypeChanged();
     }
     
     if( globals.usingArcLengthParameterization !== undefined )
@@ -1075,6 +1098,7 @@ function loadSVG( svg_text, filename )
     gLargestPath = null;
     gHandles = [];
     $( "#weight-function" ).val( "bbw" );
+    $( "#engine-type" ).val( "ys" );
     $( "#usingArcLengthParameterization" ).prop( "checked", false );
     
     // Attach the SVG to its node.
@@ -1190,6 +1214,7 @@ function createUIForSVG()
     
     $("#save-button").prop( "disabled", false );
     $("#weight-function").prop( "disabled", false );
+    $("#engine-type").prop( "disabled", false );
     createConstraintUIForSVG();
     createHandleUIForSVG();
     createDeformedBezierUIForSVG();
@@ -1742,6 +1767,9 @@ function setupGlobalUI()
     /// Setup change callbacks for the toggles.
     $("#weight-function").change( function() {
         sendWeightTypeChanged();
+    } );
+    $("#engine-type").change( function() {
+        sendEngineTypeChanged();
     } );
     $("#usingArcLengthParameterization").change( function() {
         sendIfUsingArcLengthParameterization();
