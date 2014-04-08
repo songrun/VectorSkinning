@@ -532,14 +532,19 @@ function updateTargetCurve( new_paths_energies )
             
             if( kShowDistance == true )
             {
-				var distance = target_curve_info['distance'];        	
-				var dist = ui.line( distance.spline_pos[0], distance.spline_pos[1], distance.target_pos[0],distance.target_pos[1] );
-				dist.attr({
-					class: 'distance-line',
-					stroke: 'blue',
-					strokeWidth: 2,
-					fillOpacity: 0.,
-					});
+				var distance = target_curve_info['distance'];    
+				try {    	
+					var dist = ui.line( distance.spline_pos[0], distance.spline_pos[1], distance.target_pos[0],distance.target_pos[1] );	
+					dist.attr({
+						class: 'distance-line',
+						stroke: 'blue',
+						strokeWidth: 2,
+						fillOpacity: 0.,
+						});
+				}
+				catch(err) 
+				{ // do nothing. 
+				}
             }
         }
     }

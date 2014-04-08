@@ -220,7 +220,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				]
 				for path_energy, path_points, path_distances in zip( energies, polylines, all_distances )
 				]
-
+		
 		if parameters.kVerbose >= 2:
 			energy = asarray( energies )
 			dists = asarray([ [ curve['maximum_distance'] for curve in path ] for path in all_distances ])
@@ -243,7 +243,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 			#from pprint import pprint
 			#pprint( schneider_curves )
 			self.sendMessage( 'update-comparison-curve ' + json.dumps( schneider_curves ) )
-		
+
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 
 
@@ -406,16 +406,16 @@ class NaiveApproachProtocal( WebSocketServerProtocol ):
 			print 'Received unknown message:', msg	
 	
 	def retrieve_energy( self ):
-		target_curves = self.engine.compute_energy_and_maximum_distance()
+		energy, target_curves, all_distances = self.engine.compute_energy_and_maximum_distance()
 		
 		energy_and_polyline = [
 			[
-				{ 'target-curve-polyline': points.tolist(), 'energy': [], 'distance': [] }
-				for points in path_points
+				{ 'target-curve-polyline': points.tolist(), 'energy': energy, 'distance': distance }
+				for energy, points, distance in zip( path_energy, path_points, path_distances )
 			]
-			for path_points in target_curves
+			for path_energy, path_points, path_distances in zip( energy, target_curves, all_distances )
 			]
-			
+				
 		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
 		
 

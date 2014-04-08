@@ -80,12 +80,12 @@ class Engine:
 		'''
 		return self.engine_type
 
-	def compute_tkinter_bbw_affected_curve_per_path( self, path_indices, all_vertices, transforms, all_weights ):
+	def compute_target_path( self, path_indices, all_vertices, transforms, all_weights ):
 		'''
-		compute the bbw curves for just one path.
+		compute the target curves for just one path.
 		'''
 		### 3 
-		bbw_curves = []
+		target_curves_per_path = []
 		for indices in path_indices:
 				
 			## http://jameshensman.wordpress.com/2010/06/14/multiple-matrix-multiplication-in-numpy/
@@ -93,21 +93,21 @@ class Engine:
 			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
 			tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
 			
-			bbw_curves.append(tps)
+			target_curves_per_path.append(tps)
 		
-		return bbw_curves
+		return target_curves_per_path
 
-	def compute_tkinter_curve_per_path_solutions( self, solutions, all_ts ):
+	def compute_deformed_path( self, solutions, all_ts ):
 		'''
 		compute all the points along the curves for just one path.
 		'''
-		spline_skin_curves = []
+		deformed_curves_per_path = []
 		for k, solution in enumerate(solutions):
 
 			tps = dot( array([all_ts[k]**3, all_ts[k]**2, all_ts[k], ones(all_ts[k].shape)]).T, asarray( dot( M, solution ) ) )
-			spline_skin_curves.append(tps)
+			deformed_curves_per_path.append(tps)
 			
-		return spline_skin_curves	
+		return deformed_curves_per_path	
 	
 	def constraint_change( self, path_index, joint_index, constraint ): pass
 	def precompute_configuration( self ): pass
@@ -127,30 +127,33 @@ class Engine:
 		weight_function = self.weight_function
 		
 		num_samples = 100
-		all_pts = []
+		all_pts, all_ts, all_dts = [], [], []
 		for control_pos in all_controls:
 			pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
 			all_pts.append( pts )
-	
+			all_ts.append( ts )
+			all_dts.append( dts )
+			
 		all_vertices, all_weights, all_indices = compute_all_weights( all_pts, handle_positions, boundary_index, weight_function )
-
-		energy = []
-		target_curves = []
-		distances = []
+		
+		all_pts, all_ts, all_dts = asarray( all_pts ), asarray( all_ts ), asarray( all_dts )
+		
+		energy, target_paths, distances = [], [], []
 		for i in range( self.num_of_paths ):
 
 			path_indices = all_indices[i]		
-			path_pts = all_pts[i]
+			path_pts, path_ts, path_dts = all_pts[i], all_ts[i], all_dts[i]
+			path_lengths = asarray( [ map( mag, ( curve_pts[1:] - curve_pts[:-1] ) ) for curve_pts in path_pts ]).sum( axis=1 )
 			
-			target_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
-			target_curves.append( target_curve )
+			target_path = self.compute_target_path( path_indices, all_vertices, transforms, all_weights )
+			target_paths.append( target_path )
 			
-# 			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )			
-# 			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
-# 			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
+			deformed_path = self.compute_deformed_path( solutions[i], path_ts )			
+ 			energy.append( compute_error_metric( target_path, deformed_path, path_dts, path_lengths ) )
+ 			distances.append( compute_maximum_distances( target_path, deformed_path ) )
 		
-# 		return energy, target_curves, distances
-		return target_curves
+ 		return energy, target_paths, distances
+
 			
 ############################### Basic Engine End #################################
 
@@ -182,9 +185,11 @@ class FourControlsEngine(Engine) :
 				path_controls.append(tps)
 			result.append( path_controls )
 		
-		print "###############", result, "end #######"	
+		result = asarray( result )
+		assert len( result.shape ) == 4
+		result = result[:, :, :, :2]
+			
 		self.solutions = result
-		
 		return result
 	
 class TwoEndpointsEngine(Engine):
@@ -216,6 +221,10 @@ class TwoEndpointsEngine(Engine):
 		
 				path_controls.append(tps)
 			result.append( path_controls )
+		
+		result = asarray( result )
+		assert len( result.shape ) == 4
+		result = result[:, :, :, :2]
 		
 		self.solutions = result	
 		return result
@@ -279,11 +288,6 @@ class JacobianEngine(Engine):
 			jac[1,0] = T_p[1,0] + T_x[1,0]*p[0] + T_x[1,1]*p[1] + T_x[1,2]
  			jac[1,1] = T_p[1,1] + T_y[1,0]*p[0] + T_y[1,1]*p[1] + T_y[1,2]
  			
-#  			print 'T_x:', T_x
-#  			print 'T_y:', T_y
-#  			print 'p:', p
-#  			print 'J-T:', jac-T_p[:2,:2]
- 			
  			return jac
  			
  			
@@ -306,6 +310,10 @@ class JacobianEngine(Engine):
 
 				path_controls.append(tps)
 			result.append( path_controls )
+		
+		result = asarray( result )
+		assert len( result.shape ) == 4
+		result = result[:, :, :, :2]
 		
 		self.solutions = result	
 		return result
@@ -443,7 +451,7 @@ class YSEngine(Engine):
 		all_vertices = precomputed_parameters.all_vertices
 			
 		energy = []
-		bbw_curves = []
+		target_paths = []
 		distances = []
 		for i in range( self.num_of_paths ):
 
@@ -453,17 +461,17 @@ class YSEngine(Engine):
 			path_ts = precomputed_parameters.all_ts[i]
 			path_lengths = precomputed_parameters.all_lengths[i]
 			
-			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
+			target_path = self.compute_target_path( path_indices, all_vertices, transforms, all_weights )
 
-			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )
+			deformed_path = self.compute_deformed_path( solutions[i], path_ts )
 			
-			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
+			energy.append( compute_error_metric( target_path, deformed_path, path_dts, path_lengths ) )
 			
-			bbw_curves.append( bbw_curve )
+			target_paths.append( target_path )
 
-			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
+			distances.append( compute_maximum_distances( target_path, deformed_path ) )
 		
-		return energy, bbw_curves, distances
+		return energy, target_paths, distances
 			
 				
 ## The dimensions of a point represented in the homogeneous coordinates
@@ -574,23 +582,23 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 	all_ts = []
 	all_lengths = []
 	for control_pos in all_control_positions:
-		pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
-		all_pts.append( pts )
-		all_ts.append( ts )
+		path_pts, path_ts, path_dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
+		all_pts.append( path_pts )
+		all_ts.append( path_ts )
 		
 		## Compute all_lengths
-		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
-		dss = asarray( dss )
-		lengths = [ sum( dss[i] ) for i in range( len( dss ) ) ]
-		all_lengths.append( lengths )
+		path_dss = [ map( mag, ( curve_pts[1:] - curve_pts[:-1] ) ) for curve_pts in path_pts ]
+		path_dss = asarray( path_dss )
+		path_lengths = [ sum( path_dss[i] ) for i in range( len( path_dss ) ) ]
+		all_lengths.append( path_lengths )
 		## Then normalize dss
-		dss = [ ds / length for ds, length in zip( dss, lengths ) ]
+		dss = [ ds / length for ds, length in zip( path_dss, path_lengths ) ]
 		
 		
 		if kArcLength:
-			all_dts.append( dss )
+			all_dts.append( path_dss )
 		else:
-			all_dts.append( dts )
+			all_dts.append( path_dts )
 
 	
 	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, weight_function )
