@@ -23,6 +23,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
 		WebSocketServerProtocol.connectionMade( self )
 		self.engine = self.factory.engine
+		self.engine_type = 'ys'
 		
 		print 'CONNECTED'
 	
@@ -44,207 +45,307 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 		### END DEBUGGING
 		
 		engine = self.engine
-		if binary:
-			print 'Received unknown message: binary of length', len( msg )
 		
-		elif msg.startswith( 'paths-info ' ):	   
-			paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
-			try:
-				boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
-			except ValueError:
-				boundary_index = -1
-			
-			self.engine.init_engine( paths_info, boundary_index )
-			all_constraints = self.engine.all_constraints
-
-			print_paths_info_stats( paths_info, all_constraints )
-			
-			for i, constraints in enumerate( all_constraints ):
-				for j, constraint in enumerate( constraints ):
-	
-					continuity = constraint[0]
-					fixed = constraint[1]
-					
-					payload = [ i, j, { 'fixed': fixed, 'continuity': continuity} ]
-					self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
-
-		
-		elif msg.startswith( 'handle-positions-and-transforms ' ):
-			handles = json.loads( msg[ len( 'handle-positions-and-transforms ' ): ] )
-			
-			positions = [ pos for pos, transform in handles ]
-			transforms = [ transform for pos, transform in handles ]
-			self.engine.set_handle_positions( positions, transforms )
-			## Stop here it if it's empty.
-			if len( handles ) == 0: return
-			
-# 			if parameters.kTransformControls:
-# 				all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
-# 			else:
-			self.engine.precompute_configuration()
-			self.engine.prepare_to_solve()
-			all_paths = self.engine.solve_transform_change()
-
-			all_positions = make_chain_from_control_groups( all_paths )
-			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-			tic( 'compute_energy_and_distances' )
-			self.retrieve_energy()
-			toc()
-
-			## Generate the triangulation and the BBW weights.
-			# self.engine ...
-		
-		elif msg.startswith( 'handle-transforms ' ):
-			handle_transforms = json.loads( msg[ len( 'handle-transforms ' ): ] )
-			
-			tic( 'transform_change' )
-			for handle_index, handle_transform in handle_transforms:
-				self.engine.transform_change( handle_index, handle_transform )
-			toc()
-			
-			tic( 'engine.solve_transform_change()' )
-# 			if parameters.kTransformControls:
-# 				all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
-# 			else:
-			all_paths = self.engine.solve_transform_change()	
-			toc()
-
-			tic( 'make_chain_from_control_groups' )
-			all_positions = make_chain_from_control_groups( all_paths )
-			toc()
-			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-
-
-			## Solve for the new curve positions given the updated transform matrix.
-			# new_positions = engine ...
-			
-			## Send the new positions to the GUI.
-			# self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
-		
-		elif msg.startswith( 'control-point-constraint ' ):
-			paths_info = json.loads( msg[ len( 'control-point-constraint ' ): ] )
-			
-			constraint = [None]*2
-			constraint[0] = str( paths_info[2][ u'continuity' ] )
-			constraint[1] = paths_info[2][ u'fixed' ]
-			
-			self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
-			
-			try:
-# 				if parameters.kTransformControls:
-# 					all_paths = compute_transformed_by_control_points( engine.all_controls,engine.handle_positions, engine.transforms )
-# 				else:
-				self.engine.prepare_to_solve()
-				all_paths = self.engine.solve_transform_change()
-	
-				all_positions = make_chain_from_control_groups( all_paths )
-				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-			
-			except NoHandlesError:
-				## No handles yet, so nothing to do.
-				pass
-
-			## Solve for the new curve positions given the updated control point constraint.
-		
-		elif msg.startswith( 'set-weight-function ' ):
-			weight_function = json.loads( msg[ len( 'set-weight-function ' ): ] )
-			
-			## Do nothing if this would do nothing.
-			if self.engine.get_weight_function() == weight_function: return
-			
-			self.engine.set_weight_function( weight_function )
-			
-			try:
-				self.engine.prepare_to_solve()
-				all_paths = self.engine.solve_transform_change()
-				all_positions = make_chain_from_control_groups( all_paths )
-				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-				self.retrieve_energy()
-				
-			except NoHandlesError:
-				## No handles yet, so nothing to do.
-				pass
-		
-		elif msg.startswith( 'set-engine-type ' ):
+		if msg.startswith( 'set-engine-type ' ):
 			engine_type = json.loads( msg[ len( 'set-engine-type ' ): ] )
 			
-			if self.engine.get_weight_function() == engine_type: return
+			if self.engine_type == engine_type: return	
+			self.factory.engine = self.engine = build_engine( engine_type, copy = engine )
+			self.engine_type = engine_type
 			
-			self.factory.engine, protocol = build_engine_and_protocal( engine_type )
-			## if newly selected type is ys while the old type is naive, use a naive proctocol.
-			if engine_type != 'ys':
-				self.factory.protocal = protocol
-		
-		elif msg.startswith( 'enable-arc-length ' ):
-			enable_arc_length = json.loads( msg[ len( 'enable-arc-length ' ): ] )
+			if len( self.engine.handle_positions ) == 0: return
 			
-			## Do nothing if this would do nothing.
-			if self.engine.get_enable_arc_length() == enable_arc_length: return
+			self.engine.precompute_configuration()
+			self.engine.prepare_to_solve()
 			
-			self.engine.set_enable_arc_length( enable_arc_length )
-			
-			try:
-				self.engine.prepare_to_solve()
-				all_paths = self.engine.solve_transform_change()
-				# print 'returned results: ', all_paths
-				all_positions = make_chain_from_control_groups( all_paths )
-				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-				self.retrieve_energy()
-				
-			except NoHandlesError:
-				## No handles yet, so nothing to do.
-				pass
-		
-		elif msg.startswith( 'iterations ' ):
-			iterations = json.loads( msg[ len( 'iterations ' ): ] )
-			print 'multiple iterations:', iterations
-			self.engine.set_iterations( iterations )
-		
-		elif msg.startswith( 'handle-transform-drag-finished' ):
-			
+			all_paths = self.engine.solve_transform_change()	
+			all_positions = make_chain_from_control_groups( all_paths )
+			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 			self.retrieve_energy()
 			
-		else:
-			print 'Received unknown message:', msg
+			return
+			
+			
+		##################### Naive Approaches functions Begin ##########################
+		if 'fourcontrols' == self.engine_type or 'twoendpoints' == self.engine_type or 'jacobian' == self.engine_type:
+			if binary:
+				print 'Received unknown message: binary of length', len( msg )
+		
+			elif msg.startswith( 'paths-info ' ):	   
+				paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
+				try:
+					boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+				except ValueError:
+					boundary_index = -1
+			
+				self.engine.init_engine( paths_info, boundary_index )
+
+		
+			elif msg.startswith( 'handle-positions-and-transforms ' ):
+				handles = json.loads( msg[ len( 'handle-positions-and-transforms ' ): ] )
+			
+				positions = [ pos for pos, transform in handles ]
+				transforms = [ transform for pos, transform in handles ]
+				self.engine.set_handle_positions( positions, transforms )
+				## Stop here it if it's empty.
+				if len( handles ) == 0: return
+			
+				self.engine.precompute_configuration()
+				self.engine.prepare_to_solve()
+				all_paths = self.engine.solve_transform_change()
+
+				all_positions = make_chain_from_control_groups( all_paths )
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+				tic( 'compute_energy_and_distances' )
+	# 			self.retrieve_energy()
+				toc()
+
+				## Generate the triangulation and the BBW weights.
+				# self.engine ...
+		
+			elif msg.startswith( 'handle-transforms ' ):
+				handle_transforms = json.loads( msg[ len( 'handle-transforms ' ): ] )
+			
+				tic( 'transform_change' )
+				for handle_index, handle_transform in handle_transforms:
+					self.engine.transform_change( handle_index, handle_transform )
+				toc()
+			
+				tic( 'engine.solve_transform_change()' )
+				all_paths = self.engine.solve_transform_change()	
+				toc()
+
+				tic( 'make_chain_from_control_groups' )
+				all_positions = make_chain_from_control_groups( all_paths )
+				toc()
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+
+
+				## Solve for the new curve positions given the updated transform matrix.
+				# new_positions = engine ...
+			
+				## Send the new positions to the GUI.
+				# self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
+		
+			elif msg.startswith( 'control-point-constraint ' ):	pass	
+			elif msg.startswith( 'set-weight-function ' ):
+				weight_function = json.loads( msg[ len( 'set-weight-function ' ): ] )
+			
+				## Do nothing if this would do nothing.
+				if self.engine.get_weight_function() == weight_function: return
+			
+				self.engine.set_weight_function( weight_function )
+			
+				try:
+					self.engine.prepare_to_solve()
+					all_paths = self.engine.solve_transform_change()
+					all_positions = make_chain_from_control_groups( all_paths )
+					self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+					self.retrieve_energy()
+				
+				except NoHandlesError:
+					## No handles yet, so nothing to do.
+					pass
+				
+			elif msg.startswith( 'enable-arc-length ' ):	pass
+			elif msg.startswith( 'iterations ' ): 	pass	
+			elif msg.startswith( 'handle-transform-drag-finished' ):
+				self.retrieve_energy()
+				
+			else:
+				print 'Received unknown message:', msg	
+		##################### Naive Approaches functions End ##########################
+		##################### YS Approaches functions Begin ##########################
+		elif 'ys' == self.engine_type:
+			if binary:
+				print 'Received unknown message: binary of length', len( msg )
+		
+			elif msg.startswith( 'paths-info ' ):	   
+				paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
+				try:
+					boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
+				except ValueError:
+					boundary_index = -1
+			
+				self.engine.init_engine( paths_info, boundary_index )
+				all_constraints = self.engine.all_constraints
+
+				print_paths_info_stats( paths_info, all_constraints )
+			
+				for i, constraints in enumerate( all_constraints ):
+					for j, constraint in enumerate( constraints ):
+	
+						continuity = constraint[0]
+						fixed = constraint[1]
+					
+						payload = [ i, j, { 'fixed': fixed, 'continuity': continuity} ]
+						self.sendMessage( 'control-point-constraint ' + json.dumps( payload ) )
+
+		
+			elif msg.startswith( 'handle-positions-and-transforms ' ):
+				handles = json.loads( msg[ len( 'handle-positions-and-transforms ' ): ] )
+			
+				positions = [ pos for pos, transform in handles ]
+				transforms = [ transform for pos, transform in handles ]
+				self.engine.set_handle_positions( positions, transforms )
+				## Stop here it if it's empty.
+				if len( handles ) == 0: return
+			
+				self.engine.precompute_configuration()
+				self.engine.prepare_to_solve()
+				all_paths = self.engine.solve_transform_change()
+
+				all_positions = make_chain_from_control_groups( all_paths )
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+				tic( 'compute_energy_and_distances' )
+				self.retrieve_energy()
+				toc()
+
+				## Generate the triangulation and the BBW weights.
+				# self.engine ...
+		
+			elif msg.startswith( 'handle-transforms ' ):
+				handle_transforms = json.loads( msg[ len( 'handle-transforms ' ): ] )
+			
+				tic( 'transform_change' )
+				for handle_index, handle_transform in handle_transforms:
+					self.engine.transform_change( handle_index, handle_transform )
+				toc()
+			
+				tic( 'engine.solve_transform_change()' )
+				all_paths = self.engine.solve_transform_change()	
+				toc()
+
+				tic( 'make_chain_from_control_groups' )
+				all_positions = make_chain_from_control_groups( all_paths )
+				toc()
+				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+
+
+				## Solve for the new curve positions given the updated transform matrix.
+				# new_positions = engine ...
+			
+				## Send the new positions to the GUI.
+				# self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
+		
+			elif msg.startswith( 'control-point-constraint ' ):
+				paths_info = json.loads( msg[ len( 'control-point-constraint ' ): ] )
+			
+				constraint = [None]*2
+				constraint[0] = str( paths_info[2][ u'continuity' ] )
+				constraint[1] = paths_info[2][ u'fixed' ]
+			
+				self.engine.constraint_change( paths_info[0], paths_info[1], constraint )
+			
+				try:
+					self.engine.prepare_to_solve()
+					all_paths = self.engine.solve_transform_change()
+	
+					all_positions = make_chain_from_control_groups( all_paths )
+					self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+			
+				except NoHandlesError:
+					## No handles yet, so nothing to do.
+					pass
+
+				## Solve for the new curve positions given the updated control point constraint.
+		
+			elif msg.startswith( 'set-weight-function ' ):
+				weight_function = json.loads( msg[ len( 'set-weight-function ' ): ] )
+			
+				## Do nothing if this would do nothing.
+				if self.engine.get_weight_function() == weight_function: return
+			
+				self.engine.set_weight_function( weight_function )
+			
+				try:
+					self.engine.prepare_to_solve()
+					all_paths = self.engine.solve_transform_change()
+					all_positions = make_chain_from_control_groups( all_paths )
+					self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+					self.retrieve_energy()
+				
+				except NoHandlesError:
+					## No handles yet, so nothing to do.
+					pass
+		
+			elif msg.startswith( 'enable-arc-length ' ):
+				enable_arc_length = json.loads( msg[ len( 'enable-arc-length ' ): ] )
+			
+				## Do nothing if this would do nothing.
+				if self.engine.get_enable_arc_length() == enable_arc_length: return
+			
+				self.engine.set_enable_arc_length( enable_arc_length )
+			
+				try:
+					self.engine.prepare_to_solve()
+					all_paths = self.engine.solve_transform_change()
+					# print 'returned results: ', all_paths
+					all_positions = make_chain_from_control_groups( all_paths )
+					self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
+					self.retrieve_energy()
+				
+				except NoHandlesError:
+					## No handles yet, so nothing to do.
+					pass
+		
+			elif msg.startswith( 'iterations ' ):
+				iterations = json.loads( msg[ len( 'iterations ' ): ] )
+				print 'multiple iterations:', iterations
+				self.engine.set_iterations( iterations )
+		
+			elif msg.startswith( 'handle-transform-drag-finished' ):
+			
+				self.retrieve_energy()
+			
+			else:
+				print 'Received unknown message:', msg
+		##################### YS Approaches functions End ##########################
+
 			
 	def retrieve_energy( self )	:
 		
 		if parameters.kNoOverlays:	return
 		
-		energies, polylines, all_distances = self.engine.compute_energy_and_maximum_distance()
-
-		energy_and_polyline = [
+		try: 
+			all_energy, target_curves, all_distances = self.engine.compute_energy_and_maximum_distance()
+		
+			energy_and_polyline = [
 				[
 					{ 'target-curve-polyline': points.tolist(), 'energy': energy, 'distance': distance }
 					for energy, points, distance in zip( path_energy, path_points, path_distances )
 				]
-				for path_energy, path_points, path_distances in zip( energies, polylines, all_distances )
+				for path_energy, path_points, path_distances in zip( all_energy, target_curves, all_distances )
 				]
 		
-		if parameters.kVerbose >= 2:
-			energy = asarray( energies )
-			dists = asarray([ [ curve['maximum_distance'] for curve in path ] for path in all_distances ])
-			print 'path_num: ', len( energies )
-			print 'curve_num: ', sum( [len( curve_energy ) for curve_energy in energies] )
-			print 'energy sum: ', sum( [sum( curve_energy ) for curve_energy in energies] )
-			e_data = asarray( [ [ max( e ), min( e ), mean( e ) ] for e in energy ] ).T
-			d_data = asarray( [ [ max( d ), min( d ), mean( d ) ] for d in dists ] ).T
- 			print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
-			print 'distances:', max( d_data[0] ),  min( d_data[1] ), mean( d_data[2] )
+			if parameters.kVerbose >= 2:
+				all_energy = asarray( all_energy )
+				dists = asarray([ [ curve['maximum_distance'] for curve in path ] for path in all_distances ])
+				print 'path_num: ', len( all_energy )
+				print 'curve_num: ', sum( [len( curve_energy ) for curve_energy in all_energy] )
+				print 'energy sum: ', sum( [sum( curve_energy ) for curve_energy in all_energy] )
+				e_data = asarray( [ [ max( e ), min( e ), mean( e ) ] for e in all_energy ] ).T
+				d_data = asarray( [ [ max( d ), min( d ), mean( d ) ] for d in dists ] ).T
+				print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
+				print 'distances:', max( d_data[0] ),  min( d_data[1] ), mean( d_data[2] )
 		
-		if parameters.kComputeComparisonCurves:
-			from FitCurves.FitCurves import FitCurve
-			import itertools
+			if parameters.kComputeComparisonCurves:
+				from FitCurves.FitCurves import FitCurve
+				import itertools
 			
-			schneider_curves = []
-			for spline in energy_and_polyline:
-				schneider_curves.append( FitCurve( list( itertools.chain( *[ curve['target-curve-polyline'] for curve in spline ] ) ), 10 ).tolist() )
+				schneider_curves = []
+				for spline in energy_and_polyline:
+					schneider_curves.append( FitCurve( list( itertools.chain( *[ curve['target-curve-polyline'] for curve in spline ] ) ), 10 ).tolist() )
 			
-			#from pprint import pprint
-			#pprint( schneider_curves )
-			self.sendMessage( 'update-comparison-curve ' + json.dumps( schneider_curves ) )
+				#from pprint import pprint
+				#pprint( schneider_curves )
+				self.sendMessage( 'update-comparison-curve ' + json.dumps( schneider_curves ) )
 
-		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
+			self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
+
+		except NoHandlesError:
+			## No handles yet, so nothing to do.
+			pass
 
 
 def make_chain_from_control_groups( all_paths ):
@@ -299,125 +400,6 @@ class StubServerProtocol( WebSocketServerProtocol ):
 				print msg[ :space ]
 				pprint( json.loads( msg[ space+1 : ] ) )
 				
-class NaiveApproachProtocal( WebSocketServerProtocol ):
-	def connectionMade( self ):
-		WebSocketServerProtocol.connectionMade( self )
-		self.engine = self.factory.engine
-		print parameters.EngineType.keys()[parameters.kEngineType], ' CONNECTED'
-	
-	@tictoc_dec
-	def onMessage( self, msg, binary ):
-		engine = self.engine
-		if binary:
-			print 'Received unknown message: binary of length', len( msg )
-		
-		elif msg.startswith( 'paths-info ' ):	   
-			paths_info = json.loads( msg[ len( 'paths-info ' ): ] )
-			try:
-				boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
-			except ValueError:
-				boundary_index = -1
-			
-			self.engine.init_engine( paths_info, boundary_index )
-
-		
-		elif msg.startswith( 'handle-positions-and-transforms ' ):
-			handles = json.loads( msg[ len( 'handle-positions-and-transforms ' ): ] )
-			
-			positions = [ pos for pos, transform in handles ]
-			transforms = [ transform for pos, transform in handles ]
-			self.engine.set_handle_positions( positions, transforms )
-			## Stop here it if it's empty.
-			if len( handles ) == 0: return
-			
-			self.engine.precompute_configuration()
-			self.engine.prepare_to_solve()
-			all_paths = self.engine.solve_transform_change()
-
-			all_positions = make_chain_from_control_groups( all_paths )
-			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-			tic( 'compute_energy_and_distances' )
-# 			self.retrieve_energy()
-			toc()
-
-			## Generate the triangulation and the BBW weights.
-			# self.engine ...
-		
-		elif msg.startswith( 'handle-transforms ' ):
-			handle_transforms = json.loads( msg[ len( 'handle-transforms ' ): ] )
-			
-			tic( 'transform_change' )
-			for handle_index, handle_transform in handle_transforms:
-				self.engine.transform_change( handle_index, handle_transform )
-			toc()
-			
-			tic( 'engine.solve_transform_change()' )
-			all_paths = self.engine.solve_transform_change()	
-			toc()
-
-			tic( 'make_chain_from_control_groups' )
-			all_positions = make_chain_from_control_groups( all_paths )
-			toc()
-			self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
-
-
-			## Solve for the new curve positions given the updated transform matrix.
-			# new_positions = engine ...
-			
-			## Send the new positions to the GUI.
-			# self.sendMessage( 'paths-positions ' + json.dumps( new_positions ) )
-		
-		elif msg.startswith( 'control-point-constraint ' ):	pass	
-		elif msg.startswith( 'set-weight-function ' ):
-			weight_function = json.loads( msg[ len( 'set-weight-function ' ): ] )
-			
-			## Do nothing if this would do nothing.
-			if self.engine.get_weight_function() == weight_function: return
-			
-			self.engine.set_weight_function( weight_function )
-			
-			try:
-				self.engine.prepare_to_solve()
-				all_paths = self.engine.solve_transform_change()
-				all_positions = make_chain_from_control_groups( all_paths )
-				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
- 				self.retrieve_energy()
-				
-			except NoHandlesError:
-				## No handles yet, so nothing to do.
-				pass
-		
-		elif msg.startswith( 'set-engine-type ' ):
-			engine_type = json.loads( msg[ len( 'set-engine-type ' ): ] )
-			
-			if self.engine.get_weight_function() == engine_type: return
-			
-			self.factory.engine, protocol = build_engine_and_protocal( engine_type )
-			## if newly selected type is ys while the old type is naive, use a YSEngine.
-			if engine_type == 'ys':
-				self.factory.protocol = protocol
-		
-		elif msg.startswith( 'enable-arc-length ' ):	pass
-		elif msg.startswith( 'iterations ' ): 	pass	
-		elif msg.startswith( 'handle-transform-drag-finished' ):
-			self.retrieve_energy()
-				
-		else:
-			print 'Received unknown message:', msg	
-	
-	def retrieve_energy( self ):
-		energy, target_curves, all_distances = self.engine.compute_energy_and_maximum_distance()
-		
-		energy_and_polyline = [
-			[
-				{ 'target-curve-polyline': points.tolist(), 'energy': energy, 'distance': distance }
-				for energy, points, distance in zip( path_energy, path_points, path_distances )
-			]
-			for path_energy, path_points, path_distances in zip( energy, target_curves, all_distances )
-			]
-				
-		self.sendMessage( 'update-target-curve ' + json.dumps( energy_and_polyline ) )
-		
 
 def setupWebSocket( address, engine, protocol ):
 	'''
@@ -431,39 +413,34 @@ def setupWebSocket( address, engine, protocol ):
 	
 	print "Listening for WebSocket connections at:", address
 
-def build_engine_and_protocal( type = 'ys' ):
+def build_engine( type = 'ys', copy = None ):
 	engine = None
-	protocol = WebGUIServerProtocol
 	
-	if parameters.EngineType['YSApproach'] == parameters.kEngineType:	
-		engine = YSEngine()
-	elif parameters.EngineType['FourControls'] == parameters.kEngineType:	
-		engine = FourControlsEngine()
-	elif parameters.EngineType['TwoEndpoints'] == parameters.kEngineType:	
-		engine = TwoEndpointsEngine()
-	elif parameters.EngineType['Jacobian'] == parameters.kEngineType:	
-		engine = JacobianEngine()
-	else: 
-		raise RuntimeError("Unknown engine selected.")
-
-	if parameters.EngineType['YSApproach'] != parameters.kEngineType:
-		protocol = NaiveApproachProtocal
-
-# 	if 'ys' == type:
+# 	if parameters.EngineType['YSApproach'] == parameters.kEngineType:	
 # 		engine = YSEngine()
-# 	elif 'fourcontrols' == type:
+# 	elif parameters.EngineType['FourControls'] == parameters.kEngineType:	
 # 		engine = FourControlsEngine()
-# 	elif 'twoendpoints' == type:
+# 	elif parameters.EngineType['TwoEndpoints'] == parameters.kEngineType:	
 # 		engine = TwoEndpointsEngine()
-# 	elif 'jacobian' == type:
+# 	elif parameters.EngineType['Jacobian'] == parameters.kEngineType:	
 # 		engine = JacobianEngine()
-# 	else:
+# 	else: 
 # 		raise RuntimeError("Unknown engine selected.")
-# 
-# 	if 'ys' != type:
-# 		protocol = NaiveApproachProtocal
-			
-	return engine, protocol
+	if 'ys' == type:
+		engine = YSEngine()
+	elif 'fourcontrols' == type:
+		engine = FourControlsEngine()
+	elif 'twoendpoints' == type:
+		engine = TwoEndpointsEngine()
+	elif 'jacobian' == type:
+		engine = JacobianEngine()
+	else:
+		raise RuntimeError("Unknown engine selected.")
+	
+	if copy is not None:
+		engine.copy_engine( copy )
+	
+	return engine
 	
 def main():
 	import os, sys
@@ -473,13 +450,14 @@ def main():
 	
 	print 'Verbosity level:', parameters.kVerbose
 	
+	protocol = WebGUIServerProtocol
 	if 'stub' in sys.argv[1:]:
 		print 'Stub only!'
 		protocol = StubServerProtocol
 	
 	## Create engine:
 	# engine = ...
-	engine, protocol = build_engine_and_protocal()
+	engine = build_engine()
 
 	setupWebSocket( "ws://localhost:9123", engine, protocol )
 	

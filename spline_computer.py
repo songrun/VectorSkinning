@@ -18,13 +18,24 @@ class Engine:
 		initialize the control points for multiple paths and make the default constraints
 		boundary_index tells which path is the outside boundary
 		'''
-		self.boundary_index = boundary_index
-		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
-		self.num_of_paths = len( all_controls )
-		self.all_controls = all_controls
+		self.boundary_index = boundary_index	
+		self.all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
+		self.all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( self.all_controls, paths_info ) ]
+		self.num_of_paths = len( self.all_controls )
+		
 		self.transforms = []
 		self.handle_positions = []
 		self.weight_function = 'shepard'
+	
+	def copy_engine( self, engine ):
+		self.boundary_index = engine.boundary_index
+		self.all_controls = engine.all_controls
+		self.all_constraints = engine.all_constraints
+		self.num_of_paths = engine.num_of_paths
+		
+		self.transforms = engine.transforms
+		self.handle_positions = engine.handle_positions
+		self.weight_function = engine.weight_function
 	
 	def transform_change( self, i, transform ):
 		'''
@@ -161,9 +172,6 @@ class FourControlsEngine(Engine) :
 	'''
 	- apply deformation to all control points
 	'''
-	def init_engine( self, paths_info, boundary_index ):
-		Engine.init_engine( self, paths_info, boundary_index )
-		self.engine_type = 'fourcontrols'
 	
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
@@ -197,9 +205,6 @@ class TwoEndpointsEngine(Engine):
 	- apply endpoint deformation to closest interior points
 	return new control points
 	'''
-	def init_engine( self, paths_info, boundary_index ):
-		Engine.init_engine( self, paths_info, boundary_index )
-		self.engine_type = 'twoendpoints'
 		
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
@@ -236,10 +241,7 @@ class JacobianEngine(Engine):
 	(n.b. not the inverse transpose of it; these are tangents, not normals)
 	return new control points 
 	'''
-	def init_engine( self, paths_info, boundary_index ):
-		Engine.init_engine( self, paths_info, boundary_index )
-		self.engine_type = 'jacobian'
-		
+
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 
@@ -330,24 +332,20 @@ class YSEngine(Engine):
 		initialize the control points for multiple paths and make the default constraints
 		boundary_index tells which path is the outside boundary
 		'''
-		self.boundary_index = boundary_index
-		
-		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
-		
-		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
-
-		self.num_of_paths = len( all_controls )
-		self.all_controls = all_controls
-		self.all_constraints = all_constraints	
-		
-		self.transforms = []
-		self.handle_positions = []
-		self.precomputed_parameter_table = []
+		Engine.init_engine( self, paths_info, boundary_index )
+	
 		self.weight_function = 'bbw'
 		self.is_arc_enabled = parameters.kArcLengthDefault
 		self.perform_multiple_iterations = True
-		self.engine_type = 'ys'
-			
+		self.precomputed_parameter_table = []
+
+	def copy_engine( self, engine ):
+		Engine.copy_engine( self, engine )
+
+		self.is_arc_enabled = parameters.kArcLengthDefault
+		self.perform_multiple_iterations = True
+		self.precomputed_parameter_table = []
+		 		
 	def constraint_change( self, path_index, joint_index, constraint ):
 		'''
 		change the constraint at a joint of a path.
