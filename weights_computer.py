@@ -643,37 +643,39 @@ def shepard_w_i( handle_positions, i, p ):
 	
 	return diff[i] / diff.sum()
 
-def compute_error_metric( bbw_curve, skin_spline_curve, path_dts, lengths ):
+def compute_error_metric( target_path, deformed_path, path_dts, lengths ):
 	'''
 	Total energy is the sum of each pair of points' square distance
 	'''
 	path_dts = asarray( path_dts )
 	
-	assert len( bbw_curve ) == len( skin_spline_curve ) == len( path_dts ) == len( lengths )
+	assert len( target_path ) == len( deformed_path ) == len( path_dts ) == len( lengths )
+	target_path, deformed_path = asarray ( target_path ), asarray( deformed_path )
+	assert target_path.shape == deformed_path.shape
 
 	energy = []
-	for bbw_samplings, spline_samplings, segment_dts, length in zip( bbw_curve, skin_spline_curve, path_dts, lengths ):
-		bbw_samplings = asarray( bbw_samplings ).reshape( -1, 2 )
-		spline_samplings = asarray( spline_samplings ).reshape( -1, 2)
-		dists = ( ( spline_samplings - bbw_samplings )**2 ).sum( axis = 1 )
+	for target_curve, deformed_curve, segment_dts, length in zip( target_path, deformed_path, path_dts, lengths ):
+		target_curve = asarray( target_curve ).reshape( -1, 2 )
+		deformed_curve = asarray( deformed_curve ).reshape( -1, 2)
+		dists = ( ( deformed_curve - target_curve )**2 ).sum( axis = 1 )
 		dists = (dists[:-1] + dists[1:])/2
 	
 		energy.append( dot( dists, segment_dts )*length )
 	
 	return energy
 	
-def compute_maximum_distances( bbw_curve, skin_spline_curve ):
+def compute_maximum_distances( target_path, deformed_path ):
 	'''
 	Find the approximate largest distance between a spline curve and its target curve.
 	'''	
-	assert len( bbw_curve ) == len( skin_spline_curve )
-	bbw_curve = asarray ( bbw_curve )
-	skin_spline_curve = asarray( skin_spline_curve )
+	assert len( target_path ) == len( deformed_path )
+	target_path, deformed_path = asarray ( target_path ), asarray( deformed_path )
+	assert target_path.shape == deformed_path.shape
 	
 	distances = []
-	for bbw_samplings, spline_samplings in zip( bbw_curve, skin_spline_curve ):
-		## allDistSqrs[i][j] is the distance squared from bbw_samplings[i] to spline_samplings[j].
-		allDistSqrs = ( (spline_samplings[newaxis,...] - bbw_samplings[:,newaxis,:])**2 ).sum(-1)
+	for target_curve, deformed_curve in zip( target_path, deformed_path ):
+		## allDistSqrs[i][j] is the distance squared from target_curve[i] to deformed_curve[j].
+		allDistSqrs = ( (deformed_curve[newaxis,...] - target_curve[:,newaxis,:])**2 ).sum(-1)
 		## Hausdorff distance is the longest shortest distance from either to either.
 		min0 = allDistSqrs.min(0)
 		min1 = allDistSqrs.min(1)
@@ -689,8 +691,8 @@ def compute_maximum_distances( bbw_curve, skin_spline_curve ):
 			dist = sqrt( min1[max1] )
 		
 		distances.append({
-			'spline_pos': spline_samplings[ spline_index ].tolist(),
-			'target_pos': bbw_samplings[ bbw_index ].tolist(),
+			'spline_pos': deformed_curve[ spline_index ].tolist(),
+			'target_pos': target_curve[ bbw_index ].tolist(),
 			'maximum_distance': dist
 			})
 	

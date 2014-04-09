@@ -2,6 +2,8 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
+from naive_comparisons import *
+
 from tictoc import tic, toc
 
 class EngineError( Exception ): pass
@@ -9,45 +11,32 @@ class NoControlPointsError( EngineError ): pass
 class NoHandlesError( EngineError ): pass
 
 systems = []
+############################### Basic Engine #################################
 class Engine:
-	'''
-	A data persistant that have all information needed to precompute and the system matrix of the previous state.
-	'''
-	
-	def set_control_positions( self, paths_info, boundary_index ):
+	def init_engine( self, paths_info, boundary_index ):
 		'''
 		initialize the control points for multiple paths and make the default constraints
 		boundary_index tells which path is the outside boundary
 		'''
-		self.boundary_index = boundary_index
-		
-		all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
-		
-		all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( all_controls, paths_info ) ]
-#		all_lengths = [ [ length_of_cubic_bezier_curve( control ) for control in controls ] for controls in all_controls ]
-
-		self.num_of_paths = len( all_controls )
-		self.all_controls = all_controls
-		self.all_constraints = all_constraints	
-#		self.all_lengths = all_lengths
+		self.boundary_index = boundary_index	
+		self.all_controls = [ make_control_points_chain( path[u'cubic_bezier_chain'], path[u'closed'] ) for path in paths_info]
+		self.all_constraints = [ make_constraints_from_control_points( controls, path[u'closed'] ) for controls, path in zip( self.all_controls, paths_info ) ]
+		self.num_of_paths = len( self.all_controls )
 		
 		self.transforms = []
-		self.handle_positions = []	
-		self.precomputed_parameter_table = []
-		self.weight_function = 'bbw'
-		self.is_arc_enabled = parameters.kArcLengthDefault
-		self.perform_multiple_iterations = True
-			
-	def constraint_change( self, path_index, joint_index, constraint ):
-		'''
-		change the constraint at a joint of a path.
-		path_index tells which path, joint_index tells which joint
-		'''
-		constraint = list( constraint )
-		assert len( constraint ) == 2
+		self.handle_positions = []
+		self.weight_function = 'shepard'
+	
+	def copy_engine( self, engine ):
+		self.boundary_index = engine.boundary_index
+		self.all_controls = engine.all_controls
+		self.all_constraints = engine.all_constraints
+		self.num_of_paths = engine.num_of_paths
 		
-		self.all_constraints[ path_index ][ joint_index ] = constraint
-
+		self.transforms = engine.transforms
+		self.handle_positions = engine.handle_positions
+		self.weight_function = engine.weight_function
+	
 	def transform_change( self, i, transform ):
 		'''
 		change the transform at the index i
@@ -59,7 +48,7 @@ class Engine:
 		assert transform.shape == (3,3)
 		
 		self.transforms[i] = transform
-	
+			
 	def set_handle_positions( self, new_handle_positions, new_transforms = None ):
 		'''
 		Replaces the set of known handles with the positions and transforms
@@ -81,6 +70,285 @@ class Engine:
 		if new_transforms is not None:
 			for i, transform in enumerate( new_transforms ):
 				self.transform_change( i, transform )
+
+	def set_weight_function( self, weight_function ):
+		'''
+		set weight_function
+		'''
+		if self.weight_function != weight_function:
+			self.weight_function = weight_function
+			self.precompute_configuration( ) 
+	
+	def get_weight_function( self ):
+		'''
+		gets weight_function
+		'''
+		return self.weight_function
+
+	def get_engine_type( self ):
+		'''
+		gets engine_type
+		'''
+		return self.engine_type
+
+	def compute_target_path( self, path_indices, all_vertices, transforms, all_weights ):
+		'''
+		compute the target curves for just one path.
+		'''
+		### 3 
+		target_curves_per_path = []
+		for indices in path_indices:
+				
+			## http://jameshensman.wordpress.com/2010/06/14/multiple-matrix-multiplication-in-numpy/
+			As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+			tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+			
+			target_curves_per_path.append(tps)
+		
+		return target_curves_per_path
+
+	def compute_deformed_path( self, solutions, all_ts ):
+		'''
+		compute all the points along the curves for just one path.
+		'''
+		deformed_curves_per_path = []
+		for k, solution in enumerate(solutions):
+
+			tps = dot( array([all_ts[k]**3, all_ts[k]**2, all_ts[k], ones(all_ts[k].shape)]).T, asarray( dot( M, solution ) ) )
+			deformed_curves_per_path.append(tps)
+			
+		return deformed_curves_per_path	
+	
+	def constraint_change( self, path_index, joint_index, constraint ): pass
+	def precompute_configuration( self ): pass
+	def set_enable_arc_length( self, is_arc_enabled ): pass
+	def get_enable_arc_length( self ): return False
+	def set_iterations( self, whether ): pass
+	def prepare_to_solve( self ): pass
+	def solve_transform_change( self ): 
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
+	def compute_energy_and_maximum_distance( self ):
+		'''
+		compute the error between the skinning spline and the bbw_affected position.
+		'''	
+		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+		solutions = self.solutions
+		boundary_index = self.boundary_index
+		weight_function = self.weight_function
+		
+		num_samples = 100
+		all_pts, all_ts, all_dts = [], [], []
+		for control_pos in all_controls:
+			pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
+			all_pts.append( pts )
+			all_ts.append( ts )
+			all_dts.append( dts )
+			
+		all_vertices, all_weights, all_indices = compute_all_weights( all_pts, handle_positions, boundary_index, weight_function )
+		
+		all_pts, all_ts, all_dts = asarray( all_pts ), asarray( all_ts ), asarray( all_dts )
+		
+		energy, target_paths, distances = [], [], []
+		for i in range( self.num_of_paths ):
+
+			path_indices = all_indices[i]		
+			path_pts, path_ts, path_dts = all_pts[i], all_ts[i], all_dts[i]
+			path_lengths = asarray( [ map( mag, ( curve_pts[1:] - curve_pts[:-1] ) ) for curve_pts in path_pts ]).sum( axis=1 )
+			
+			target_path = self.compute_target_path( path_indices, all_vertices, transforms, all_weights )
+			target_paths.append( target_path )
+			
+			deformed_path = self.compute_deformed_path( solutions[i], path_ts )			
+ 			energy.append( compute_error_metric( target_path, deformed_path, path_dts, path_lengths ) )
+ 			distances.append( compute_maximum_distances( target_path, deformed_path ) )
+		
+ 		return energy, target_paths, distances
+
+			
+############################### Basic Engine End #################################
+
+class FourControlsEngine(Engine) :
+	'''
+	- apply deformation to all control points
+	'''
+	
+	def solve_transform_change( self ):
+		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+		boundary_index, weight_function = self.boundary_index, self.weight_function
+
+ 		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
+		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
+	
+		result = []
+		for path_indices in all_indices:
+			path_controls = []
+			for indices in path_indices:
+
+				As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+				Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+				#tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+				tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
+		
+				path_controls.append(tps)
+			result.append( path_controls )
+		
+		result = [ asarray(path)[:,:,:2] for path in result ]
+			
+		self.solutions = result
+		return result
+	
+class TwoEndpointsEngine(Engine):
+	'''
+	- apply endpoint deformation to closest interior points
+	return new control points
+	'''
+		
+	def solve_transform_change( self ):
+		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+		
+		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
+		
+		all_weights[ 1: : 4] = all_weights[ 0 : : 4 ]
+		all_weights[ 2: : 4] = all_weights[ 3 : : 4 ]
+
+		result = []
+		for path_indices in all_indices:
+			path_controls = []
+			for indices in path_indices:
+
+				As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+				Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+				#tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
+				tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
+		
+				path_controls.append(tps)
+			result.append( path_controls )
+		
+		result = [ asarray(path)[:,:,:2] for path in result ]
+		
+		self.solutions = result	
+		return result
+
+
+class JacobianEngine(Engine):
+	'''
+	apply jacobian of endpoint deformation to vector towards closest interior points 
+	(n.b. not the inverse transpose of it; these are tangents, not normals)
+	return new control points 
+	'''
+
+	def solve_transform_change( self ):
+		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+
+		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
+		
+		def shepard_jacobian( handle_positions, transforms, T_p, p ):
+			'''
+			return a 2-by-2 jacobian matrix
+			'''
+			jac = zeros( (2,2) )
+			 
+			def derivative_ws( hs ): 
+				'''
+				compute an array of derivative of w_i with respect to x or y, k = 0 means x, k = 1 means y
+				'''
+				hs = asarray( hs )
+				assert len( hs.shape ) == 2			
+			 	assert hs.shape[1] == p.shape[0]
+			 	
+			 	## Compute the distance squared from each handle position.
+				diffs = p - hs
+				diffs = diffs**2
+				diffs = diffs.sum( axis = 1 )
+				
+				eps = 1e-7
+				## where() gives us the indices where the condition is true.
+				wh = where( abs( diffs ) < eps )
+				assert len( wh ) == 1
+				if len( wh[0] ) > 0: return zeros( len( hs ) )
+
+				us = asarray( 1. / diffs )
+				dus = asarray ([-2.*sep_diff/square_sum**2 for sep_diff, square_sum in zip( (p-hs), diffs )])
+				
+				derivatives = [ dus[i] / us.sum() - us[i]*dus.sum(axis=0) / us.sum()**2 for i in range( len(hs) ) ]
+				
+				return derivatives
+				
+			derivatives = asarray( derivative_ws( handle_positions ) )
+			transforms = asarray( transforms )
+
+			T_x = asarray([d*transform for d, transform in zip(derivatives[:, 0], transforms)]).sum(axis=0).squeeze()
+			T_y = asarray([d*transform for d, transform in zip(derivatives[:, 1], transforms)]).sum(axis=0).squeeze()
+			
+			jac[0,0] = T_p[0,0] + T_x[0,0]*p[0] + T_x[0,1]*p[1] + T_x[0,2]
+ 			jac[0,1] = T_p[0,1] + T_y[0,0]*p[0] + T_y[0,1]*p[1] + T_y[0,2]
+			jac[1,0] = T_p[1,0] + T_x[1,0]*p[0] + T_x[1,1]*p[1] + T_x[1,2]
+ 			jac[1,1] = T_p[1,1] + T_y[1,0]*p[0] + T_y[1,1]*p[1] + T_y[1,2]
+ 			
+ 			return jac
+ 			
+ 			
+		result = []
+		for path_indices in all_indices:
+			path_controls = []
+			for indices in path_indices:
+				assert len( indices ) == 4
+
+				As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
+				Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
+				
+				tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
+				## replace the two interior control points' position to endpoint + Jacobian * derivative vector
+				vectors = asarray( [all_vertices[indices[1]] - all_vertices[indices[0]],
+									all_vertices[indices[2]] - all_vertices[indices[3]] ] ) 
+				
+				tps[1,:2] = tps[0,:2] + dot( shepard_jacobian( handle_positions, transforms, As[0], all_vertices[indices[0]] ), vectors[0] )
+				tps[2,:2] = tps[3,:2] + dot( shepard_jacobian( handle_positions, transforms, As[3], all_vertices[indices[3]] ), vectors[1] )
+
+				path_controls.append(tps)
+			result.append( path_controls )
+		
+		result = [ asarray(path)[:,:,:2] for path in result ]
+		
+		self.solutions = result	
+		return result
+		
+
+	
+class YSEngine(Engine):
+	'''
+	A data persistant that have all information needed to precompute and the system matrix of the previous state.
+	'''
+	
+	def init_engine( self, paths_info, boundary_index ):
+		'''
+		initialize the control points for multiple paths and make the default constraints
+		boundary_index tells which path is the outside boundary
+		'''
+		Engine.init_engine( self, paths_info, boundary_index )
+	
+		self.weight_function = 'bbw'
+		self.is_arc_enabled = parameters.kArcLengthDefault
+		self.perform_multiple_iterations = True
+		self.precomputed_parameter_table = []
+
+	def copy_engine( self, engine ):
+		Engine.copy_engine( self, engine )
+
+		self.is_arc_enabled = parameters.kArcLengthDefault
+		self.perform_multiple_iterations = True
+		self.precomputed_parameter_table = []
+		 		
+	def constraint_change( self, path_index, joint_index, constraint ):
+		'''
+		change the constraint at a joint of a path.
+		path_index tells which path, joint_index tells which joint
+		'''
+		constraint = list( constraint )
+		assert len( constraint ) == 2
+		
+		self.all_constraints[ path_index ][ joint_index ] = constraint
 	
 	def precompute_configuration( self ):
 		'''
@@ -139,24 +407,8 @@ class Engine:
 			result.append(	fast_update( self.transforms, self.perform_multiple_iterations ) )
 		
 		self.solutions = result
-		
-		print self.all_controls
-		print result
+
 		return result
-	
-	def set_weight_function( self, weight_function ):
-		'''
-		set weight_function
-		'''
-		if self.weight_function != weight_function:
-			self.weight_function = weight_function
-			self.precompute_configuration( ) 
-	
-	def get_weight_function( self ):
-		'''
-		gets weight_function
-		'''
-		return self.weight_function
 	
 	def set_enable_arc_length( self, is_arc_enabled ):
 		'''
@@ -175,52 +427,6 @@ class Engine:
 	def set_iterations( self, whether ):
 		self.perform_multiple_iterations = whether		
 			
-	def compute_tkinter_bbw_affected_curve_per_path( self, path_indices, all_vertices, transforms, all_weights ):
-		'''
-		compute the bbw curves for just one path.
-		'''
-		### 3 
-		bbw_curves = []
-		for indices in path_indices:
-			'''
-			tps = []	
-			for i in indices:
-				m = zeros((3,3))
-				p = concatenate( ( all_vertices[i], [1.0] ) )
-				for h in range(len(transforms)):
-					m = m + transforms[h]*all_weights[i,h]
-		
-				p = dot( m.reshape(3, 3), p.reshape(3,-1) ).reshape(-1)
-				tps = tps + [p[0], p[1]]
-			'''
-			
-			## http://jameshensman.wordpress.com/2010/06/14/multiple-matrix-multiplication-in-numpy/
-			As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
-			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
-			tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
-			
-			bbw_curves.append(tps)
-		
-		return bbw_curves
-
-	def compute_tkinter_curve_per_path_solutions( self, solutions, all_ts ):
-		'''
-		compute all the points along the curves for just one path.
-		'''
-		spline_skin_curves = []
-		for k, solution in enumerate(solutions):
-			'''
-			tps = []
-			for t in asarray(all_ts)[k]:
-				tbar = asarray([t**3, t**2, t, 1.])
-				p = dot(tbar, asarray( M * solution ) )
-				tps = tps + [p[0], p[1]]
-			'''
-			tps = dot( array([all_ts[k]**3, all_ts[k]**2, all_ts[k], ones(all_ts[k].shape)]).T, asarray( dot( M, solution ) ) )
-			spline_skin_curves.append(tps)
-			
-		return spline_skin_curves		
-		
 	def compute_energy_and_maximum_distance( self ):
 		'''
 		compute the error between the skinning spline and the bbw_affected position.
@@ -237,7 +443,7 @@ class Engine:
 		all_vertices = precomputed_parameters.all_vertices
 			
 		energy = []
-		bbw_curves = []
+		target_paths = []
 		distances = []
 		for i in range( self.num_of_paths ):
 
@@ -247,17 +453,17 @@ class Engine:
 			path_ts = precomputed_parameters.all_ts[i]
 			path_lengths = precomputed_parameters.all_lengths[i]
 			
-			bbw_curve = self.compute_tkinter_bbw_affected_curve_per_path( path_indices, all_vertices, transforms, all_weights )
+			target_path = self.compute_target_path( path_indices, all_vertices, transforms, all_weights )
 
-			spline_skin_curve = self.compute_tkinter_curve_per_path_solutions( solutions[i], path_ts )
+			deformed_path = self.compute_deformed_path( solutions[i], path_ts )
 			
-			energy.append( compute_error_metric( bbw_curve, spline_skin_curve, path_dts, path_lengths ) )
+			energy.append( compute_error_metric( target_path, deformed_path, path_dts, path_lengths ) )
 			
-			bbw_curves.append( bbw_curve )
+			target_paths.append( target_path )
 
-			distances.append( compute_maximum_distances( bbw_curve, spline_skin_curve ) )
+			distances.append( compute_maximum_distances( target_path, deformed_path ) )
 		
-		return energy, bbw_curves, distances
+		return energy, target_paths, distances
 			
 				
 ## The dimensions of a point represented in the homogeneous coordinates
@@ -351,58 +557,6 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	
 	return update_with_transforms					
 	
-	
-	### 3
-#	new_controls = adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts )
-#	
-#	if enable_refinement and len( new_controls ) > len( controls ): 
-# #			debugger()
-#		new_control_pos = get_controls( new_controls )[0]
-# 
-#		W_matrices, all_weights, all_vertices, all_indices, all_pts, all_dts = precompute_all_when_configuration_change( new_control_pos, handles  )
-#	
-#		solutions, bbw_curves, spline_skin_curves = approximate_beziers(W_matrices, new_controls, handles, transforms, all_weights, all_vertices, all_indices, all_pts, all_dts, False) 
-
-
-
-# def adapt_configuration_based_on_diffs( controls, bbw_curves, spline_skin_curves, all_dts ):
-#	'''
-#	 sample the bezier curve solution from optimization at the same "t" locations as bbw-affected curves. Find the squared distance between each corresponding point, multiply by the corresponding "dt", and sum that up. That's the energy. Then scale it by the arc length of each curve.
-#	'''
-#	assert len( bbw_curves ) == len( spline_skin_curves )
-#	diffs = [compute_error_metric(bbw_curve, spline_skine_curve, dts) for bbw_curve, spline_skine_curve, dts in zip(bbw_curves, spline_skin_curves, all_dts) ]
-#	print 'differences: ', diffs
-#	
-#	new_controls = []
-#	partition = [0.5, 0.5]
-#	threshold = 100 
-#	
-#	all_pos = asarray([x.position for x in controls])
-#	
-#	for k, diff in enumerate( diffs ):
-#		control_pos = all_pos[ k*3 : k*3+4 ]
-#		if len(control_pos) == 3:	
-#			control_pos = concatenate((control_pos, all_pos[0].reshape(1,2)))
-#		
-#		if diff > threshold*length_of_cubic_bezier_curve(control_pos):
-#			splitted = split_cublic_beizer_curve( control_pos, partition )
-#			splitted = asarray( splitted ).astype(int)
-#			
-#			new_controls.append( controls[ k*3 ] )
-#			for j, each in enumerate(splitted):
-#				new_controls += [ Control_point(-1, each[1], False), Control_point(-1, each[2], False) ]
-#				if j != len(splitted)-1:
-#					new_controls.append( Control_point(-1, each[-1], True, [4,0]) ) 
-#			
-#		else:
-#			new_controls += [ controls[i] for i in range( k*3, k*3+3 ) ]
-#			
-#	'''
-#	if is not closed, add the last control at the end.
-#	'''
-#	
-#	return new_controls
-
 
 def precompute_all_when_configuration_change( boundary_index, all_control_positions, skeleton_handle_vertices, weight_function = 'bbw', kArcLength=False ):
 	'''
@@ -420,23 +574,23 @@ def precompute_all_when_configuration_change( boundary_index, all_control_positi
 	all_ts = []
 	all_lengths = []
 	for control_pos in all_control_positions:
-		pts, ts, dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
-		all_pts.append( pts )
-		all_ts.append( ts )
+		path_pts, path_ts, path_dts = sample_cubic_bezier_curve_chain( control_pos, num_samples )
+		all_pts.append( path_pts )
+		all_ts.append( path_ts )
 		
 		## Compute all_lengths
-		dss = [ map( mag, ( segment_pts[1:] - segment_pts[:-1] ) ) for segment_pts in pts ]
-		dss = asarray( dss )
-		lengths = [ sum( dss[i] ) for i in range( len( dss ) ) ]
-		all_lengths.append( lengths )
+		path_dss = [ map( mag, ( curve_pts[1:] - curve_pts[:-1] ) ) for curve_pts in path_pts ]
+		path_dss = asarray( path_dss )
+		path_lengths = [ sum( path_dss[i] ) for i in range( len( path_dss ) ) ]
+		all_lengths.append( path_lengths )
 		## Then normalize dss
-		dss = [ ds / length for ds, length in zip( dss, lengths ) ]
+		dss = [ ds / length for ds, length in zip( path_dss, path_lengths ) ]
 		
 		
 		if kArcLength:
-			all_dts.append( dss )
+			all_dts.append( path_dss )
 		else:
-			all_dts.append( dts )
+			all_dts.append( path_dts )
 
 	
 	all_vertices, all_weights, all_indices = compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, weight_function )
@@ -604,14 +758,14 @@ def test_fancy():
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
 	
-	engine = Engine()
+	engine = YSEngine()
 	
 	try:
 		boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
 	except ValueError:
 		boundary_index = -1
 	
-	engine.set_control_positions( paths_info, boundary_index )
+	engine.init_engine( paths_info, boundary_index )
 	
 	if constraint is not None:
 		engine.constraint_change( constraint[0], constraint[1], constraint[2] )
@@ -660,14 +814,14 @@ def test_actually_solve():
 		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
 		paths_info, skeleton_handle_vertices, constraint = get_test_turtle_glasses()
 	
-	engine = Engine()
+	engine = YSEngine()
 	
 	try:
 		boundary_index = argmax([ info['bbox_area'] for info in paths_info if info['closed'] ])
 	except ValueError:
 		boundary_index = -1
 	
-	engine.set_control_positions( paths_info, boundary_index )
+	engine.init_engine( paths_info, boundary_index )
 	
 	if constraint is not None:
 		engine.constraint_change( constraint[0], constraint[1], constraint[2] )
@@ -705,26 +859,7 @@ def test_simple():
 	
 	print distances
 	print 'HAHA ~ '
-	
-
-def compute_transformed_by_control_points( all_pts, skeleton_handle_vertices, transforms ):
-	
-	all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_pts, skeleton_handle_vertices )
-	
-	result = []
-	for path_indices in all_indices:
-		path_controls = []
-		for indices in path_indices:
-
-			As = dot( asarray(transforms).T, all_weights[ indices ].T ).T
-			Bs = append( all_vertices[ indices ], ones( ( len( indices ), 1 ) ), axis = 1 )
-			#tps = sum(As*Bs[:,newaxis,:],-1)[:,:2]
-			tps = asarray([ dot( A, B ) for A, B in zip( As, Bs ) ])
 		
-			path_controls.append(tps)
-		result.append( path_controls )
-			
-	return result		
 
 def main():
 	'''

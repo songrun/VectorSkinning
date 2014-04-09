@@ -357,6 +357,7 @@ IGL_INLINE bool igl::readOBJ(
     // igl::list_to_matrix(vF,F) already printed error message to std err
     return false;
   }
+  /*
   // Legacy
   if(F.cols() != 3)
   {
@@ -367,6 +368,7 @@ IGL_INLINE bool igl::readOBJ(
             (int)F.cols());
     return false;
   }
+  */
   return true;
 }
 
