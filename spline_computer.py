@@ -193,9 +193,7 @@ class FourControlsEngine(Engine) :
 				path_controls.append(tps)
 			result.append( path_controls )
 		
-		result = asarray( result )
-		assert len( result.shape ) == 4
-		result = result[:, :, :, :2]
+		result = [ asarray(path)[:,:,:2] for path in result ]
 			
 		self.solutions = result
 		return result
@@ -227,9 +225,7 @@ class TwoEndpointsEngine(Engine):
 				path_controls.append(tps)
 			result.append( path_controls )
 		
-		result = asarray( result )
-		assert len( result.shape ) == 4
-		result = result[:, :, :, :2]
+		result = [ asarray(path)[:,:,:2] for path in result ]
 		
 		self.solutions = result	
 		return result
@@ -313,9 +309,7 @@ class JacobianEngine(Engine):
 				path_controls.append(tps)
 			result.append( path_controls )
 		
-		result = asarray( result )
-		assert len( result.shape ) == 4
-		result = result[:, :, :, :2]
+		result = [ asarray(path)[:,:,:2] for path in result ]
 		
 		self.solutions = result	
 		return result

@@ -97,7 +97,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				all_positions = make_chain_from_control_groups( all_paths )
 				self.sendMessage( 'paths-positions ' + json.dumps( all_positions ) )
 				tic( 'compute_energy_and_distances' )
-	# 			self.retrieve_energy()
+	 			self.retrieve_energy()
 				toc()
 
 				## Generate the triangulation and the BBW weights.
