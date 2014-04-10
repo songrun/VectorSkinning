@@ -2,8 +2,6 @@ from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
 from bezier_constraint_even_solver import *
 
-from naive_comparisons import *
-
 from tictoc import tic, toc
 
 class EngineError( Exception ): pass
