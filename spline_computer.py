@@ -185,6 +185,13 @@ class FourControlsEngine(Engine) :
 			ctrl_vertices, ctrl_weights, ctrl_maps = barycentric_projection( vs, faces, boundary_edges, all_weights, flatten_ctrls )
 			
 			all_weights = asarray([ ctrl_weights[index] for index in ctrl_maps])
+		
+		elif 'mvc' == weight_function:
+			
+			ctrl_vertices, ctrl_weights, ctrl_maps = compute_all_weights_mvc( all_controls, handle_positions )
+			debugger()
+			print 'hi mvc'
+	
 			
 		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices	
 	
