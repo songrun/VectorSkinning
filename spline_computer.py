@@ -187,10 +187,7 @@ class FourControlsEngine(Engine) :
 			all_weights = asarray([ ctrl_weights[index] for index in ctrl_maps])
 		
 		elif 'mvc' == weight_function:
-			
-			ctrl_vertices, ctrl_weights, ctrl_maps = compute_all_weights_mvc( all_controls, handle_positions )
-			debugger()
-			print 'hi mvc'
+			all_vertices, all_weights, all_indices = compute_all_weights_mvc( all_controls, handle_positions )
 	
 			
 		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices	
@@ -244,6 +241,11 @@ class TwoEndpointsEngine(Engine):
 			all_weights[ 0: : 4] = all_weights[ 1: : 4] = end_weights[ 0 : : 2 ]
 			all_weights[ 2: : 4] = all_weights[ 3: : 4] = end_weights[ 1 : : 2 ]
 	
+		elif 'mvc' == weight_function:
+			all_vertices, all_weights, all_indices = compute_all_weights_mvc( all_controls, handle_positions )
+			all_weights[ 1: : 4] = all_weights[ 0: : 4]
+  			all_weights[ 2: : 4] = all_weights[ 3: : 4]
+			
 		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
 				
 		result = []
