@@ -175,8 +175,22 @@ class FourControlsEngine(Engine) :
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 		boundary_index, weight_function = self.boundary_index, self.weight_function
 
- 		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
-		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
+  		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
+		if 'bbw' == weight_function:
+ 			
+			all_endpoints = [ asarray([ [curve[0], curve[3]] for curve in path ]) for path in all_controls ] 			
+ 			vs, faces, boundary_edges, all_weights, all_maps = compute_all_weights_bbw( all_endpoints, handle_positions, boundary_index, customized = True )
+			
+			flatten_ctrls = flatten_paths( all_controls )[0]
+			ctrl_vertices, ctrl_weights, ctrl_maps = barycentric_projection( vs, faces, boundary_edges, all_weights, flatten_ctrls )
+			
+			all_weights = asarray([ ctrl_weights[index] for index in ctrl_maps])
+		
+		elif 'mvc' == weight_function:
+			all_vertices, all_weights, all_indices = compute_all_weights_mvc( all_controls, handle_positions )
+	
+			
+		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices	
 	
 		result = []
 		for path_indices in all_indices:
@@ -204,12 +218,36 @@ class TwoEndpointsEngine(Engine):
 		
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
+		boundary_index, weight_function = self.boundary_index, self.weight_function
+	
+  		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
+  		all_weights[ 1: : 4] = all_weights[ 0: : 4]
+  		all_weights[ 2: : 4] = all_weights[ 3: : 4]
+  		
+ 		if 'bbw' == weight_function:
+ 			
+			all_endpoints = [ asarray([ [curve[0], curve[3]] for curve in path ]) for path in all_controls ] 			
+ 			vs, faces, boundary_edges, all_weights, all_maps = compute_all_weights_bbw( all_endpoints, handle_positions, boundary_index, customized = True )
+	
 		
-		all_vertices, all_weights, all_indices = compute_all_weights_shepard( all_controls, handle_positions )
-		
-		all_weights[ 1: : 4] = all_weights[ 0 : : 4 ]
-		all_weights[ 2: : 4] = all_weights[ 3 : : 4 ]
-
+			flatten_maps = concatenate( [ concatenate( path_map ) for path_map in all_maps ] )
+			end_weights = asarray( [all_weights[index] for index in flatten_maps] )
+			
+			flatten_ctrls = flatten_paths( all_controls )[0]
+			ctrl_vertices, ctrl_weights, ctrl_maps = barycentric_projection( vs, faces, boundary_edges, all_weights, flatten_ctrls )
+			
+			all_weights = asarray([ ctrl_weights[index] for index in ctrl_maps])
+				
+			all_weights[ 0: : 4] = all_weights[ 1: : 4] = end_weights[ 0 : : 2 ]
+			all_weights[ 2: : 4] = all_weights[ 3: : 4] = end_weights[ 1 : : 2 ]
+	
+		elif 'mvc' == weight_function:
+			all_vertices, all_weights, all_indices = compute_all_weights_mvc( all_controls, handle_positions )
+			all_weights[ 1: : 4] = all_weights[ 0: : 4]
+  			all_weights[ 2: : 4] = all_weights[ 3: : 4]
+			
+		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
+				
 		result = []
 		for path_indices in all_indices:
 			path_controls = []

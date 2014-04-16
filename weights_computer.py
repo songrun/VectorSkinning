@@ -158,7 +158,7 @@ def flatten_paths( all_pts ):
 	all_pts = asarray( all_pts )
 	all_shapes = [ asarray( pts ).shape[:-1] for pts in all_pts ]
 	
-	all_new_pts = concatenate( [ concatenate( curve_pts ) for curve_pts in all_pts ] )
+	all_new_pts = concatenate( [ concatenate( path_pts ) for path_pts in all_pts ] )
 
 	return all_new_pts, all_shapes
 
@@ -264,7 +264,7 @@ def compute_all_weights_mvc( all_pts, cage_loop ):
 	
 	return all_pts, all_weights, all_maps
 
-def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index ):
+def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index, customized = False ):
 	'''
 	triangulate a region closed by a bunch of bezier curves if needed, and precompute the vertices at each sample point.
 	
@@ -359,7 +359,11 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index )
 			total_weight_change = abs(old_weights-new_weights).sum()
 			print 'Barycentric projection led to an average change in weights of', total_weight_change/prod( new_weights.shape ), 'and a total change of', total_weight_change
 	
-	return vs, all_weights, all_maps
+	if customized == False:
+		return vs, all_weights, all_maps
+	## for the test of naive approaches.
+	else:
+		return vs, faces, boundary_edges, all_weights, all_maps
 
 def shepard( vs, skeleton_handle_vertices ):
 	'''
