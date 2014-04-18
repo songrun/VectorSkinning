@@ -48,6 +48,8 @@ def compute_angle( bundle0, bundle1 ):
 		return [ cos_theta, sin_theta ]
 
 def clamp_solution( bundles, solution, clamp_offset = 0.1 ):
+    ## TODO: FIXME: There is a bug in here. See simple-closed with text, see box-simplest without G1 on.
+    
     clamped = []
     for i, P in enumerate( solution ):
         bundle = bundles[i]
