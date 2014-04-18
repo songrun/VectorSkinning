@@ -123,7 +123,8 @@ class Engine:
 	def set_enable_arc_length( self, is_arc_enabled ): pass
 	def get_enable_arc_length( self ): return False
 	def set_iterations( self, whether ): pass
-	def prepare_to_solve( self ): pass
+	def prepare_to_solve( self ): 
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def solve_transform_change( self ): 
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def compute_energy_and_maximum_distance( self ):
@@ -171,7 +172,7 @@ class FourControlsEngine(Engine) :
 	- apply deformation to all control points
 	'''
 	
-	def solve_transform_change( self ):
+	def prepare_to_solve( self ): 
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 		boundary_index, weight_function = self.boundary_index, self.weight_function
 
@@ -190,8 +191,12 @@ class FourControlsEngine(Engine) :
 			all_vertices, all_weights, all_indices = compute_all_weights_mvc( all_controls, handle_positions )
 	
 			
-		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices	
+		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
 	
+	def solve_transform_change( self ):
+		
+		transforms = self.transforms
+		all_vertices, all_weights, all_indices = self.all_vertices, self.all_weights, self.all_indices
 		result = []
 		for path_indices in all_indices:
 			path_controls = []
@@ -215,8 +220,7 @@ class TwoEndpointsEngine(Engine):
 	- apply endpoint deformation to closest interior points
 	return new control points
 	'''
-		
-	def solve_transform_change( self ):
+	def prepare_to_solve( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
 		boundary_index, weight_function = self.boundary_index, self.weight_function
 	
@@ -247,7 +251,11 @@ class TwoEndpointsEngine(Engine):
   			all_weights[ 2: : 4] = all_weights[ 3: : 4]
 			
 		self.all_vertices, self.all_weights, self.all_indices = all_vertices, all_weights, all_indices
-				
+			
+	def solve_transform_change( self ):
+
+		transforms = self.transforms
+		all_vertices, all_weights, all_indices = self.all_vertices, self.all_weights, self.all_indices		
 		result = []
 		for path_indices in all_indices:
 			path_controls = []
@@ -273,6 +281,8 @@ class JacobianEngine(Engine):
 	(n.b. not the inverse transpose of it; these are tangents, not normals)
 	return new control points 
 	'''
+	def prepare_to_solve( self ):
+		pass
 
 	def solve_transform_change( self ):
 		all_controls, handle_positions, transforms = self.all_controls, self.handle_positions, self.transforms
