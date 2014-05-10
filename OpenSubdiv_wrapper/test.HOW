@@ -1,0 +1,6 @@
+time ./subdivision_matrices test_compute_coefficients 20 > tcc20.out
+time ./subdivision_matrices test_newMesh_sparseVectors 20 > tns20.out
+time ./subdivision_matrices test_shape_utils 20 > tsu20.out
+
+echo diff tcc20.out tns20.out
+echo diff tcc20.out tsu20.out

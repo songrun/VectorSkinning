@@ -174,7 +174,7 @@ Weight type:
 <div>
 Approach type:
         <select id="engine-type" disabled>
-        <option value="ys" selected>YS</option>
+        <option value="ours" selected>Ours</option>
         <option value="fourcontrols">Four Controls</option>
         <option value="twoendpoints">Two Endpoints</option>
         <option value="jacobian">Jacobian</option>
@@ -1103,7 +1103,7 @@ function loadSVG( svg_text, filename )
     gLargestPath = null;
     gHandles = [];
     $( "#weight-function" ).val( "bbw" );
-    $( "#engine-type" ).val( "ys" );
+    $( "#engine-type" ).val( "ours" );
     $( "#usingArcLengthParameterization" ).prop( "checked", false );
     
     // Attach the SVG to its node.

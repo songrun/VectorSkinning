@@ -23,7 +23,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 	def connectionMade( self ):
 		WebSocketServerProtocol.connectionMade( self )
 		self.engine = self.factory.engine
-		self.engine_type = 'ys'
+		self.engine_type = 'ours'
 		
 		print 'CONNECTED'
 	
@@ -156,7 +156,7 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				print 'Received unknown message:', msg	
 		##################### Naive Approaches functions End ##########################
 		##################### YS Approaches functions Begin ##########################
-		elif 'ys' == self.engine_type:
+		elif 'ours' == self.engine_type:
 			if binary:
 				print 'Received unknown message: binary of length', len( msg )
 		
@@ -326,8 +326,8 @@ class WebGUIServerProtocol( WebSocketServerProtocol ):
 				print 'energy sum: ', sum( [sum( curve_energy ) for curve_energy in all_energy] )
 				e_data = asarray( [ [ max( e ), min( e ), mean( e ) ] for e in all_energy ] ).T
 				d_data = asarray( [ [ max( d ), min( d ), mean( d ) ] for d in dists ] ).T
-				print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
-				print 'distances:', max( d_data[0] ),  min( d_data[1] ), mean( d_data[2] )
+# 				print 'energy:', max( e_data[0] ),  min( e_data[1] ), mean( e_data[2] )
+				print 'distances:', max( d_data[0] )#,  min( d_data[1] ), mean( d_data[2] )
 		
 			if parameters.kComputeComparisonCurves:
 				from FitCurves.FitCurves import FitCurve
@@ -413,7 +413,7 @@ def setupWebSocket( address, engine, protocol ):
 	
 	print "Listening for WebSocket connections at:", address
 
-def build_engine( type = 'ys', copy = None ):
+def build_engine( type = 'ours', copy = None ):
 	engine = None
 	
 # 	if parameters.EngineType['YSApproach'] == parameters.kEngineType:	
@@ -426,7 +426,7 @@ def build_engine( type = 'ys', copy = None ):
 # 		engine = JacobianEngine()
 # 	else: 
 # 		raise RuntimeError("Unknown engine selected.")
-	if 'ys' == type:
+	if 'ours' == type:
 		engine = YSEngine()
 	elif 'fourcontrols' == type:
 		engine = FourControlsEngine()

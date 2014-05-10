@@ -7,7 +7,7 @@ EngineType = {
 	'TwoEndpoints' : 2,
 	'Jacobian' : 3 }
 	
-kG1andAconstraints = True
+kG1andAconstraints = False
 kClampOn = False
 kArcLengthDefault = False
 kVerbose = 2
