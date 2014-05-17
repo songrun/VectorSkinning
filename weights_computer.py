@@ -668,37 +668,33 @@ def compute_error_metric( target_path, deformed_path, path_dts, lengths ):
 	
 	return energy
 	
-def compute_maximum_distances( target_path, deformed_path ):
+def compute_maximum_distances( target_path, spline_path ):
 	'''
 	Find the approximate largest distance between a spline curve and its target curve.
-	'''	
-	assert len( target_path ) == len( deformed_path )
-	target_path, deformed_path = asarray ( target_path ), asarray( deformed_path )
-	assert target_path.shape == deformed_path.shape
+	
+	untested
+	'''
+	assert len( target_path ) == len( spline_path )
+	target_path, spline_path = asarray ( target_path ), asarray( spline_path )
+	assert target_path.shape == spline_path.shape
 	
 	distances = []
-	for target_curve, deformed_curve in zip( target_path, deformed_path ):
-		## allDistSqrs[i][j] is the distance squared from target_curve[i] to deformed_curve[j].
-		allDistSqrs = ( (deformed_curve[newaxis,...] - target_curve[:,newaxis,:])**2 ).sum(-1)
+	for target_curve, spline_curve in zip( target_path, spline_path ):
+		## allDistSqrs[i][j] is the distance squared from target_curve[i] to spline_curve[j].
+		allDistSqrs = ( (spline_curve[newaxis,...] - target_curve[:,newaxis,:])**2 ).sum(-1)
 		## Hausdorff distance is the longest shortest distance from either to either.
-		min0 = allDistSqrs.min(0)
-		min1 = allDistSqrs.min(1)
-		max0 = min0.argmax()
-		max1 = min1.argmax()
-		if min0[max0] > min1[max1]:
-			spline_index = allDistSqrs.argmin(0)[ max0 ]
-			bbw_index = max0
-			dist = sqrt( min0[max0] )
-		else:
-			spline_index = allDistSqrs.argmin(1)[ max1 ]
-			bbw_index = max1
-			dist = sqrt( min1[max1] )
+		dist2 = max( allDistSqrs.min(0).max(), allDistSqrs.min(1).max() )
+		indices = where( allDistSqrs == dist2 )
+		assert len( indices ) > 0
+		
+		target_index = indices[0][0]
+		spline_index = indices[1][0]
+		dist = sqrt( dist2 )
 		
 		distances.append({
-			'spline_pos': deformed_curve[ spline_index ].tolist(),
-			'target_pos': target_curve[ bbw_index ].tolist(),
+			'spline_pos': spline_curve[ spline_index ].tolist(),
+			'target_pos': target_curve[ target_index ].tolist(),
 			'maximum_distance': dist
 			})
 	
 	return distances		
-
