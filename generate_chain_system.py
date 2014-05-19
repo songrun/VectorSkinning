@@ -166,8 +166,7 @@ class BezierConstraintSolver( object ):
 			dof_offset += dofs
 
 		assert dof_offset == total_dofs
-		
-				
+			
 		### 5
 		dof_offset = 0
 		constraint_equation_offset = total_dofs
@@ -197,11 +196,26 @@ class BezierConstraintSolver( object ):
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = small_lagrange_system[ :, :dofs ]
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, : dofs_next ] = small_lagrange_system[ :, dofs: ]
 			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
-		
-# 		if len ( self.bundles ) == 1:
-# 			small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_single_bundle( bundles[0] )	
+			constraint_equation_offset += constraint_eqs
+			
+		else:
+			dofs_head = sum(dofs_per_bundle[0])
+			dofs_tail = sum(dofs_per_bundle[-1])
+			constraint_eqs = 2
+			
+			if lambdas_per_joint[-1] == 2:
+				small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_fixed_opening( bundles[-1], is_head = False )
+				system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs_tail  ] = small_lagrange_system
+				rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
+				constraint_equation_offset += constraint_eqs
 				
-
+			if lambdas_per_joint[0] == 2:
+				small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_fixed_opening( bundles[0], is_head = True )							
+				system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs_tail  ] = small_lagrange_system
+				rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
+				constraint_equation_offset += constraint_eqs
+				
+				
 		## Set the upper-right portion of the system matrix, too
 		system[ : total_dofs, total_dofs : ] = system.T[ : total_dofs, total_dofs : ]
 		
@@ -430,6 +444,8 @@ class BezierConstraintSolver( object ):
 		### even if some of the variables were substituted in the actual system matrix.
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 
+	def lagrange_equations_for_fixed_opening( self, bundle, is_head):
+		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle):
 		raise NotImplementedError( "This is an abstract base class. Only call this on a subclass." )
 	def system_for_curve( self, bundle ):

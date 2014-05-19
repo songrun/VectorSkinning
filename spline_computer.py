@@ -395,6 +395,7 @@ class YSEngine(Engine):
 		assert len( constraint ) == 2
 		
 		self.all_constraints[ path_index ][ joint_index ] = constraint
+
 	
 	def precompute_configuration( self ):
 		'''
