@@ -11,7 +11,7 @@
     <script src="web-gui/jquery-1.10.2.min.js" type="text/javascript"></script>
     <script src="web-gui/Blob.js" type="text/javascript"></script>
     <script src="web-gui/FileSaver.js" type="text/javascript"></script>
-    <script src="web-gui/snap.svg-min.js" type="text/javascript"></script>
+    <script src="web-gui/snap.svg-0.2.0-min.js" type="text/javascript"></script>
     
     <link rel="stylesheet" href="web-gui/bootstrap.min.css">
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css"> -->
@@ -1431,6 +1431,8 @@ function createHandleUIForSVG()
     // Also if we don't have any closed paths, allow users to click anywhere.
     ui.click( function( evt ) {
         var weightFunction = $( "#weight-function" ).val();
+        // This is driving me crazy. For some reason the handle drag event causes a
+        // click event in the SVG even when evt.stopPropagation() is called.
         if( clickable === null || weightFunction === "mvc" || weightFunction === "shepard" )
         {
             add_handle_click( evt );
