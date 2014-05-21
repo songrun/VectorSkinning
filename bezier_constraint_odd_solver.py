@@ -77,7 +77,42 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		return solution	
 			
-	
+	def lagrange_equations_for_fixed_opening( self, bundle, is_head ):
+		## handle the case of open end path.
+		dofs = self.compute_dofs_per_curve(bundle)
+		dim = 2
+		
+		R = zeros( ( sum(dofs), dim ) )
+		rhs = zeros(R.shape[1])
+		
+		if is_head: 
+# 			assert bundle.constraints[0][1] == True
+			fixed_positions = bundle.control_points[0][:2]
+			fixed_positions = asarray(fixed_positions)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P1x' - constraint_X' ) = 0
+			lambda2 * ( P1y' - constraint_Y' ) = 0
+			'''
+			for i in range( dim ):
+				R[i*4, i] = 1
+		
+			rhs = fixed_positions
+		else:
+# 			assert bundle.constraints[-1][1] == True
+			fixed_positions = bundle.control_points[-1][:2]
+			fixed_positions = asarray(fixed_positions)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			for i in range( dim ):
+				R[i*4+3, i] = 1
+		
+			rhs = fixed_positions
+				
+		return R.T, rhs
 	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
@@ -165,12 +200,12 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 		rhs = zeros(R.shape[1])
 		
-		fixed = bundle0.control_points[-1][:2]
+		fixed_positions = bundle0.control_points[-1][:2]
 		is_fixed = bundle0.constraints[1][1]
 		assert type( is_fixed ) == bool
 		if is_fixed:
 
-			fixed = asarray(fixed)
+			fixed_positions = asarray(fixed_positions)
 			'''
 			Boundary Conditions are as follows:
 			lambda1 * ( P4x' - constraint_X' ) = 0
@@ -181,9 +216,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 				R2[i*4+3, i] = 1
 		
 			R = concatenate((R, R2), axis=1)
-			rhs = concatenate((rhs, fixed))
-			
-		## handle the case of open end path.
+			rhs = concatenate((rhs, fixed_positions))
 	
 		return R.T, rhs
 		
@@ -242,7 +275,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		'''
 		assume open end points can only emerge at the endpoints
 		'''
-		for i, (smoothness, fixed) in enumerate(bundle.constraints):
+		for i, (smoothness, is_fixed) in enumerate(bundle.constraints):
 			if smoothness == 'C0': dofs[i] += 4			## C0
 			elif smoothness == 'A': dofs[i] += 4		## fixed angle
 			elif smoothness == 'C1': dofs[i] += 4		## C1

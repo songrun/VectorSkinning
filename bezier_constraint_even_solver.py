@@ -93,6 +93,43 @@ class BezierConstraintSolverEven( BezierConstraintSolver ):
 		if parameters.kClampOn == True: result = clamp_solution( self.bundles, result )
 		return result	
 	
+
+	def lagrange_equations_for_fixed_opening( self, bundle, is_head ):
+		## handle the case of open end path.
+		dofs = self.compute_dofs_per_curve(bundle)
+		dim = 2
+		
+		R = zeros( ( sum(dofs), dim ) )
+		rhs = zeros(R.shape[1])
+		
+		if is_head: 
+# 			assert bundle.constraints[0][1] == True
+			fixed_positions = bundle.control_points[0][:2]
+			fixed_positions = asarray(fixed_positions)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P1x' - constraint_X' ) = 0
+			lambda2 * ( P1y' - constraint_Y' ) = 0
+			'''
+			R[ : dim, :] = identity(dim)
+		
+			rhs = fixed_positions
+		else:
+# 			assert bundle.constraints[-1][1] == True
+			fixed_positions = bundle.control_points[-1][:2]
+			fixed_positions = asarray(fixed_positions)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			R[sum(dofs)-dim : sum(dofs), :] = identity(dim)
+		
+			rhs = fixed_positions
+				
+		return R.T, rhs
+	
+	
 	def lagrange_equations_for_curve_constraints( self, bundle0, bundle1, angle ):
 		mag0, mag1 = bundle0.magnitudes[1], bundle1.magnitudes[0]
 		dim = 2
