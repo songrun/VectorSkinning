@@ -39,10 +39,14 @@ def shepard_fast( vs, skeleton_handle_vertices ):
 	
 	return diffs
 
-artboard = zeros( ( 30, 100, 3 ) )
+xdpi = 9.
+artboard = zeros( ( 30*xdpi, 100*xdpi, 3 ) )
 w = where( ones( artboard.shape[:2], dtype = bool ) )
-weights = shepard_fast( array( w ).T, array([ ( 20, 10 ), ( 20, 90 ), ( 12.585, 50 ) ]) )
+weights = shepard_fast( array( w ).T, xdpi*array([ ( 20, 10 ), ( 20, 90 ), ( 12.585, 50 ) ]) )
 artboard[:,:,0][ w ] = weights[:,2]
+## Other handles green
+#artboard[:,:,1:2] = ( 1-artboard[:,:,0] )[...,newaxis]
+## Other handles cyan
 artboard[:,:,1:] = ( 1-artboard[:,:,0] )[...,newaxis]
 
 import Image
