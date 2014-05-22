@@ -186,6 +186,8 @@ Approach type:
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 <div class="checkbox"><label>C1-only while dragging <input id="c1-while-dragging" type="checkbox"/></label></div>
+<button type="button" id="record" class="btn btn-default" disabled style="margin-bottom: 20px">Record</button>
+<button type="button" id="play" class="btn btn-default" disabled style="margin-bottom: 20px">Play</button>
 
 <hr>
 
@@ -211,6 +213,7 @@ var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
 var kFakeWebSocket = false;
 var kShowDistance = true;
+var kRecordFPS = 30;
 
 
 ///
@@ -223,12 +226,16 @@ var gPathsControlPointConstraints = null;
 var gLargestPath = null;
 // An array of handles, where each handle is a dictionary { 'pos': [ x,y ], 'transform': Snap.Matrix }
 var gHandles = [];
+// An array of handle transforms over time. If a handle is ever deleted, this array must be cleared.
+var gHandleAnimation = [];
 // The WebSocket.
 var gSocket = null;
 // enable bbw
 // UPDATE: Access this via: $('#weight-function').val()
 // var isBBWEnabled = true;
-
+var gRecordingCallback = null;
+var gAnimationFrameIndex = 0;
+var gAnimationPlaying = false;
 
 ///
 /// Global functions.
@@ -781,12 +788,7 @@ function sendHandlePositionsAndTransforms()
         var M = gHandles[i].transform;
         handle_positions_and_transforms.push([
             gHandles[i].pos,
-            // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
-            // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
-            // (The third row is assumed to always be [ 0, 0, 1 ].)
-            // This is all assuming that the matrix M is multiplied by a column
-            // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
-            [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+            getHandleTransform(i)
             ]);
     }
     
@@ -822,12 +824,7 @@ function sendHandleTransformations( handle_indices )
         
         payload.push([
             handle_index,
-            // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
-            // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
-            // (The third row is assumed to always be [ 0, 0, 1 ].)
-            // This is all assuming that the matrix M is multiplied by a column
-            // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
-            [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+            getHandleTransform( handle_index )
             ]);
     }
     
@@ -1027,6 +1024,7 @@ function globalsToJSON()
     globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
+    globals.gHandleAnimation = gHandleAnimation;
     
     return JSON.stringify( globals );
 }
@@ -1089,6 +1087,11 @@ function loadGlobals( globals )
             setHandleTransform( handle_index, handle.transform )
         }
         sendHandlePositionsAndTransforms();
+    }
+    
+    if( globals.gHandleAnimation !== undefined )
+    {
+        gHandleAnimation = globals.gHandleAnimation;
     }
 }
 function loadSVG( svg_text, filename )
@@ -1593,12 +1596,23 @@ function setHandleTransform( handle_index, M )
     var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
     Snap( rect ).transform( matrix );
 }
+function getHandleTransform( handle_index )
+{
+    var M = gHandles[handle_index].transform;
+    // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
+    // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
+    // (The third row is assumed to always be [ 0, 0, 1 ].)
+    // This is all assuming that the matrix M is multiplied by a column
+    // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
+    return [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]];
+}
 function deleteHandle( handle_index )
 {
     "use strict";
     
     // Delete it.
     gHandles.splice( handle_index, 1 );
+    for( var frame = 0; frame < gHandleAnimation.length; ++frame ) gHandleAnimation[ frame ].splice( handle_index, 1 );
     
     // Update the GUI.
     // Delete the rects at (handle_index*2) and (handle_index*2 + 1).
@@ -1804,6 +1818,35 @@ function setupGlobalUI()
         }
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
+    
+    $("#record").click( function() {
+        if( $(this).text() === "Record" ) {
+            $(this).text( "Stop Recording" );
+            // Record from the beginning.
+            gAnimationFrameIndex = 0;
+            // The recording callback:
+            gRecordingCB = setInterval( function() {
+                // Gather the transforms.
+                var transforms = [];
+                for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
+                {
+                    transforms.append( getHandleTransform( handle_index ) );
+                }
+                // Set the animation's transforms.
+                gHandleAnimation[ gAnimationFrameIndex ] = transforms;
+                gAnimationFrameIndex += 1;
+                }, 1000./kRecordFPS );
+        } else {
+            // Stop the callback.
+            clearInterval( gRecordingCallback );
+            $(this).text( "Record" );
+        }
+        } );
+    $("#play").click( function() {
+        if( $(this).text() == "Play" ) {
+            
+        }
+        } );
     
     // Reconnect button.
     $('#reconnect-button').click( function() {
