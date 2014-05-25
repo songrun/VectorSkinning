@@ -13,6 +13,10 @@
     <script src="web-gui/FileSaver.js" type="text/javascript"></script>
     <script src="web-gui/snap.svg-0.2.0-min.js" type="text/javascript"></script>
     
+    <script src="web-gui/html5slider.js" type="text/javascript"></script>
+    <script src="web-gui/number-polyfill.min.js" type="text/javascript"></script>
+    <link rel='stylesheet' href='web-gui/number-polyfill.css' />
+    
     <link rel="stylesheet" href="web-gui/bootstrap.min.css">
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css"> -->
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css"> -->
@@ -186,10 +190,13 @@ Approach type:
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 <div class="checkbox"><label>C1-only while dragging <input id="c1-while-dragging" type="checkbox"/></label></div>
-<button type="button" id="record" class="btn btn-default" style="margin-bottom: 20px">Record</button>
-<button type="button" id="rewind" class="btn btn-default" style="margin-bottom: 20px">Rewind</button>
-<button type="button" id="erase" class="btn btn-default" style="margin-bottom: 20px">Erase</button>
+<button type="button" id="record-start" class="btn btn-default" style="margin-bottom: 20px">Record</button>
+<button type="button" id="record-pause" class="btn btn-default" style="margin-bottom: 20px">Pause</button>
+<button type="button" id="record-erase" class="btn btn-default" style="margin-bottom: 20px">Erase</button>
+<input  type="range"  id="record-slider" min="0" max="0" step="1" value="0" />
+<input  type="number" id="record-slider-number" min="0" max="0" step="1" value="0" />
 <button type="button" id="record-undo" class="btn btn-default" style="margin-bottom: 20px">Undo</button>
+<button type="button" id="record-redo" class="btn btn-default" style="margin-bottom: 20px">Redo</button>
 
 <hr>
 
@@ -228,45 +235,47 @@ var gPathsControlPointConstraints = null;
 var gLargestPath = null;
 // An array of handles, where each handle is a dictionary { 'pos': [ x,y ], 'transform': Snap.Matrix }
 var gHandles = [];
-// An array of handle transforms over time. If a handle is ever deleted, this array must be cleared.
-var gHandleAnimation = [];
 // The WebSocket.
 var gSocket = null;
 // enable bbw
 // UPDATE: Access this via: $('#weight-function').val()
 // var isBBWEnabled = true;
-var gRecordingCallback = null;
-var gAnimationFrameIndex = 0;
 var gDraggingHandleIndex = null;
 
 ///
 /// Modules
 ///
-function CreateUndoManager( the_buffer_size, make_deep_copies, the_undo_button_id, the_redo_button_id ) {
+function CreateUndoManager( params ) {
     /*
-    Given a buffer size,
-    boolean make_deep_copies,
-    and two optional HTML id's for the undo and redo buttons,
+    Given a dictionary with parameters:
+        int buffer_size,
+        function copier,
+        HTML node id undo_button_id,
+        HTML node id redo_button_id
     creates a new UndoManager object with the methods: undo()/redo()/save(),
     all of which take a 'current_state' parameter, and the method clear(), which takes no parameters.
-    A negative buffer size is interpreted as unlimited.
-    If the boolean 'make_deep_copies' is true, then a deep copy of the 'current_state' parameter
-    to undo/redo/save will be saved (by JSON stringify'ing and un-stringify'ing).
+    A negative buffer size is interpreted as unlimited (default -1).
+    If the 'copier' parameter is specified, it is used to copy state objects. The default
+    is to make a deep copy by JSON stringify'ing and un-stringify'ing.
     If the optional button id parameters are specified, then they will be dynamically disabled and enabled.
     */
     
-    var buffer_size = buffer_size;
+    // Default
+    var kDefaults = {
+         'buffer_size': -1,
+         'copier': function( state ) { return JSON.parse( JSON.stringify( state ) ); }
+    };
+    if( params === undefined ) params = {};
+    for( var key in kDefaults )
+    {
+        if( params.key === undefined ) params.key = kDefaults.key;
+    }
     
-    var copy;
+    var buffer_size = params.buffer_size;
+    var copy = params.copier;
     
-    // If 'make_deep_copies' is true, then we stringify and un-stringify new states we receive.
-    if( make_deep_copies )
-        copy = function( state ) { return JSON.parse( JSON.stringify( state ) ); };
-    else
-        copy = function( state ) { return state; };
-    
-    var undo_button_id = undo_button_id;
-    var redo_button_id = redo_button_id;
+    var undo_button_id = params.undo_button_id;
+    var redo_button_id = params.redo_button_id;
     var undo_buffer = [];
     var redo_buffer = [];
     
@@ -314,31 +323,173 @@ function CreateUndoManager( the_buffer_size, make_deep_copies, the_undo_button_i
     
     return m;
     };
-var Recorder = (function(){
+var gAnimationRecorder = (function(){
     var m = {};
     
-    // Instance variables.
-    m.frameIndex = 0;
-    m.frames = [];
-    m.undoManager = CreateUndoManager( 3, true, 'record-undo', 'record-redo' );
+    // Public Instance variables.
     
-    m.startRecording() = function() {};
-    m.pauseRecording() = function() {};
-    m.eraseRecording() = function() {};
+    // Private instance variables.
+    var frameIndex = 0;
+    var frames = [];
+    var recordingCallback = null;
+    var undoManager = CreateUndoManager({
+        'buffer_size': 3,
+        'copier': function( state ) {
+            result = [];
+            for( var frame_index = 0; frame_index < state.length; ++frame_index )
+            {
+                var handles = state[frame_index];
+                result[frame_index] = [];
+                for( var handle_index = 0; handle_index < handles.length; ++handle_index )
+                {
+                    var M = handles[handle_index];
+                    var Mcopy = {};
+                    
+                    // Copy all its properties.
+                    for( var key in M ) Mcopy.key = M.key;
+                    
+                    result[frame_index][handle_index] = Mcopy;
+                }
+            }
+            return result;
+            },
+        'undo_button_id': 'record-undo',
+        'redo_button_id': 'record-redo'
+        });
+    
+    // Public Methods.
+    m.startRecording = function() {
+        if( recordingCallback !== null ) return;
+        
+        undoManager.save( frames );
+        
+        $("#record-start").hide();
+        $("#record-pause").show();
+        
+        // The recording callback:
+        recordingCallback = setInterval( function() {
+            // Record the current transforms.
+            recordCurrentHandleTransforms();
+            
+            // Copy over the next frame's transforms from the previous recording.
+            m.moveToFrameIndex( frameIndex+1 );
+            
+            }, 1000./kRecordFPS );
+    };
+    m.pauseRecording = function() {
+        // Ensure the right buttons are shown.
+        // Do this before checking if "recordingCallback === null",
+        // because init() relies on this function to setup the buttons.
+        $("#record-start").show();
+        $("#record-pause").hide();
+        
+        if( recordingCallback === null ) return;
+        
+        // Stop the callback.
+        clearInterval( recordingCallback );
+        recordingCallback = null;
+    };
+    m.getFrameIndex = function() { return frameIndex; };
+    m.moveToFrameIndex = function( new_frame_index ) {
+        frameIndex = new_frame_index;
+        setSlider();
+        if( new_frame_index >= frames.length ) return;
+        
+        var changed_handle_indices = [];
+        for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
+        {
+            // Skip the currently dragged handle index.
+            if( handle_index === gDraggingHandleIndex ) continue;
+            
+            var transform = frames[ new_frame_index ][ handle_index ];
+            if( transformDictionariesAreEqual( getHandleTransformAsObject( handle_index ), transform ) ) continue;
+            
+            changed_handle_indices.push( handle_index );
+            setHandleTransformFromDictionary( handle_index, transform );
+        }
+        sendHandleTransformations( changed_handle_indices );
+    };
+    m.eraseRecording = function() {
+        m.pauseRecording();
+        if( frames.length > 0 ) undoManager.save( frames );
+        frames = [];
+        frameIndex = 0;
+        setSlider();
+    };
     m.saveGlobalsToDict = function( d ) {
-        d.frames = m.frames;
+        d.animationFrames = frames;
     };
     m.loadGlobalsFromDict = function( d ) {
-        m.frameIndex = 0;
+        m.pauseRecording();
         
-        if( d.frames !== undefined ) {
-            m.frames = d.frames;
+        frameIndex = 0;
+        
+        if( d.animationFrames !== undefined ) {
+            frames = d.animationFrames;
         } else {
-            m.frames = [];
+            frames = [];
         }
         
-        m.undoManager.clear();
+        undoManager.clear();
+        setSlider();
         };
+    m.init = function() {
+        m.loadGlobalsFromDict( {} );
+    };
+    m.undo = function() {
+        m.pauseRecording();
+        frames = undoManager.undo( frames );
+        frameIndex = Math.min( frames.length, frameIndex );
+        setSlider();
+    };
+    m.redo = function() {
+        m.pauseRecording();
+        frames = undoManager.redo( frames );
+        frameIndex = Math.min( frames.length, frameIndex );
+        setSlider();
+    };
+    m.deleteHandleIndex = function( handle_index ) {
+        // The undo history becomes invalid.
+        undoManager.clear();
+        for( var frame_index = 0; frame_index < frames.length; ++frame_index ) frames[ frame_index ].splice( handle_index, 1 );
+    };
+    m.addNewHandle = function() {
+        // The undo history becomes invalid.
+        undoManager.clear();
+        for( var frame_index = 0; frame_index < frames.length; ++frame_index ) frames[ frame_index ].push( new Snap.Matrix() );
+    };
+    
+    // Private methods.
+    function recordCurrentHandleTransforms()
+    {
+        // Gather the transforms.
+        var transforms = [];
+        for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
+        {
+            // Make a copy of them, because the originals will be mutated.
+            transforms.push( getHandleTransformAsObject( handle_index ).clone() );
+        }
+        // Set the animation's transforms.
+        frames[ frameIndex ] = transforms;
+    }
+    function setSlider()
+    {
+        var slider = $("#record-slider,#record-slider-number");
+        slider.prop( 'min', 0 );
+        slider.prop( 'max', frames.length-1 );
+        slider.prop( 'step', 1 );
+        slider.val( frameIndex );
+    }
+    function transformDictionariesAreEqual( lhs, rhs )
+    {
+        return(
+            lhs.a === rhs.a &&
+            lhs.b === rhs.b &&
+            lhs.c === rhs.c &&
+            lhs.d === rhs.d &&
+            lhs.e === rhs.e &&
+            lhs.f === rhs.f );
+    }
     
     return m;
     })();
@@ -346,94 +497,6 @@ var Recorder = (function(){
 ///
 /// Global functions.
 ///
-function isRecording()
-{
-    return gRecordingCallback !== null;
-}
-function startRecording()
-{
-    if( isRecording() ) return;
-    
-    gHandleAnimationUndoBuffer = JSON.parse( JSON.stringify( gHandleAnimation ) );
-    
-    var button = $("#record");
-    button.text( "Stop Recording" );
-    // The recording callback:
-    gRecordingCallback = setInterval( function() {
-        // Record the current transforms.
-        recordCurrentHandleTransforms();
-        
-        // Increment the frame.
-        gAnimationFrameIndex += 1;
-        
-        // Copy over the next frame's transforms from the previous recording.
-        playHandleTransformsForFrameExceptUserDragging( gAnimationFrameIndex );
-        
-        }, 1000./kRecordFPS );
-}
-function 
-function recordCurrentHandleTransforms()
-{
-    // Gather the transforms.
-    var transforms = [];
-    for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
-    {
-        transforms.push( getHandleTransform( handle_index ) );
-    }
-    // Set the animation's transforms.
-    gHandleAnimation[ gAnimationFrameIndex ] = transforms;
-}
-function stopRecording()
-{
-    if( !isRecording() ) return;
-    
-    // Stop the callback.
-    clearInterval( gRecordingCallback );
-    gRecordingCallback = null;
-    
-    $("#record").text( "Record" );
-}
-function rewindRecording()
-{
-    // Record from the beginning.
-    gAnimationFrameIndex = 0;
-    playHandleTransformsForFrameExceptUserDragging( gAnimationFrameIndex );
-}
-function eraseRecording()
-{
-    if( gHandleAnimation.length === 0 ) return;
-    
-    stopRecording();
-    gHandleAnimationUndoBuffer = gHandleAnimation;
-    gHandleAnimation = [];
-}
-function undoRecording()
-{
-    stopRecording();
-    rewindRecording();
-    var temp = JSON.parse( JSON.stringify( gHandleAnimation ) );
-    gHandleAnimation = gHandleAnimationUndoBuffer;
-    gHandleAnimationUndoBuffer = temp;
-}
-function playHandleTransformsForFrameExceptUserDragging( frame_index )
-{
-    if( frame_index >= gHandleAnimation.length ) return;
-    
-    var changed_handle_indices = [];
-    for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
-    {
-        // Skip the currently dragged handle index.
-        if( handle_index === gDraggingHandleIndex ) continue;
-        
-        var transform = gHandleAnimation[ frame_index ][ handle_index ];
-        if( JSON.stringify( getHandleTransform( handle_index ) ) === JSON.stringify( transform ) ) continue;
-        
-        changed_handle_indices.push( handle_index );
-        setHandleTransform( handle_index, transform );
-    }
-    sendHandleTransformations( changed_handle_indices );
-}
-
 function isDroppable( evt )
 {
     var files = evt.dataTransfer.files;
@@ -982,7 +1045,7 @@ function sendHandlePositionsAndTransforms()
         var M = gHandles[i].transform;
         handle_positions_and_transforms.push([
             gHandles[i].pos,
-            getHandleTransform(i)
+            getHandleTransformAsArray(i)
             ]);
     }
     
@@ -1018,7 +1081,7 @@ function sendHandleTransformations( handle_indices )
         
         payload.push([
             handle_index,
-            getHandleTransform( handle_index )
+            getHandleTransformAsArray( handle_index )
             ]);
     }
     
@@ -1124,9 +1187,6 @@ function setupFileIO()
         
         if( !isDroppable( evt ) ) return;
         
-        stopRecording();
-        rewindRecording();
-        
         // In the first pass, parse SVG.
         for( var i = 0; i < evt.dataTransfer.files.length; ++i )
         {
@@ -1139,6 +1199,7 @@ function setupFileIO()
                         var svg_text = evt.target.result;
                         
                         loadSVG( svg_text, file.name );
+                        gAnimationRecorder.init();
                     }
                     }
                 
@@ -1221,7 +1282,7 @@ function globalsToJSON()
     globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
-    globals.gHandleAnimation = gHandleAnimation;
+    gAnimationRecorder.saveGlobalsToDict( globals );
     
     return JSON.stringify( globals );
 }
@@ -1281,15 +1342,12 @@ function loadGlobals( globals )
         {
             var handle = globals.gHandles[ handle_index ];
             createHandleAtPosition( handle.pos[0], handle.pos[1] );
-            setHandleTransform( handle_index, handle.transform )
+            setHandleTransformFromDictionary( handle_index, handle.transform )
         }
         sendHandlePositionsAndTransforms();
     }
     
-    if( globals.gHandleAnimation !== undefined )
-    {
-        gHandleAnimation = globals.gHandleAnimation;
-    }
+    gAnimationRecorder.loadGlobalsFromDict( globals );
 }
 function loadSVG( svg_text, filename )
 {
@@ -1677,6 +1735,7 @@ function createHandleAtPosition( x, y )
     //       click and drag callbacks won't be able to find themselves.
     var posKey = [ x, y ];
     gHandles.push( { 'pos': posKey, 'transform': new Snap.Matrix() } );
+    gAnimationRecorder.addNewHandle();
     setupHandleControls( gHandles.length - 1 );
     
     // If the user deletes a handle, we need a way to find ourselves.
@@ -1788,14 +1847,14 @@ function createHandleAtPosition( x, y )
 }
 // Sets the transform for a handle.
 // NOTE: This does not call sendHandleTransformation(). Call that yourself, afterwards.
-function setHandleTransform( handle_index, M )
+function setHandleTransformFromDictionary( handle_index, M )
 {
     var matrix = new Snap.Matrix( M.a, M.b, M.c, M.d, M.e, M.f );
     gHandles[ handle_index ].transform = matrix;
     var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
     Snap( rect ).transform( matrix );
 }
-function getHandleTransform( handle_index )
+function getHandleTransformAsArray( handle_index )
 {
     var M = gHandles[handle_index].transform;
     // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
@@ -1805,13 +1864,17 @@ function getHandleTransform( handle_index )
     // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
     return [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]];
 }
+function getHandleTransformAsObject( handle_index )
+{
+    return gHandles[handle_index].transform;
+}
 function deleteHandle( handle_index )
 {
     "use strict";
     
     // Delete it.
     gHandles.splice( handle_index, 1 );
-    for( var frame = 0; frame < gHandleAnimation.length; ++frame ) gHandleAnimation[ frame ].splice( handle_index, 1 );
+    gAnimationRecorder.deleteHandleIndex( handle_index );
     
     // Update the GUI.
     // Delete the rects at (handle_index*2) and (handle_index*2 + 1).
@@ -1969,7 +2032,7 @@ function setupGlobalUI()
         var M = gHandles[ handle_index ].transform;
         
         M[which] = parseFloat( $(this).val() );
-        setHandleTransform( handle_index, M );
+        setHandleTransformFromDictionary( handle_index, M );
         
         sendHandleTransformation( handle_index );
         } );
@@ -2018,16 +2081,13 @@ function setupGlobalUI()
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
     
-    $("#record").click( function() {
-        if( !isRecording() ) {
-            startRecording();
-        } else {
-            stopRecording();
-        }
-        } );
-    $("#erase").click( eraseRecording );
-    $("#rewind").click( rewindRecording );
-    $("#record-undo").click( undoRecording );
+    $("#record-start").click( function() { gAnimationRecorder.startRecording(); } );
+    $("#record-pause").click( function() { gAnimationRecorder.pauseRecording(); } );
+    $("#record-erase").click( function() { gAnimationRecorder.eraseRecording(); } );
+    $("#record-slider,#record-slider-number").change( function() { gAnimationRecorder.moveToFrameIndex( parseInt( $(this).val() ) ); } );
+    $("#record-undo").click( function() { gAnimationRecorder.undo(); } );
+    $("#record-redo").click( function() { gAnimationRecorder.redo(); } );
+    gAnimationRecorder.init();
     
     // Reconnect button.
     $('#reconnect-button').click( function() {
