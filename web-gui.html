@@ -11,7 +11,11 @@
     <script src="web-gui/jquery-1.10.2.min.js" type="text/javascript"></script>
     <script src="web-gui/Blob.js" type="text/javascript"></script>
     <script src="web-gui/FileSaver.js" type="text/javascript"></script>
-    <script src="web-gui/snap.svg-min.js" type="text/javascript"></script>
+    <script src="web-gui/snap.svg-0.2.0-min.js" type="text/javascript"></script>
+    
+    <script src="web-gui/html5slider.js" type="text/javascript"></script>
+    <script src="web-gui/number-polyfill.min.js" type="text/javascript"></script>
+    <link rel='stylesheet' href='web-gui/number-polyfill.css' />
     
     <link rel="stylesheet" href="web-gui/bootstrap.min.css">
     <!-- <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css"> -->
@@ -186,6 +190,13 @@ Approach type:
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 <div class="checkbox"><label>C1-only while dragging <input id="c1-while-dragging" type="checkbox"/></label></div>
+<button type="button" id="record-start" class="btn btn-default" style="margin-bottom: 20px">Play and Record</button>
+<button type="button" id="record-pause" class="btn btn-default" style="margin-bottom: 20px">Pause</button>
+<button type="button" id="record-erase" class="btn btn-default" style="margin-bottom: 20px">Erase</button>
+<input  type="range"  id="record-slider" min="0" max="0" step="1" value="0" />
+<input  type="number" id="record-slider-number" min="0" max="0" step="1" value="0" />
+<button type="button" id="record-undo" class="btn btn-default" style="margin-bottom: 20px; display: none;">Undo</button>
+<button type="button" id="record-redo" class="btn btn-default" style="margin-bottom: 20px; display: none;">Redo</button>
 
 <hr>
 
@@ -228,7 +239,263 @@ var gSocket = null;
 // enable bbw
 // UPDATE: Access this via: $('#weight-function').val()
 // var isBBWEnabled = true;
+var gDraggingHandleIndex = null;
 
+///
+/// Modules
+///
+function CreateUndoManager( params ) {
+    /*
+    Given a dictionary with parameters:
+        int buffer_size,
+        function copier,
+        HTML node id undo_button_id,
+        HTML node id redo_button_id
+    creates a new UndoManager object with the methods: undo()/redo()/save(),
+    all of which take a 'current_state' parameter, and the method clear(), which takes no parameters.
+    A negative buffer size is interpreted as unlimited (default -1).
+    If the 'copier' parameter is specified, it is used to copy state objects. The default
+    is to make a deep copy by JSON stringify'ing and un-stringify'ing.
+    If the optional button id parameters are specified, then they will be dynamically disabled and enabled.
+    */
+    
+    // Default
+    var kDefaults = {
+         'buffer_size': -1,
+         'copier': function( state ) { return JSON.parse( JSON.stringify( state ) ); }
+    };
+    if( params === undefined ) params = {};
+    for( var key in kDefaults )
+    {
+        if( params.key === undefined ) params.key = kDefaults.key;
+    }
+    
+    var buffer_size = params.buffer_size;
+    var copy = params.copier;
+    
+    var undo_button_id = params.undo_button_id;
+    var redo_button_id = params.redo_button_id;
+    var undo_buffer = [];
+    var redo_buffer = [];
+    
+    var m = {};
+    
+    // Methods
+    m.undo = function( current_state ) {
+        redo_buffer.push( copy( current_state ) );
+        result = undo_buffer.pop();
+        if( undo_button_id !== undefined ) $(undo_button_id).prop( 'disabled', undo_buffer.length === 0 );
+        return result;
+    };
+    
+    m.redo = function( current_state ) {
+        undo_buffer.push( copy( current_state ) );
+        result = redo_buffer.pop();
+        if( redo_button_id !== undefined ) $(redo_button_id).prop( 'disabled', redo_buffer.length === 0 );
+        return result;
+    };
+    
+    m.save = function( current_state ) {
+        undo_buffer.push( copy( current_state ) );
+        redo_buffer.length = 0;
+        if( redo_button_id !== undefined ) $(redo_button_id).prop( 'disabled', true );
+        if( undo_button_id !== undefined ) $(undo_button_id).prop( 'disabled', false );
+        
+        // This is the place to enforce the maximum buffer size.
+        if( buffer_size >= 0 && undo_buffer.length > buffer_size )
+        {
+            undo_buffer.splice( 0, undo_buffer.length - buffer_size );
+        }
+    };
+    
+    m.clear = function() {
+        undo_buffer.length = 0;
+        redo_buffer.length = 0;
+        
+        // Both buttons start out disabled, because we have nothing in our buffers.
+        if( redo_button_id !== undefined ) $(redo_button_id).prop( 'disabled', true );
+        if( undo_button_id !== undefined ) $(undo_button_id).prop( 'disabled', true );
+    };
+    
+    // Enable/disable the buttons.
+    m.clear();
+    
+    return m;
+    };
+var gAnimationRecorder = (function(){
+    var m = {};
+    
+    // Private constants.
+    var kRecordFPS = 60;
+    
+    // Public Instance variables.
+    
+    // Private instance variables.
+    var frameIndex = 0;
+    var frames = [];
+    var recordingCallback = null;
+    var undoManager = CreateUndoManager({
+        // This isn't working, so make the buffer size 0 for now.
+        'buffer_size': 0, // 3,
+        'copier': function( state ) {
+            result = [];
+            for( var frame_index = 0; frame_index < state.length; ++frame_index )
+            {
+                var handles = state[frame_index];
+                result[frame_index] = [];
+                for( var handle_index = 0; handle_index < handles.length; ++handle_index )
+                {
+                    var M = handles[handle_index];
+                    var Mcopy = {};
+                    
+                    // Copy all its properties.
+                    for( var key in M ) Mcopy.key = M.key;
+                    
+                    result[frame_index][handle_index] = Mcopy;
+                }
+            }
+            return result;
+            },
+        'undo_button_id': 'record-undo',
+        'redo_button_id': 'record-redo'
+        });
+    
+    // Public Methods.
+    m.startRecording = function() {
+        if( recordingCallback !== null ) return;
+        
+        undoManager.save( frames );
+        
+        $("#record-start").hide();
+        $("#record-pause").show();
+        
+        // The recording callback:
+        recordingCallback = setInterval( function() {
+            // Record the current transforms.
+            recordCurrentHandleTransforms();
+            
+            // Copy over the next frame's transforms from the previous recording.
+            m.moveToFrameIndex( frameIndex+1 );
+            
+            }, 1000./kRecordFPS );
+    };
+    m.pauseRecording = function() {
+        // Ensure the right buttons are shown.
+        // Do this before checking if "recordingCallback === null",
+        // because init() relies on this function to setup the buttons.
+        $("#record-start").show();
+        $("#record-pause").hide();
+        
+        if( recordingCallback === null ) return;
+        
+        // Stop the callback.
+        clearInterval( recordingCallback );
+        recordingCallback = null;
+    };
+    m.getFrameIndex = function() { return frameIndex; };
+    m.moveToFrameIndex = function( new_frame_index ) {
+        frameIndex = new_frame_index;
+        setSlider();
+        if( new_frame_index >= frames.length ) return;
+        
+        var changed_handle_indices = [];
+        for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
+        {
+            // Skip the currently dragged handle index.
+            if( handle_index === gDraggingHandleIndex ) continue;
+            
+            var transform = frames[ new_frame_index ][ handle_index ];
+            if( transformDictionariesAreEqual( getHandleTransformAsObject( handle_index ), transform ) ) continue;
+            
+            changed_handle_indices.push( handle_index );
+            setHandleTransformFromDictionary( handle_index, transform );
+        }
+        sendHandleTransformations( changed_handle_indices );
+    };
+    m.eraseRecording = function() {
+        m.pauseRecording();
+        if( frames.length > 0 ) undoManager.save( frames );
+        frames = [];
+        frameIndex = 0;
+        setSlider();
+    };
+    m.saveGlobalsToDict = function( d ) {
+        d.animationFrames = frames;
+    };
+    m.loadGlobalsFromDict = function( d ) {
+        m.pauseRecording();
+        
+        frameIndex = 0;
+        
+        if( d.animationFrames !== undefined ) {
+            frames = d.animationFrames;
+        } else {
+            frames = [];
+        }
+        
+        undoManager.clear();
+        setSlider();
+        };
+    m.init = function() {
+        m.loadGlobalsFromDict( {} );
+    };
+    m.undo = function() {
+        m.pauseRecording();
+        frames = undoManager.undo( frames );
+        frameIndex = Math.min( frames.length, frameIndex );
+        setSlider();
+    };
+    m.redo = function() {
+        m.pauseRecording();
+        frames = undoManager.redo( frames );
+        frameIndex = Math.min( frames.length, frameIndex );
+        setSlider();
+    };
+    m.deleteHandleIndex = function( handle_index ) {
+        // The undo history becomes invalid.
+        undoManager.clear();
+        for( var frame_index = 0; frame_index < frames.length; ++frame_index ) frames[ frame_index ].splice( handle_index, 1 );
+    };
+    m.addNewHandle = function() {
+        // The undo history becomes invalid.
+        undoManager.clear();
+        for( var frame_index = 0; frame_index < frames.length; ++frame_index ) frames[ frame_index ].push( new Snap.Matrix() );
+    };
+    
+    // Private methods.
+    function recordCurrentHandleTransforms()
+    {
+        // Gather the transforms.
+        var transforms = [];
+        for( var handle_index = 0; handle_index < gHandles.length; ++handle_index )
+        {
+            // Make a copy of them, because the originals will be mutated.
+            transforms.push( getHandleTransformAsObject( handle_index ).clone() );
+        }
+        // Set the animation's transforms.
+        frames[ frameIndex ] = transforms;
+    }
+    function setSlider()
+    {
+        var slider = $("#record-slider,#record-slider-number");
+        slider.prop( 'min', 0 );
+        slider.prop( 'max', frames.length-1 );
+        slider.prop( 'step', 1 );
+        slider.val( frameIndex );
+    }
+    function transformDictionariesAreEqual( lhs, rhs )
+    {
+        return(
+            lhs.a === rhs.a &&
+            lhs.b === rhs.b &&
+            lhs.c === rhs.c &&
+            lhs.d === rhs.d &&
+            lhs.e === rhs.e &&
+            lhs.f === rhs.f );
+    }
+    
+    return m;
+    })();
 
 ///
 /// Global functions.
@@ -781,12 +1048,7 @@ function sendHandlePositionsAndTransforms()
         var M = gHandles[i].transform;
         handle_positions_and_transforms.push([
             gHandles[i].pos,
-            // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
-            // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
-            // (The third row is assumed to always be [ 0, 0, 1 ].)
-            // This is all assuming that the matrix M is multiplied by a column
-            // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
-            [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+            getHandleTransformAsArray(i)
             ]);
     }
     
@@ -822,12 +1084,7 @@ function sendHandleTransformations( handle_indices )
         
         payload.push([
             handle_index,
-            // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
-            // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
-            // (The third row is assumed to always be [ 0, 0, 1 ].)
-            // This is all assuming that the matrix M is multiplied by a column
-            // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
-            [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]]
+            getHandleTransformAsArray( handle_index )
             ]);
     }
     
@@ -945,6 +1202,7 @@ function setupFileIO()
                         var svg_text = evt.target.result;
                         
                         loadSVG( svg_text, file.name );
+                        gAnimationRecorder.init();
                     }
                     }
                 
@@ -1027,6 +1285,7 @@ function globalsToJSON()
     globals.usingArcLengthParameterization = $( "#usingArcLengthParameterization" ).prop( "checked" );
     globals.gPathsControlPointConstraints = gPathsControlPointConstraints;
     globals.gHandles = gHandles;
+    gAnimationRecorder.saveGlobalsToDict( globals );
     
     return JSON.stringify( globals );
 }
@@ -1086,10 +1345,12 @@ function loadGlobals( globals )
         {
             var handle = globals.gHandles[ handle_index ];
             createHandleAtPosition( handle.pos[0], handle.pos[1] );
-            setHandleTransform( handle_index, handle.transform )
+            setHandleTransformFromDictionary( handle_index, handle.transform )
         }
         sendHandlePositionsAndTransforms();
     }
+    
+    gAnimationRecorder.loadGlobalsFromDict( globals );
 }
 function loadSVG( svg_text, filename )
 {
@@ -1431,6 +1692,8 @@ function createHandleUIForSVG()
     // Also if we don't have any closed paths, allow users to click anywhere.
     ui.click( function( evt ) {
         var weightFunction = $( "#weight-function" ).val();
+        // This is driving me crazy. For some reason the handle drag event causes a
+        // click event in the SVG even when evt.stopPropagation() is called.
         if( clickable === null || weightFunction === "mvc" || weightFunction === "shepard" )
         {
             add_handle_click( evt );
@@ -1449,6 +1712,8 @@ function createHandleAtPosition( x, y )
     var kHandleRectEdge = 10;
     var kHandleRectRound = 2;
     
+    var handle_index = gHandles.length;
+    
     // r0 represents the original position of the handle.
     // This has the side effect that a duplicate handle can't be made,
     // because the shape under this can't be clicked.
@@ -1458,7 +1723,8 @@ function createHandleAtPosition( x, y )
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.,
-        opacity: .5
+        opacity: .5,
+        'data-handle_index': handle_index
         });
     
     var r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
@@ -1466,27 +1732,13 @@ function createHandleAtPosition( x, y )
         class: 'handle',
         fill: "#da55da",
         stroke: "#000",
-        strokeWidth: 2.
+        strokeWidth: 2.,
+        'data-handle_index': handle_index
         });
     
-    // This 'posKey' is used by the click and drag handlers to find the transform.
-    // NOTE: It is an object (an array), so if anyone ever replaces 'pos'
-    //       with another array, even if it contains the same values, the
-    //       click and drag callbacks won't be able to find themselves.
-    var posKey = [ x, y ];
-    gHandles.push( { 'pos': posKey, 'transform': new Snap.Matrix() } );
+    gHandles.push( { 'pos': [ x, y ], 'transform': new Snap.Matrix() } );
+    gAnimationRecorder.addNewHandle();
     setupHandleControls( gHandles.length - 1 );
-    
-    // If the user deletes a handle, we need a way to find ourselves.
-    function find_handle_index()
-    {
-        for( var i = 0; i < gHandles.length; ++i )
-        {
-            if( gHandles[i].pos === posKey ) return i;
-        }
-        
-        return undefined;
-    }
     
 	// Make a drag handler for the handle.
 	// A variable for the mouse-down matrix.
@@ -1526,12 +1778,7 @@ function createHandleAtPosition( x, y )
             this.transform( M );
             
             // Update the global variable (and the HTML table).
-            var handle_index = find_handle_index();
-            if( handle_index === undefined )
-            {
-                console.error( "Orphan handle." );
-                return;
-            }
+            var handle_index = parseInt( this.attr('data-handle_index') );
             
             gHandles[ handle_index ].transform = M;
             setupHandleControls( handle_index );
@@ -1550,13 +1797,9 @@ function createHandleAtPosition( x, y )
 			M0 = this.transform().localMatrix;
 			
 			// Setup the table when clicking on an already-created rect.
-			var handle_index = find_handle_index();
-            if( handle_index === undefined )
-            {
-                console.error( "Orphan handle." );
-                return;
-            }
+			var handle_index = parseInt( this.attr('data-handle_index') );
 			setupHandleControls( handle_index );
+			gDraggingHandleIndex = handle_index;
 		},
 		function() {
 		    // Let the backend know it can do some processing.
@@ -1569,6 +1812,7 @@ function createHandleAtPosition( x, y )
 		    //       comes back.
 		    if( $('#c1-while-dragging').prop( 'checked' ) ) sendSetIterations( true );
 		    if( $('#showTargetCurves').prop( 'checked' ) ) sendHandleDragFinished();
+		    gDraggingHandleIndex = null;
 		} );
 	
 	// I need to do this to eat click events:
@@ -1584,12 +1828,26 @@ function createHandleAtPosition( x, y )
 }
 // Sets the transform for a handle.
 // NOTE: This does not call sendHandleTransformation(). Call that yourself, afterwards.
-function setHandleTransform( handle_index, M )
+function setHandleTransformFromDictionary( handle_index, M )
 {
     var matrix = new Snap.Matrix( M.a, M.b, M.c, M.d, M.e, M.f );
     gHandles[ handle_index ].transform = matrix;
-    var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
+    var rect = $("#svg-overlay-handles > svg > rect.handle[data-handle_index='" + handle_index + "'")[0];
     Snap( rect ).transform( matrix );
+}
+function getHandleTransformAsArray( handle_index )
+{
+    var M = gHandles[handle_index].transform;
+    // According to http://www.w3.org/TR/SVG11/coords.html#EstablishingANewUserSpace
+    // the elements of an SVG matrix are the first two rows of a 3x3 as follows.
+    // (The third row is assumed to always be [ 0, 0, 1 ].)
+    // This is all assuming that the matrix M is multiplied by a column
+    // vector v = [[x][y][1]] on the right to get the new point v': M*v = v'
+    return [[ M.a, M.c, M.e ], [ M.b, M.d, M.f ]];
+}
+function getHandleTransformAsObject( handle_index )
+{
+    return gHandles[handle_index].transform;
 }
 function deleteHandle( handle_index )
 {
@@ -1597,10 +1855,11 @@ function deleteHandle( handle_index )
     
     // Delete it.
     gHandles.splice( handle_index, 1 );
+    gAnimationRecorder.deleteHandleIndex( handle_index );
     
     // Update the GUI.
     // Delete the rects at (handle_index*2) and (handle_index*2 + 1).
-    $('#svg-overlay-handles > svg > rect').slice( handle_index*2, (handle_index+1)*2 ).remove();
+    $("#svg-overlay-handles > svg > rect[data-handle_index='" + handle_index + "'").remove();
     
     // Update the back-end.
     sendHandlePositionsAndTransforms();
@@ -1754,7 +2013,7 @@ function setupGlobalUI()
         var M = gHandles[ handle_index ].transform;
         
         M[which] = parseFloat( $(this).val() );
-        setHandleTransform( handle_index, M );
+        setHandleTransformFromDictionary( handle_index, M );
         
         sendHandleTransformation( handle_index );
         } );
@@ -1802,6 +2061,14 @@ function setupGlobalUI()
         }
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
+    
+    $("#record-start").click( function() { gAnimationRecorder.startRecording(); } );
+    $("#record-pause").click( function() { gAnimationRecorder.pauseRecording(); } );
+    $("#record-erase").click( function() { gAnimationRecorder.eraseRecording(); } );
+    $("#record-slider,#record-slider-number").change( function() { gAnimationRecorder.moveToFrameIndex( parseInt( $(this).val() ) ); } );
+    $("#record-undo").click( function() { gAnimationRecorder.undo(); } );
+    $("#record-redo").click( function() { gAnimationRecorder.redo(); } );
+    gAnimationRecorder.init();
     
     // Reconnect button.
     $('#reconnect-button').click( function() {
