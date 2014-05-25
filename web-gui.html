@@ -190,13 +190,13 @@ Approach type:
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 <div class="checkbox"><label>C1-only while dragging <input id="c1-while-dragging" type="checkbox"/></label></div>
-<button type="button" id="record-start" class="btn btn-default" style="margin-bottom: 20px">Record</button>
+<button type="button" id="record-start" class="btn btn-default" style="margin-bottom: 20px">Play and Record</button>
 <button type="button" id="record-pause" class="btn btn-default" style="margin-bottom: 20px">Pause</button>
 <button type="button" id="record-erase" class="btn btn-default" style="margin-bottom: 20px">Erase</button>
 <input  type="range"  id="record-slider" min="0" max="0" step="1" value="0" />
 <input  type="number" id="record-slider-number" min="0" max="0" step="1" value="0" />
-<button type="button" id="record-undo" class="btn btn-default" style="margin-bottom: 20px">Undo</button>
-<button type="button" id="record-redo" class="btn btn-default" style="margin-bottom: 20px">Redo</button>
+<button type="button" id="record-undo" class="btn btn-default" style="margin-bottom: 20px; display: none;">Undo</button>
+<button type="button" id="record-redo" class="btn btn-default" style="margin-bottom: 20px; display: none;">Redo</button>
 
 <hr>
 
@@ -222,7 +222,6 @@ var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
 var kFakeWebSocket = false;
 var kShowDistance = true;
-var kRecordFPS = 30;
 
 
 ///
@@ -326,6 +325,9 @@ function CreateUndoManager( params ) {
 var gAnimationRecorder = (function(){
     var m = {};
     
+    // Private constants.
+    var kRecordFPS = 60;
+    
     // Public Instance variables.
     
     // Private instance variables.
@@ -333,7 +335,8 @@ var gAnimationRecorder = (function(){
     var frames = [];
     var recordingCallback = null;
     var undoManager = CreateUndoManager({
-        'buffer_size': 3,
+        // This isn't working, so make the buffer size 0 for now.
+        'buffer_size': 0, // 3,
         'copier': function( state ) {
             result = [];
             for( var frame_index = 0; frame_index < state.length; ++frame_index )
@@ -1709,6 +1712,8 @@ function createHandleAtPosition( x, y )
     var kHandleRectEdge = 10;
     var kHandleRectRound = 2;
     
+    var handle_index = gHandles.length;
+    
     // r0 represents the original position of the handle.
     // This has the side effect that a duplicate handle can't be made,
     // because the shape under this can't be clicked.
@@ -1718,7 +1723,8 @@ function createHandleAtPosition( x, y )
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.,
-        opacity: .5
+        opacity: .5,
+        'data-handle_index': handle_index
         });
     
     var r = ui.rect( x - kHandleRectEdge/2, y - kHandleRectEdge/2, kHandleRectEdge, kHandleRectEdge, kHandleRectRound );
@@ -1726,28 +1732,13 @@ function createHandleAtPosition( x, y )
         class: 'handle',
         fill: "#da55da",
         stroke: "#000",
-        strokeWidth: 2.
+        strokeWidth: 2.,
+        'data-handle_index': handle_index
         });
     
-    // This 'posKey' is used by the click and drag handlers to find the transform.
-    // NOTE: It is an object (an array), so if anyone ever replaces 'pos'
-    //       with another array, even if it contains the same values, the
-    //       click and drag callbacks won't be able to find themselves.
-    var posKey = [ x, y ];
-    gHandles.push( { 'pos': posKey, 'transform': new Snap.Matrix() } );
+    gHandles.push( { 'pos': [ x, y ], 'transform': new Snap.Matrix() } );
     gAnimationRecorder.addNewHandle();
     setupHandleControls( gHandles.length - 1 );
-    
-    // If the user deletes a handle, we need a way to find ourselves.
-    function find_handle_index()
-    {
-        for( var i = 0; i < gHandles.length; ++i )
-        {
-            if( gHandles[i].pos === posKey ) return i;
-        }
-        
-        return undefined;
-    }
     
 	// Make a drag handler for the handle.
 	// A variable for the mouse-down matrix.
@@ -1787,12 +1778,7 @@ function createHandleAtPosition( x, y )
             this.transform( M );
             
             // Update the global variable (and the HTML table).
-            var handle_index = find_handle_index();
-            if( handle_index === undefined )
-            {
-                console.error( "Orphan handle." );
-                return;
-            }
+            var handle_index = parseInt( this.attr('data-handle_index') );
             
             gHandles[ handle_index ].transform = M;
             setupHandleControls( handle_index );
@@ -1811,12 +1797,7 @@ function createHandleAtPosition( x, y )
 			M0 = this.transform().localMatrix;
 			
 			// Setup the table when clicking on an already-created rect.
-			var handle_index = find_handle_index();
-            if( handle_index === undefined )
-            {
-                console.error( "Orphan handle." );
-                return;
-            }
+			var handle_index = parseInt( this.attr('data-handle_index') );
 			setupHandleControls( handle_index );
 			gDraggingHandleIndex = handle_index;
 		},
@@ -1851,7 +1832,7 @@ function setHandleTransformFromDictionary( handle_index, M )
 {
     var matrix = new Snap.Matrix( M.a, M.b, M.c, M.d, M.e, M.f );
     gHandles[ handle_index ].transform = matrix;
-    var rect = $('#svg-overlay-handles > svg > rect')[ handle_index*2 + 1 ];
+    var rect = $("#svg-overlay-handles > svg > rect.handle[data-handle_index='" + handle_index + "'")[0];
     Snap( rect ).transform( matrix );
 }
 function getHandleTransformAsArray( handle_index )
@@ -1878,7 +1859,7 @@ function deleteHandle( handle_index )
     
     // Update the GUI.
     // Delete the rects at (handle_index*2) and (handle_index*2 + 1).
-    $('#svg-overlay-handles > svg > rect').slice( handle_index*2, (handle_index+1)*2 ).remove();
+    $("#svg-overlay-handles > svg > rect[data-handle_index='" + handle_index + "'").remove();
     
     // Update the back-end.
     sendHandlePositionsAndTransforms();
