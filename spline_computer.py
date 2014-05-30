@@ -1,6 +1,7 @@
 from copy import copy, deepcopy
 from bezier_constraint_odd_solver import *
-from bezier_constraint_even_solver import *
+#from bezier_constraint_even_solver import *
+BezierConstraintSolverEven = BezierConstraintSolverOdd
 
 from tictoc import tic, toc
 
@@ -541,6 +542,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 	
 	def update_with_transforms( transforms, multiple_iterations = True ):
+		multiple_iterations = False
 		iteration = 1
 		odd.update_rhs_for_handles( transforms )
 		last_odd_solutions = solutions = odd.solve()

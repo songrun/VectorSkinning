@@ -163,20 +163,30 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			lambda3 * ( mag1(P4x-P3x) + mag0[cos_theta(Q2x-Q1x)-sin_theta(Q2y-Q1y)] ) = 0
 			lambda4 * ( mag1(P4y-P3y) + mag0[sin_theta(Q2x-Q1x)+cos_theta(Q2y-Q1y)] ) = 0
 			'''
-			R = zeros( ( dofs, 2*dim ) )
+			R = zeros( ( dofs, dim+2 ) )
 			for i in range( dim ):
 				R[i*4+3, i] = 1
 				R[sum(dofs0)+i*4, i] = -1
-				
+			
+			## Rotations only happen like this in the first two dimensions.
+			for i in range( 2 ):
 				R[i*4+3, i+dim] = 1
 				R[i*4+2, i+dim] = -1
-				
-				R[sum(dofs0):sum(dofs0)+dim, dim:] = asarray([[-cos_theta, sin_theta], [cos_theta, -sin_theta]])
-				R[-dim*2:-dim, dim:] = asarray([[-sin_theta, -cos_theta], [sin_theta, cos_theta]])
-
+			
+			##          Qn x   eq
+			R[sum(dofs0)+1+0*4, 0+dim] = cos_theta
+			R[sum(dofs0)+0+0*4, 0+dim] = -cos_theta
+			R[sum(dofs0)+1+1*4, 0+dim] = -sin_theta
+			R[sum(dofs0)+0+1*4, 0+dim] = sin_theta
+			
+			R[sum(dofs0)+1+0*4, 1+dim] = sin_theta
+			R[sum(dofs0)+0+0*4, 1+dim] = -sin_theta
+			R[sum(dofs0)+1+1*4, 1+dim] = cos_theta
+			R[sum(dofs0)+0+1*4, 1+dim] = -cos_theta
+			
 			## add weights to lambda	 
 			R[ :sum(dofs0), dim: ] *= mag1
-			R[ sum(dofs0):, dim: ] *= mag0
+			R[ sum(dofs0):, dim: ] *= -mag0
 			
 		elif smoothness == 'C1':		 ## C1
 			'''
@@ -309,16 +319,16 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		is_fixed = constraint[1]	 
 		
 		num = 0
-		if smoothness == 'C0': num = 2			## C0
-		elif smoothness == 'A': num = 4		## fixed angle
-		elif smoothness == 'C1': num = 4		## C1
-		elif smoothness == 'G1': num = 4		## G1
+		if smoothness == 'C0': num = dim			## C0
+		elif smoothness == 'A': num = dim+2		## fixed angle
+		elif smoothness == 'C1': num = 2*dim		## C1
+		elif smoothness == 'G1': num = 2*dim		## G1
 		
 		assert type( is_fixed ) == bool
 		if is_fixed:
-			num += 2
+			num += dim
 			
-		return (num/2)*dim
+		return num
 		
 		
 	def rhs_for_curve( self, bundle, transforms ):
