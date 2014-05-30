@@ -121,7 +121,7 @@ class BezierConstraintSolver( object ):
 		self.system	 = self.zeros_system_build_t( ( self.system_size, self.system_size ) )
 		self.system_symbolic_factored = None
 		self.system_factored = None
-		self.rhs = zeros( ( len( transforms ), self.system_size, 10 ) )
+		self.rhs = zeros( self.system_size )
 		self.transforms = transforms
 		self.is_closed = is_closed
 		self.kArcLength = kArcLength
@@ -161,7 +161,7 @@ class BezierConstraintSolver( object ):
 				small_rhs = self.rhs_for_curve( bundle, transforms)
 				### 4
 				system[ dof_offset : dof_offset + dofs, dof_offset : dof_offset + dofs ] = small_system
-				rhs[ :, dof_offset : dof_offset + dofs, :9 ] = small_rhs
+				rhs[ dof_offset : dof_offset + dofs ] = small_rhs
 	
 			dof_offset += dofs
 
@@ -179,7 +179,7 @@ class BezierConstraintSolver( object ):
 			
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs + dofs_next ] = small_lagrange_system
-			rhs[ :, constraint_equation_offset : constraint_equation_offset + constraint_eqs, 9 ] = small_lagrange_rhs
+			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 	
 			dof_offset += dofs
 			constraint_equation_offset += constraint_eqs
@@ -195,7 +195,7 @@ class BezierConstraintSolver( object ):
 			### 4
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs  ] = small_lagrange_system[ :, :dofs ]
 			system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, : dofs_next ] = small_lagrange_system[ :, dofs: ]
-			rhs[ :, constraint_equation_offset : constraint_equation_offset + constraint_eqs, 9 ] = small_lagrange_rhs
+			rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 			constraint_equation_offset += constraint_eqs
 			
 		else:
@@ -206,13 +206,13 @@ class BezierConstraintSolver( object ):
 			if lambdas_per_joint[-1] == 2:
 				small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_fixed_opening( bundles[-1], is_head = False )
 				system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs_tail  ] = small_lagrange_system
-				rhs[ :, constraint_equation_offset : constraint_equation_offset + constraint_eqs, 9 ] = small_lagrange_rhs
+				rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 				constraint_equation_offset += constraint_eqs
 				
 			if lambdas_per_joint[0] == 2:
 				small_lagrange_system, small_lagrange_rhs = self.lagrange_equations_for_fixed_opening( bundles[0], is_head = True )							
 				system[ constraint_equation_offset : constraint_equation_offset + constraint_eqs, dof_offset : dof_offset + dofs_tail  ] = small_lagrange_system
-				rhs[ :, constraint_equation_offset : constraint_equation_offset + constraint_eqs, 9 ] = small_lagrange_rhs
+				rhs[ constraint_equation_offset : constraint_equation_offset + constraint_eqs ] = small_lagrange_rhs
 				constraint_equation_offset += constraint_eqs
 				
 				
@@ -238,11 +238,48 @@ class BezierConstraintSolver( object ):
 	
 			small_rhs = self.rhs_for_curve( bundle, transforms )
 			### 4
-			self.rhs[ :, dof_offset : dof_offset + dofs, :9 ] = small_rhs
+			self.rhs[ dof_offset : dof_offset + dofs ] = small_rhs
 	
 			dof_offset += dofs
 
 		assert dof_offset == self.total_dofs
+
+	def lagrange_equations_for_single_bundle( self, bundle ):
+		
+		assert len( self.bundles ) == 1
+		dof = sum( self.compute_dofs_per_curve( bundle ) )
+		dim = 2
+		R = zeros( ( dof, dim*2 ) )
+		rhs = zeros( dim * 2 )
+		assert type( bundle.constraints[0][1] ) == bool
+		if bundle.constraints[0][1]:
+
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			
+			for i in range( dim ):
+				R[i*4, i] = 1
+	
+			rhs[ :dim ] = bundle.control_points[0][ :dim ]
+				
+		assert type( bundle.constraints[1][1] ) == bool
+		if bundle.constraints[1][1]:
+
+			fixed = asarray(fixed)
+			'''
+			Boundary Conditions are as follows:
+			lambda1 * ( P4x' - constraint_X' ) = 0
+			lambda2 * ( P4y' - constraint_Y' ) = 0
+			'''
+			for i in range( dim ):
+				R[i*4+3, dim+i] = 1
+				
+			rhs[ -dim: ] = bundle.control_points[-1][:dim]
+
+		return R.T, rhs
 
 	def get_default_MAM( self, num_samples = 100 ):
 		
