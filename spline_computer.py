@@ -547,7 +547,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	def update_with_transforms( transforms, multiple_iterations = True ):
 		#multiple_iterations = False
 		smoothness = [ constraint[0] for constraint in constraints ]
-		if not multiple_iterations or not ( 'A' in smoothness or 'G1' in smoothness ):
+		if True: #not multiple_iterations or not ( 'A' in smoothness or 'G1' in smoothness ):
 			oddfast.update_rhs_for_handles( transforms )
 			return oddfast.solve()
 		

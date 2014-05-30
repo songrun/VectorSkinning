@@ -194,6 +194,10 @@ class BezierConstraintSolverOddFast( BezierConstraintSolver ):
 					solved[:,j] = self.system_factored( self.rhs[i,:,j] )
 				self.Os.append( solved )
 		
+			import cPickle as pickle
+			pickle.dump( self.Os, open( "foo-fast.pickle", 'w' ), -1 )
+			#print self.Os
+		
 		x = zeros( self.rhs.shape[1] )
 		for i in xrange(len( self.Ts )):
 			T = self.Ts[i]
