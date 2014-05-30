@@ -856,10 +856,10 @@ def test_actually_solve():
 		#paths_info, skeleton_handle_vertices, constraint = get_test1()
 		#paths_info, skeleton_handle_vertices, constraint = get_test2()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
-		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
+		paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
-		paths_info, skeleton_handle_vertices, constraint = get_test_turtle_glasses()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_turtle_glasses()
 	
 	engine = YSEngine()
 	

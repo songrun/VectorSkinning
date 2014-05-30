@@ -1,5 +1,7 @@
 from generate_chain_system import *
 
+dim = 3
+
 class BezierConstraintSolverOdd( BezierConstraintSolver ):
 	'''
 	Free direction, magnitude fixed (for G1 or A).
@@ -30,21 +32,20 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		self._update_bundles( lagrange_only = True )
 		self.system_factored = None
 		## UPDATE: Actually, if fixed angles are parallel or perpendicular,
-		##         then the lagrange multiplier systems may gain
+		##		   then the lagrange multiplier systems may gain
 		##		   or lose zeros. So, reset the symbolic factorization.
 		## UPDATE 2: If we could update_bundles once with all fixed angles
-		##           not parallel or perpendicular, and then compute the symbolic
-		##           factorization, we could keep it.
+		##			 not parallel or perpendicular, and then compute the symbolic
+		##			 factorization, we could keep it.
 		## UPDATE 3: Let's try it assuming that the first time through there are no zeros.
 		## UPDATE 4: I tried it and it makes no difference to performance at all
-		##           up to alec's alligator. So, we'll reset the symbolic factorization
-		##           in case the initial configuration has zeros.
+		##			 up to alec's alligator. So, we'll reset the symbolic factorization
+		##			 in case the initial configuration has zeros.
 		self.system_symbolic_factored = None
-		
+		self.Os = None
 		
 	
 	def solve( self ):
-		dim = 2
 		num = len(self.bundles)
 		
 		#print 'rhs:'
@@ -55,14 +56,34 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			system = self.to_system_solve_t( self.system )
 			self.system_symbolic_factored = self.compute_symbolic_factorization( system )
 			self.system_factored = self.system_symbolic_factored( system )
+			self.Os = None
 		
 		elif self.system_factored is None:
 			#print 'odd numeric factoring'
 			system = self.to_system_solve_t( self.system )
 			self.system_factored = self.system_symbolic_factored( system )
+			self.Os = None
+		
+		if self.Os is None:
+			self.Os = []
+			for i in xrange(len( self.Ts )):
+				## Doesn't take a matrix:
+				# self.Os.append( self.system_factored( self.rhs[i] ) )
+				
+				solved = zeros( self.rhs[i].shape )
+				for j in xrange( self.rhs[i].shape[1] ):
+					solved[:,j] = self.system_factored( self.rhs[i,:,j] )
+				self.Os.append( solved )
+		
+		x = zeros( self.rhs.shape[1] )
+		for i in xrange(len( self.Ts )):
+			T = self.Ts[i]
+			O = self.Os[i]
+			x += dot( O, append( T.ravel(), 1. ) )
+		#x = x[:2,:]
 		
 		#print 'odd solve'
-		x = self.system_factored( self.rhs )
+		# x = self.system_factored( self.rhs )
 		# x = linalg.solve( self.system, self.rhs )
 		# x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
 		### Return a nicely formatted chain of bezier curves.
@@ -71,22 +92,21 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		solution = []
 		for i in range(num):
 			P = x[:, i*dim:(i+1)*dim ]
-			solution.append( P )
+			solution.append( P[:,:2] )
 		
 		if parameters.kClampOn == True: solution = clamp_solution( self.bundles, solution )
 		
-		return solution	
+		return solution 
 			
 	def lagrange_equations_for_fixed_opening( self, bundle, is_head ):
 		## handle the case of open end path.
 		dofs = self.compute_dofs_per_curve(bundle)
-		dim = 2
 		
 		R = zeros( ( sum(dofs), dim ) )
 		rhs = zeros(R.shape[1])
 		
 		if is_head: 
-# 			assert bundle.constraints[0][1] == True
+#			assert bundle.constraints[0][1] == True
 			fixed_positions = bundle.control_points[0][:2]
 			fixed_positions = asarray(fixed_positions)
 			'''
@@ -99,7 +119,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		
 			rhs = fixed_positions
 		else:
-# 			assert bundle.constraints[-1][1] == True
+#			assert bundle.constraints[-1][1] == True
 			fixed_positions = bundle.control_points[-1][:2]
 			fixed_positions = asarray(fixed_positions)
 			'''
@@ -119,7 +139,6 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		cos_theta = angle[0]
 		sin_theta = angle[1]
 		
-		dim = 2
 		dofs0 = self.compute_dofs_per_curve(bundle0)
 		dofs1 = self.compute_dofs_per_curve(bundle1)
 		dofs = sum(dofs0) + sum(dofs1)
@@ -231,8 +250,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		length = bundle.length
 		MAM = asarray( self.MAM )
 		
-		dim = 2
-		Left = zeros((8, 8))
+		Left = zeros((4*dim, 4*dim))
 
 		for i in range(dim):		
 			Left[ i*4:(i+1)*4, i*4:(i+1)*4 ] = MAM[:,:]
@@ -246,8 +264,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		length = bundle.length
 		ts = bundle.ts
 		dts = bundle.dts
-		dim = 2
-		Left = zeros( ( 8, 8 ) )
+		Left = zeros( ( 4*dim, 4*dim ) )
 		tbar = ones( ( 4, 1 ) )
 		MAM = zeros( ( 4, 4 ) )
 		
@@ -282,7 +299,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 			elif smoothness == 'G1': dofs[i] += 4		## G1
 			elif smoothness == 'None': dofs[i] += 4		## Free of constraint
 			
-		return dofs
+		return (dofs/2)*dim
 		
 	
 	def constraint_number_per_joint(self, constraint ):	   
@@ -301,7 +318,7 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		if is_fixed:
 			num += 2
 			
-		return num
+		return (num/2)*dim
 		
 		
 	def rhs_for_curve( self, bundle, transforms ):
@@ -311,35 +328,44 @@ class BezierConstraintSolverOdd( BezierConstraintSolver ):
 		'''
 		length = bundle.length
 		
-# 		W_matrices = bundle.W_matrices
-# 		controls = bundle.control_points
+#		W_matrices = bundle.W_matrices
+#		controls = bundle.control_points
 #  
-# 		Right = zeros( (3, 4) )
-# 		for i in range( len( transforms ) ):
+#		Right = zeros( (3, 4) )
+#		for i in range( len( transforms ) ):
 # 
-# 			T_i = mat( asarray(transforms[i]).reshape(3,3) )
-# 			W_i = W_matrices[i,0]	
+#			T_i = mat( asarray(transforms[i]).reshape(3,3) )
+#			W_i = W_matrices[i,0]	
 # 
-# 			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
+#			Right = Right + T_i * (controls.T) * M * mat( W_i ) * M
 # 
-# 		Right = asarray(Right).reshape(-1)
-# 		Right = Right[:8]	
+#		Right = asarray(Right).reshape(-1)
+#		Right = Right[:8]	
 
 		W_matrices = bundle.W_matrices
 		controls = bundle.control_points
 		
-		Right = zeros( 8 )
-		temp = zeros( (3, 4) )
+		Right = zeros( ( len( transforms ), 4*dim, 9 ) )
+		self.Os = None
+		self.Ts = []
 		for i in range( len( transforms ) ):
 		
 			T_i = mat( asarray(transforms[i]).reshape(3, 3) )
 			W_i = asarray(W_matrices[i])
 
-			temp = temp + dot(asarray(T_i*(controls.T)*M), W_i)
-
-		R = temp[:2,:]
-		
-		Right[:] = concatenate((R[0, :], R[1, :]))
+			## 3x3 * 3xN * NxN * NxN
+			# temp = temp + dot(asarray(T_i*(controls.T)*M), W_i)
 			
+			#vec(C)A = vec(TCMW)
+			## matrix calculus says:
+			#vec(C)A = (I kronecker T) vec(CMW)
+			
+			self.Ts.append( asarray(transforms[i]).reshape(3, 3) )
+			Right[ i ] = kron( identity(3), dot( dot( controls.T, M ), W_i ).T )
+
 		return Right*length
-		
+	
+	def update_rhs_for_handles( self, transforms ):
+		self.Ts = []
+		for i in range( len( transforms ) ):
+			self.Ts.append( asarray(transforms[i]).reshape(3, 3) )
