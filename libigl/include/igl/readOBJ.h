@@ -1,16 +1,17 @@
-//
-//  IGL Lib - Simple C++ mesh library 
-//
-//  Copyright 2011, Daniele Panozzo. All rights reserved.
-
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
+#ifndef IGL_READOBJ_H
+#define IGL_READOBJ_H
+#include "igl_inline.h"
 // History:
 //  return type changed from void to bool  Alec 18 Sept 2011
 //  added pure vector of vectors version that has much more support Alec 31 Oct
 //    2011
-
-#ifndef IGL_READOBJ_H
-#define IGL_READOBJ_H
-#include "igl_inline.h"
 
 #ifndef IGL_NO_EIGEN
 #  include <Eigen/Core>

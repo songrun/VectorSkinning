@@ -6,7 +6,7 @@
     <table>
       <tr class="header">
         <th>MATLAB</th>
-        <th>Eigen</th>
+        <th>Eigen with libigl</th>
         <th>Notes</th>
       </tr>
 
@@ -111,7 +111,7 @@
 
       <tr class=d1>
         <td><pre><code>A(B == 0) = C(B==0)</code></pre></td>
-        <td><pre><code>A = (B == 0).select(C,A)</code></pre></td>
+        <td><pre><code>A = (B.array() == 0).select(C,A)</code></pre></td>
         <td></td>
       </tr>
 
@@ -202,13 +202,19 @@
       </tr>
 
       <tr class=d0>
-        <td><pre><code>B = IM(A)</code></pre></td>
+        <td><pre><code>B = IM(A)
+
+A = IM(A);
+  </code></pre></td>
         <td><pre><code>B = A.unaryExpr(bind1st(mem_fun( 
   static_cast&lt;VectorXi::Scalar&amp;(VectorXi::*)(VectorXi::Index)&gt;
   (&amp;VectorXi::operator())), &amp;IM)).eval();
+
+for_each(A.data(),A.data()+A.size(),[&amp;IM](int &amp; a){a=IM(a);});
   </code></pre></td>
         <td>Where IM is an "index map" column vector and A is an arbitrary
-        matrix. The <code>.eval()</code> is not necessary if A != B</td>
+        matrix. The <code>.eval()</code> is not necessary if A != B, but then
+        the second option should be used.</td>
       </tr>
 
       <tr class=d1>
@@ -226,6 +232,24 @@ A.setFromTriplets(IJV);
         </code></pre></td>
         <td>Coefficient-wise minimum of matrix and scalar (or matching size matrix)</td>
       </tr>
+
+      <tr class=d1>
+        <td><pre><code>IP = I(P==0);</code></pre></td>
+        <td><pre><code>VectorXi IP = I;
+IP.conservativeResize(stable_partition(
+  IP.data(), 
+  IP.data()+IP.size(), 
+  [&amp;P](int i){return P(i)==0;})-IP.data());
+        </code></pre></td>
+        <td>Where I and P are vectors. <i>Requires C++11 and <code>#include &lt;algorithm&gt;</code></i></td>
+      </tr>
+
+      <tr class=d0>
+        <td><pre><code>a = any(A(:))</code></pre></td>
+        <td><pre><code>bool a = any_of(A.data(),A.data()+A.size(),[](bool a){ return a;});</code></pre></td>
+        <td>Casts <code>Matrix::Scalar<code> to <code>bool</code>.</td>
+      </tr>
+
       <!-- Insert rows for each command pair -->
 
       <!-- Leave this here for copy and pasting

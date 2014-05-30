@@ -1,14 +1,21 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "draw_floor.h"
 #ifndef IGL_NO_OPENGL
 
 #include "OpenGL_convenience.h"
 
-static const int GridSizeX = 100;
-static const int GridSizeY = 100;
-static const float SizeX = 0.5f;
-static const float SizeY = 0.5f;
-IGL_INLINE void igl::draw_floor(const float * colorA, const float * colorB)
+IGL_INLINE void igl::draw_floor(const float * colorA, const float * colorB,
+  const int GridSizeX,
+  const int GridSizeY)
 {
+  const float SizeX = 0.5f*100./(double)GridSizeX;
+  const float SizeY = 0.5f*100./(double)GridSizeY;
   // old settings
   int old_lighting=0,old_color_material=0;
   glGetIntegerv(GL_LIGHTING,&old_lighting);
@@ -66,8 +73,12 @@ IGL_INLINE void igl::draw_floor()
   igl::draw_floor(grey,white);
 }
 
-IGL_INLINE void igl::draw_floor_outline(const float * colorA, const float * colorB)
+IGL_INLINE void igl::draw_floor_outline(const float * colorA, const float * colorB,
+  const int GridSizeX,
+  const int GridSizeY)
 {
+  const float SizeX = 0.5f*100./(double)GridSizeX;
+  const float SizeY = 0.5f*100./(double)GridSizeY;
   float old_line_width =0;
   // old settings
   int old_lighting=0,old_color_material=0;

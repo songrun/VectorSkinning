@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "active_set.h"
 #include "min_quad_with_fixed.h"
 #include "slice.h"
@@ -36,7 +43,7 @@ IGL_INLINE igl::SolverStatus igl::active_set(
   Eigen::PlainObjectBase<DerivedZ> & Z
   )
 {
-// #define ACTIVE_SET_CPP_DEBUG
+//#define ACTIVE_SET_CPP_DEBUG
   using namespace igl;
   using namespace Eigen;
   using namespace std;
@@ -107,7 +114,7 @@ IGL_INLINE igl::SolverStatus igl::active_set(
   while(true)
   {
 #ifdef ACTIVE_SET_CPP_DEBUG
-    cout<<iter<<":"<<endl;
+    cout<<"Iteration: "<<iter<<":"<<endl;
     cout<<"  pre"<<endl;
 #endif
     // FIND BREACHES OF CONSTRAINTS
@@ -275,6 +282,7 @@ IGL_INLINE igl::SolverStatus igl::active_set(
       ret = SOLVER_STATUS_ERROR;
       break;
     }
+    //cout<<matlab_format(Z,"Z")<<endl;
 #ifdef ACTIVE_SET_CPP_DEBUG
     cout<<"  post"<<endl;
 #endif

@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_AMBIENT_OCCLUSION_H
 #define IGL_AMBIENT_OCCLUSION_H
 #include <igl/igl_inline.h>
@@ -5,9 +12,6 @@
 namespace igl
 {
   // Forward define
-  template <
-    typename Scalar,
-    typename Index>
   class EmbreeIntersector;
   // Compute ambient occlusion per given point
   //
@@ -20,13 +24,11 @@ namespace igl
   //      (not occluded)
   //
   template <
-    typename Scalar,
-    typename Index,
     typename DerivedP,
     typename DerivedN,
     typename DerivedS >
-  void ambient_occlusion(
-    const igl::EmbreeIntersector<Scalar,Index> & ei,
+  IGL_INLINE void ambient_occlusion(
+    const igl::EmbreeIntersector & ei,
     const Eigen::PlainObjectBase<DerivedP> & P,
     const Eigen::PlainObjectBase<DerivedN> & N,
     const int num_samples,
@@ -39,7 +41,7 @@ namespace igl
     typename DerivedP,
     typename DerivedN,
     typename DerivedS >
-  void ambient_occlusion(
+  IGL_INLINE void ambient_occlusion(
     const Eigen::PlainObjectBase<DerivedV> & V,
     const Eigen::PlainObjectBase<DerivedF> & F,
     const Eigen::PlainObjectBase<DerivedP> & P,

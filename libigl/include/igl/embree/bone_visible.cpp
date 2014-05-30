@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "bone_visible.h"
 #include "EmbreeIntersector.h"
 #include <igl/project_to_line.h>
@@ -26,8 +33,8 @@ IGL_INLINE void igl::bone_visible(
   FF.resize(F.rows()*2,F.cols());
   FF << F, F.rowwise().reverse();
   // Initialize intersector
-  const EmbreeIntersector<double,int> ei = 
-        EmbreeIntersector<double,int>(V,FF);
+  EmbreeIntersector ei;
+  ei.init(V.template cast<float>(),FF.template cast<int>());
   const double sd_norm = (s-d).norm();
   // Embree seems to be parallel when constructing but not when tracing rays
 #pragma omp parallel for
@@ -68,7 +75,10 @@ IGL_INLINE void igl::bone_visible(
     // perhaps 1.0 should be 1.0-epsilon, or actually since we checking the
     // incident face, perhaps 1.0 should be 1.0+eps
     const Vector3d dir = (Vv-projv)*1.0;
-    if(ei.intersectSegment(projv,dir, hit))
+    if(ei.intersectSegment(
+       projv.template cast<float>(),
+       dir.template cast<float>(), 
+       hit))
     {
       // mod for double sided lighting
       const int fi = hit.id % F.rows();

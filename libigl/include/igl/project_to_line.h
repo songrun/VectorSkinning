@@ -1,5 +1,12 @@
-#ifndef IGL_PROJECT_TO_LINE
-#define IGL_PROJECT_TO_LINE
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
+#ifndef IGL_PROJECT_TO_LINE_H
+#define IGL_PROJECT_TO_LINE_H
 #include "igl_inline.h"
 
 namespace igl
@@ -24,7 +31,6 @@ namespace igl
   //   T  #P by 1 list of parameters
   //   sqrD  #P by 1 list of squared distances
   //
-  // Copyright 2011, Alec Jacobson (jacobson@inf.ethz.ch)
   //
   template <
     typename MatP, 

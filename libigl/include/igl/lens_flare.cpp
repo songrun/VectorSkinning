@@ -1,5 +1,13 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "lens_flare.h"
 
+#ifndef IGL_NO_OPENGL
 #include "C_STR.h"
 #include "unproject.h"
 #include "project.h"
@@ -10,25 +18,26 @@
 
 // http://www.opengl.org/archives/resources/features/KilgardTechniques/LensFlare/glflare.c
 
-static void setup_texture(
-  const uint8_t * texture, 
-  const int width,
-  const int height,
-  GLuint texobj,
-  GLenum minFilter, GLenum maxFilter)
-{
-  glBindTexture(GL_TEXTURE_2D, texobj);
-  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, maxFilter);
-  glTexImage2D(GL_TEXTURE_2D, 0, 1, width, height, 0,
-    GL_LUMINANCE, GL_UNSIGNED_BYTE, texture);
-}
-
-void igl::lens_flare_load_textures(
+IGL_INLINE void igl::lens_flare_load_textures(
   std::vector<GLuint> & shine_id,
   std::vector<GLuint> & flare_id)
 {
+
+  const auto setup_texture =[](
+    const uint8_t * texture, 
+    const int width,
+    const int height,
+    GLuint texobj,
+    GLenum minFilter, GLenum maxFilter)
+  {
+    glBindTexture(GL_TEXTURE_2D, texobj);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, maxFilter);
+    glTexImage2D(GL_TEXTURE_2D, 0, 1, width, height, 0,
+      GL_LUMINANCE, GL_UNSIGNED_BYTE, texture);
+  };
+
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   shine_id.resize(10);
   glGenTextures(10,&shine_id[0]);
@@ -50,7 +59,7 @@ void igl::lens_flare_load_textures(
   }
 }
 
-void igl::lens_flare_create(
+IGL_INLINE void igl::lens_flare_create(
   const float * A,
   const float * B,
   const float * C,
@@ -76,7 +85,7 @@ void igl::lens_flare_create(
   flares[11] = Flare(5, -1.0f, 0.03f, A, 0.2);
 }
 
-void igl::lens_flare_draw(
+IGL_INLINE void igl::lens_flare_draw(
   const std::vector<igl::Flare> & flares,
   const std::vector<GLuint> & shine_ids,
   const std::vector<GLuint> & flare_ids,
@@ -128,12 +137,12 @@ void igl::lens_flare_draw(
   Vector3f center = unproject(Vector3f(0.5*vp[2],0.5*vp[3],plight[2]-1e-3));
   //Vector3f center(0,0,1);
   Vector3f axis = light-center;
-  glLineWidth(4.);
-  glColor3f(1,0,0);
-  glBegin(GL_LINES);
-  glVertex3fv(center.data());
-  glVertex3fv(light.data());
-  glEnd();
+  //glLineWidth(4.);
+  //glColor3f(1,0,0);
+  //glBegin(GL_LINES);
+  //glVertex3fv(center.data());
+  //glVertex3fv(light.data());
+  //glEnd();
 
   const Vector3f SX = unproject(psx).normalized();
   const Vector3f SY = unproject(psy).normalized();
@@ -186,3 +195,4 @@ void igl::lens_flare_draw(
   glDepthFunc(odf);
   glDepthMask(odwm);
 }
+#endif

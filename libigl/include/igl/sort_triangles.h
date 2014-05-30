@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_SORT_TRIANGLES_H
 #define IGL_SORT_TRIANGLES_H
 
@@ -28,6 +35,7 @@ namespace igl
     const Eigen::PlainObjectBase<DerivedP> & P,
     Eigen::PlainObjectBase<DerivedFF> & FF,
     Eigen::PlainObjectBase<DerivedI> & I);
+#ifndef IGL_NO_OPENGL
   template <
     typename DerivedV,
     typename DerivedF,
@@ -72,6 +80,7 @@ namespace igl
   //  const Eigen::PlainObjectBase<DerivedF> & F,
   //  Eigen::PlainObjectBase<DerivedFF> & FF,
   //  Eigen::PlainObjectBase<DerivedI> & I);
+#endif
 }
 
 #ifdef IGL_HEADER_ONLY

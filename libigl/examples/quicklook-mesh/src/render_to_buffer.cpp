@@ -13,6 +13,7 @@ extern "C" {
 #include <igl/material_colors.h>
 #include <igl/pathinfo.h>
 #include <igl/readOBJ.h>
+#include <igl/readSTL.h>
 #include <igl/readWRL.h>
 #include <igl/triangulate.h>
 #include <igl/readOFF.h>
@@ -21,9 +22,10 @@ extern "C" {
 #include <igl/barycenter.h>
 #include <igl/doublearea.h>
 #include <igl/EPS.h>
-#include <igl/camera.h>
+#include <igl/Camera.h>
 #include <igl/canonical_quaternions.h>
 #include <igl/quat_to_mat.h>
+#include <igl/Viewport.h>
 
 #include <Eigen/Core>
 #include <GL/glu.h>
@@ -34,41 +36,15 @@ static int width,height;
 static Eigen::MatrixXd V,N;
 static Eigen::MatrixXi F;
 static Eigen::Vector3d Vmean, Vmax,Vmin;
-static bool invert = false;
+//static bool invert = false;
 static float background_color[4] = {0,0,0,1};
 
 // Small viewports struct for keeping track of size and camera info
 #define NUM_VIEWPORTS 6
-struct Viewport
+class AugViewport : public igl::Viewport
 {
-  int x,y,width,height;
-  igl::Camera camera;
-  Viewport():
-    x(0),y(0),width(0),height(0),camera(){};
-  Viewport(
-    const int x, 
-    const int y, 
-    const int width,
-    const int height, 
-    const igl::Camera & camera):
-    x(x),
-    y(y),
-    width(width),
-    height(height),
-    camera(camera)
-  {
-  };
-  void reshape(
-    const int x, 
-    const int y, 
-    const int width,
-    const int height)
-  {
-    this->x = x;
-    this->y = y;
-    this->width = width;
-    this->height = height;
-  };
+  public:
+    igl::Camera camera;
 } viewports[NUM_VIEWPORTS];
 
 // Red screen for errors
@@ -97,34 +73,44 @@ void init_viewports()
 {
   using namespace igl;
   using namespace std;
-  viewports[0].camera.angle = 10;
-  viewports[1].camera.angle = 10;
-  viewports[2].camera.angle = 10;
-  viewports[3].camera.angle = 10;
-  viewports[4].camera.angle = 10;
-  viewports[5].camera.angle = 10;
+  for(auto & vp : viewports)
+  {
+    // Reset. I guess Mac is keeping global variables alive...
+    vp.camera = Camera();
+    vp.camera.push_away(3.);
+    vp.camera.dolly_zoom(10.-vp.camera.m_angle);
+  }
   // Above view
   double XZ_PLANE_QUAT_D_FLIP[4];
   copy(XZ_PLANE_QUAT_D,XZ_PLANE_QUAT_D+4,XZ_PLANE_QUAT_D_FLIP);
   XZ_PLANE_QUAT_D_FLIP[0] *= -1.0;
   // Straight on
-  copy(XY_PLANE_QUAT_D,XY_PLANE_QUAT_D+4,viewports[0].camera.rotation);
+  copy(
+    XY_PLANE_QUAT_D,
+    XY_PLANE_QUAT_D+4,
+    viewports[0].camera.m_rotation_conj.coeffs().data());
   // Left side view
   copy(
     CANONICAL_VIEW_QUAT_D[9],
     CANONICAL_VIEW_QUAT_D[9]+4,
-    viewports[1].camera.rotation);
+    viewports[1].camera.m_rotation_conj.coeffs().data());
   copy(
     CANONICAL_VIEW_QUAT_D[14],
     CANONICAL_VIEW_QUAT_D[14]+4,
-    viewports[2].camera.rotation);
+    viewports[2].camera.m_rotation_conj.coeffs().data());
   // Straight on
   copy(
     CANONICAL_VIEW_QUAT_D[4],
     CANONICAL_VIEW_QUAT_D[4]+4,
-    viewports[3].camera.rotation);
-  copy(XZ_PLANE_QUAT_D,XZ_PLANE_QUAT_D+4,viewports[4].camera.rotation);
-  copy(XZ_PLANE_QUAT_D_FLIP,XZ_PLANE_QUAT_D_FLIP+4,viewports[5].camera.rotation);
+    viewports[3].camera.m_rotation_conj.coeffs().data());
+  copy(
+    XZ_PLANE_QUAT_D,
+    XZ_PLANE_QUAT_D+4,
+    viewports[4].camera.m_rotation_conj.coeffs().data());
+  copy(
+    XZ_PLANE_QUAT_D_FLIP,
+    XZ_PLANE_QUAT_D_FLIP+4,
+    viewports[5].camera.m_rotation_conj.coeffs().data());
 }
 
 // Viewports are arranged to see all sides
@@ -146,6 +132,10 @@ void reshape_viewports()
   viewports[3].reshape(          0, 2./3.*height,1./3.*width,1./3.*height);
   viewports[4].reshape(          0, 1./3.*height,1./3.*width,1./3.*height);
   viewports[5].reshape(          0,            0,1./3.*width,1./3.*height);
+  for(auto & vp : viewports)
+  {
+    vp.camera.m_aspect = (double)vp.width/(double)vp.height;
+  }
 }
 
 void reshape(int width, int height)
@@ -184,34 +174,30 @@ void lights()
 }
 
 // Push scene based on viewport
-void push_scene(const Viewport & vp)
+void push_scene(const AugViewport & vp)
 {
   using namespace igl;
+  using namespace std;
   glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
   glLoadIdentity();
-  const double angle = vp.camera.angle;
-  const double * rot = vp.camera.rotation;
-  gluPerspective(angle,(double)width/(double)height,1e-2,10);
-  const double z_fix = 2.*tan(angle/2./360.*2.*M_PI);
+  auto & camera = vp.camera;
+  glMultMatrixd(camera.projection().data());
   glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
   glLoadIdentity();
   // -1 because buffer y-coordinates are flipped
-  gluLookAt(0,0,2.3,0,0,0,0,-1,0);
-  glPushMatrix();
-  double mat[4*4];
-  quat_to_mat(rot,mat);
-  glMultMatrixd(mat);
-  glScaled(z_fix,z_fix,z_fix);
+  gluLookAt(
+    camera.eye()(0), camera.eye()(1), camera.eye()(2),
+    camera.at()(0), camera.at()(1), camera.at()(2),
+    camera.up()(0), -1*camera.up()(1), camera.up()(2));
 }
-
 // Scale and shift for object so that it fits current view
-void push_object(const Viewport & vp)
+void push_object(const AugViewport & vp)
 {
   using namespace Eigen;
   glPushMatrix();
-  const double * rot = vp.camera.rotation;
-  Quaterniond q(rot[3],rot[0],rot[1],rot[2]);
-  Matrix3d m = q.matrix();
+  Matrix3d m = vp.camera.m_rotation_conj.matrix();
   Vector3d eff_Vmax  = m*Vmax;
   Vector3d eff_Vmin  = m*Vmin;
   Vector3d eff_Vmean = m*Vmean;
@@ -237,6 +223,9 @@ void pop_object()
 
 void pop_scene()
 {
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
   glPopMatrix();
 }
 
@@ -268,27 +257,36 @@ void display()
     push_scene(viewports[vp]);
     push_object(viewports[vp]);
 
+    // Draw the mesh, inverted if need be.
     // Set material properties
     glDisable(GL_COLOR_MATERIAL);
-    glMaterialfv(GL_FRONT, GL_AMBIENT,  GOLD_AMBIENT);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE,  GOLD_DIFFUSE  );
-    glMaterialfv(GL_FRONT, GL_SPECULAR, GOLD_SPECULAR);
-    glMaterialf (GL_FRONT, GL_SHININESS, 128);
-    glMaterialfv(GL_BACK, GL_AMBIENT,  SILVER_AMBIENT);
-    glMaterialfv(GL_BACK, GL_DIFFUSE,  FAST_GREEN_DIFFUSE  );
-    glMaterialfv(GL_BACK, GL_SPECULAR, SILVER_SPECULAR);
-    glMaterialf (GL_BACK, GL_SHININESS, 128);
-
-    // Draw the mesh, inverted if need be.
-    if(invert)
-    {
-      glFrontFace(GL_CW);
-    }
+    //if(invert)
+    //{
+    //  glFrontFace(GL_CW);
+    //  glMaterialfv(GL_FRONT, GL_AMBIENT,  CYAN_AMBIENT);
+    //  glMaterialfv(GL_FRONT, GL_DIFFUSE,  CYAN_DIFFUSE  );
+    //  glMaterialfv(GL_FRONT, GL_SPECULAR, CYAN_SPECULAR);
+    //  glMaterialf (GL_FRONT, GL_SHININESS, 128);
+    //  glMaterialfv(GL_BACK, GL_AMBIENT,  SILVER_AMBIENT);
+    //  glMaterialfv(GL_BACK, GL_DIFFUSE,  FAST_RED_DIFFUSE);
+    //  glMaterialfv(GL_BACK, GL_SPECULAR, SILVER_SPECULAR);
+    //  glMaterialf (GL_BACK, GL_SHININESS, 128);
+    //}else
+    //{
+      glMaterialfv(GL_FRONT, GL_AMBIENT,  GOLD_AMBIENT);
+      glMaterialfv(GL_FRONT, GL_DIFFUSE,  GOLD_DIFFUSE  );
+      glMaterialfv(GL_FRONT, GL_SPECULAR, GOLD_SPECULAR);
+      glMaterialf (GL_FRONT, GL_SHININESS, 128);
+      glMaterialfv(GL_BACK, GL_AMBIENT,  SILVER_AMBIENT);
+      glMaterialfv(GL_BACK, GL_DIFFUSE,  FAST_GREEN_DIFFUSE  );
+      glMaterialfv(GL_BACK, GL_SPECULAR, SILVER_SPECULAR);
+      glMaterialf (GL_BACK, GL_SHININESS, 128);
+    //}
     draw_mesh(V,F,N);
-    if(invert)
-    {
-      glFrontFace(GL_CCW);
-    }
+    //if(invert)
+    //{
+    //  glFrontFace(GL_CCW);
+    //}
     pop_object();
 
     // Draw a nice floor unless we're looking from beneath it
@@ -378,6 +376,14 @@ bool render_to_buffer(
       red(width,height,buffer);
       return false;
     }
+  }else if(ext == "stl")
+  {
+    // Convert extension to lower case
+    if(!igl::readSTL(filename,vV,vF,vN))
+    {
+      red(width,height,buffer);
+      return false;
+    }
   }else
   {
     // Convert extension to lower case
@@ -411,20 +417,20 @@ bool render_to_buffer(
   Vmin = V.colwise().minCoeff();
   Vmean = 0.5*(Vmax + Vmin);
 
-  // Figure out if normals should be flipped (hopefully this is never a
-  // bottleneck)
-  MatrixXd BC;
-  VectorXd dblA;
-  barycenter(V,F,BC);
-  BC.col(0).array() -= Vmean(0,0);
-  BC.col(1).array() -= Vmean(1,0);
-  BC.col(2).array() -= Vmean(2,0);
-  doublearea(V,F,dblA);
-  VectorXd BCDN = (BC.array() * N.array()).rowwise().sum();
-  const double tot_dp = dblA.transpose() * BCDN;
-  invert = tot_dp < 0;
-  cout<<"Normals: "<<(get_seconds()-ts)<<"s"<<endl;
-  ts = get_seconds();
+  //// Figure out if normals should be flipped (hopefully this is never a
+  //// bottleneck)
+  //MatrixXd BC;
+  //VectorXd dblA;
+  //barycenter(V,F,BC);
+  //BC.col(0).array() -= Vmean(0,0);
+  //BC.col(1).array() -= Vmean(1,0);
+  //BC.col(2).array() -= Vmean(2,0);
+  //doublearea(V,F,dblA);
+  //VectorXd BCDN = (BC.array() * N.array()).rowwise().sum();
+  //const double tot_dp = dblA.transpose() * BCDN;
+  //invert = tot_dp < 0;
+  //cout<<"Normals: "<<(get_seconds()-ts)<<"s"<<endl;
+  //ts = get_seconds();
 
   // Initialize MESA
   OSMesaContext ctx;

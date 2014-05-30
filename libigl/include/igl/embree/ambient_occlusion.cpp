@@ -1,16 +1,21 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "ambient_occlusion.h"
 #include "EmbreeIntersector.h"
 #include <igl/random_dir.h>
 #include <igl/EPS.h>
 
 template <
-  typename Scalar,
-  typename Index,
   typename DerivedP,
   typename DerivedN,
   typename DerivedS >
-void igl::ambient_occlusion(
-  const igl::EmbreeIntersector<Scalar,Index> & ei,
+IGL_INLINE void igl::ambient_occlusion(
+  const igl::EmbreeIntersector & ei,
   const Eigen::PlainObjectBase<DerivedP> & P,
   const Eigen::PlainObjectBase<DerivedN> & N,
   const int num_samples,
@@ -26,14 +31,14 @@ void igl::ambient_occlusion(
   // loop over mesh vertices
   for(int p = 0;p<n;p++)
   {
-    const Vector3d origin = P.row(p);
-    const Vector3d normal = N.row(p);
+    const Vector3f origin = P.row(p).template cast<float>();
+    const Vector3f normal = N.row(p).template cast<float>();
     int num_hits = 0;
-    MatrixXd D = random_dir_stratified(num_samples);
+    MatrixXf D = random_dir_stratified(num_samples).cast<float>();
     for(int s = 0;s<num_samples;s++)
     {
       //Vector3d d = random_dir();
-      Vector3d d = D.row(s);
+      Vector3f d = D.row(s);
       if(d.dot(normal) < 0)
       {
         // reverse ray
@@ -56,7 +61,7 @@ template <
   typename DerivedP,
   typename DerivedN,
   typename DerivedS >
-void igl::ambient_occlusion(
+IGL_INLINE void igl::ambient_occlusion(
   const Eigen::PlainObjectBase<DerivedV> & V,
   const Eigen::PlainObjectBase<DerivedF> & F,
   const Eigen::PlainObjectBase<DerivedP> & P,
@@ -66,18 +71,14 @@ void igl::ambient_occlusion(
 {
   using namespace igl;
   using namespace Eigen;
-  EmbreeIntersector<
-    typename DerivedV::Scalar,
-    typename DerivedF::Scalar > * ei = new EmbreeIntersector<
-    typename DerivedV::Scalar,
-    typename DerivedF::Scalar >(V,F);
-  ambient_occlusion(*ei,P,N,num_samples,S);
-  delete ei;
+  EmbreeIntersector ei;
+  ei.init(V.template cast<float>(),F.template cast<int>());
+  ambient_occlusion(ei,P,N,num_samples,S);
 }
 
 #ifndef IGL_HEADER_ONLY
 // Explicit template instanciation
-template void igl::ambient_occlusion<double, int, Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >(igl::EmbreeIntersector<double, int> const&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, int, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 1, 0, -1, 1> >&);
-template void igl::ambient_occlusion<double, int, Eigen::Matrix<double, 1, 3, 1, 1, 3>, Eigen::Matrix<double, 1, 3, 1, 1, 3>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >(igl::EmbreeIntersector<double, int> const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, int, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 1, 0, -1, 1> >&);
+template void igl::ambient_occlusion<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >(igl::EmbreeIntersector const&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, int, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 1, 0, -1, 1> >&);
+template void igl::ambient_occlusion<Eigen::Matrix<double, 1, 3, 1, 1, 3>, Eigen::Matrix<double, 1, 3, 1, 1, 3>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >(igl::EmbreeIntersector const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, int, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 1, 0, -1, 1> >&);
 template void igl::ambient_occlusion<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<int, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >(Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, Eigen::PlainObjectBase<Eigen::Matrix<int, -1, -1, 0, -1, -1> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> > const&, int, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 1, 0, -1, 1> >&);
 #endif

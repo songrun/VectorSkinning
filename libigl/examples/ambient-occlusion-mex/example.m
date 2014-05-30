@@ -1,4 +1,4 @@
-[V,F] = load_mesh('../shared/cheburashka.obj');
+[V,F] = load_mesh('../shared/cheburashka.off');
 N = per_vertex_normals(V,F);
 S = ambient_occlusion(V,F,V,N,1000);
 L = cotmatrix(V,F);
@@ -7,6 +7,8 @@ M = massmatrix(V,F,'voronoi');
 Z = EV(:,7);
 qZ = round(255*(Z - min(Z))/(max(Z)-min(Z)));
 C = ind2rgb(qZ,jet(256));
+%Z = connected_components(F);
+%C = ind2rgb(Z(:),jet(max(Z)));
 
 nsp = 3;
 fs = 20;

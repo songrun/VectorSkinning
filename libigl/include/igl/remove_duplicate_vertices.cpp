@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "remove_duplicate_vertices.h"
 #include "round.h"
 #include "unique.h"
@@ -50,12 +57,13 @@ IGL_INLINE void igl::remove_duplicate_vertices(
   using namespace std;
   remove_duplicate_vertices(V,epsilon,SV,SVI,SVJ);
   // remap faces
-#ifndef _WIN32
-  SF = F.unaryExpr(bind1st(mem_fun( 
-    static_cast<VectorXi::Scalar&(VectorXi::*)(VectorXi::Index)>
-      (&VectorXi::operator())), &SVJ)).eval();
-#else
+// #ifndef _WIN32
+//   SF = F.unaryExpr(bind1st(mem_fun( 
+//     static_cast<VectorXi::Scalar&(VectorXi::*)(VectorXi::Index)>
+//       (&VectorXi::operator())), &SVJ)).eval();
+// #else
   // Why doesn't the above compile on windows?
+  // Daniele: it also does not compile with CLANG
   SF.resize(F.rows(),F.cols());
   for(int f = 0;f<F.rows();f++)
   {
@@ -64,7 +72,7 @@ IGL_INLINE void igl::remove_duplicate_vertices(
       SF(f,c) = SVJ(F(f,c));
     }
   }
-#endif
+// #endif
 }
 
 #ifndef IGL_HEADER_ONLY

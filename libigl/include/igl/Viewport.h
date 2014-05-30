@@ -1,30 +1,31 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_VIEWPORT_H
 #define IGL_VIEWPORT_H
-
-#include "Camera.h"
 
 namespace igl
 {
   struct Viewport
   {
     int x,y,width,height;
-    igl::Camera camera;
     // Constructors
-    Viewport():
-      x(0),y(0),width(0),height(0),camera(){};
     Viewport(
-      const int x, 
-      const int y, 
-      const int width,
-      const int height, 
-      const igl::Camera & camera):
+      const int x=0, 
+      const int y=0, 
+      const int width=0,
+      const int height=0):
       x(x),
       y(y),
       width(width),
-      height(height),
-      camera(camera)
+      height(height)
     {
     };
+    virtual ~Viewport(){}
     void reshape(
       const int x, 
       const int y, 
@@ -41,7 +42,7 @@ namespace igl
     //
     // Inputs:
     //   my  mouse y-coordinate
-    //   wh  window weight
+    //   wh  window height
     // Returns y-coordinate in viewport
     int mouse_y(const int my,const int wh)
     {

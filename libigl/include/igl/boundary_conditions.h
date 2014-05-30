@@ -1,10 +1,15 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_BOUNDARY_CONDITIONS_H
 #define IGL_BOUNDARY_CONDITIONS_H
 #include "igl_inline.h"
 #include <Eigen/Dense>
 
-// Note: the elements field is currently unused but is left her for consistency
-// with the matlab version (where it is also unused). 10/25/2012
 namespace igl
 {
 
@@ -15,7 +20,7 @@ namespace igl
   //   C  #C by dim list of handle positions
   //   P  #P by 1 list of point handle indices into C
   //   BE  #BE by 2 list of bone edge indices into C
-  //   CE  #CE by 2 list of cage edge indices into *P*, unused
+  //   CE  #CE by 2 list of cage edge indices into *P*
   // Outputs:
   //   b  #b list of boundary indices (indices into V of vertices which have
   //     known, fixed values)
