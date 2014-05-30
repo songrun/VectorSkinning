@@ -7,10 +7,10 @@ EngineType = {
 	'TwoEndpoints' : 2,
 	'Jacobian' : 3 }
 	
-kG1andAconstraints = False
+kG1andAconstraints = True
 kClampOn = False
 kArcLengthDefault = False
-kVerbose = 2
+kVerbose = 0
 # kTransformControls = False
 kNoOverlays = False		
 ## Show comparison curves to Schneider 1990?

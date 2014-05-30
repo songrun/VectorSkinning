@@ -1,6 +1,9 @@
 from copy import copy, deepcopy
-from bezier_constraint_odd_solver import *
-from bezier_constraint_even_solver import *
+from generate_chain_system import *
+from bezier_constraint_odd_solver import BezierConstraintSolverOdd
+from bezier_constraint_odd_solver_fast import BezierConstraintSolverOddFast
+from bezier_constraint_even_solver import BezierConstraintSolverEven
+#BezierConstraintSolverEven = BezierConstraintSolverOdd
 
 from tictoc import tic, toc
 
@@ -534,13 +537,23 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
-
+	oddfast = BezierConstraintSolverOddFast(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
+	
 	smoothness = [ constraint[0] for constraint in constraints ]
-	if 'A' in smoothness or 'G1' in smoothness: 
+	if 'A' in smoothness or 'G1' in smoothness:
+		odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
+		## There is some clamping that even.solve() does, which makes everything better behaved when we get bad input.
+		sol = even.solve()
+		odd.update_system_with_result_of_previous_iteration( sol )
+		oddfast.update_system_with_result_of_previous_iteration( sol )
 	
 	def update_with_transforms( transforms, multiple_iterations = True ):
+		#multiple_iterations = False
+		if not multiple_iterations or not ( 'A' in smoothness or 'G1' in smoothness ):
+			oddfast.update_rhs_for_handles( transforms )
+			return oddfast.solve()
+		
 		iteration = 1
 		odd.update_rhs_for_handles( transforms )
 		last_odd_solutions = solutions = odd.solve()
@@ -556,7 +569,6 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
-		smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 			## TODO Q: Why does is sometimes seem like this code only runs if there
 			##         a print statement inside? It seems haunted.
@@ -600,6 +612,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				last_odd_solutions = solutions
 		
 		print 'iterations:', iteration
+		#oddfast.update_system_with_result_of_previous_iteration( solutions )
 		return solutions
 	
 	return update_with_transforms					
@@ -856,10 +869,10 @@ def test_actually_solve():
 		#paths_info, skeleton_handle_vertices, constraint = get_test1()
 		#paths_info, skeleton_handle_vertices, constraint = get_test2()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_simple_closed()
-		#paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
+		paths_info, skeleton_handle_vertices, constraint = get_test_pebble()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_alligator()
 		#paths_info, skeleton_handle_vertices, constraint = get_test_box()
-		paths_info, skeleton_handle_vertices, constraint = get_test_turtle_glasses()
+		#paths_info, skeleton_handle_vertices, constraint = get_test_turtle_glasses()
 	
 	engine = YSEngine()
 	
