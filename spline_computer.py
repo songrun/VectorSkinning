@@ -537,16 +537,17 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	controls = concatenate((controls, ones((controls.shape[0],4,1))), axis=2)
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
-	odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 	oddfast = BezierConstraintSolverOddFast(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 
 	smoothness = [ constraint[0] for constraint in constraints ]
-	if 'A' in smoothness or 'G1' in smoothness: 
+	if 'A' in smoothness or 'G1' in smoothness:
+		odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 	
 	def update_with_transforms( transforms, multiple_iterations = True ):
 		#multiple_iterations = False
-		if not multiple_iterations:
+		smoothness = [ constraint[0] for constraint in constraints ]
+		if not multiple_iterations or not ( 'A' in smoothness or 'G1' in smoothness ):
 			oddfast.update_rhs_for_handles( transforms )
 			return oddfast.solve()
 		
@@ -565,7 +566,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 			pickle.dump( all_solutions, open( debug_out, "wb" ) )
 		
 		### 2
-		smoothness = [ constraint[0] for constraint in constraints ]
+		#smoothness = [ constraint[0] for constraint in constraints ]
 		if 'A' in smoothness or 'G1' in smoothness: 
 			## TODO Q: Why does is sometimes seem like this code only runs if there
 			##         a print statement inside? It seems haunted.

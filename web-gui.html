@@ -1694,8 +1694,13 @@ function createHandleUIForSVG()
         var weightFunction = $( "#weight-function" ).val();
         // This is driving me crazy. For some reason the handle drag event causes a
         // click event in the SVG even when evt.stopPropagation() is called.
+        // UPDATE: I made a hack involving 'gDraggingHandleIndex'. See the comments
+        // in the handle's drag handler.
         if( clickable === null || weightFunction === "mvc" || weightFunction === "shepard" )
         {
+            if( gDraggingHandleIndex !== null ) return;
+            // console.log( 'gDraggingHandleIndex:', gDraggingHandleIndex );
+            
             add_handle_click( evt );
         }
         } );
@@ -1810,9 +1815,23 @@ function createHandleAtPosition( x, y )
 		    //       The user can ensure they don't see both changes at once by
 		    //       waiting with the mouse button held until the last transformation
 		    //       comes back.
-		    if( $('#c1-while-dragging').prop( 'checked' ) ) sendSetIterations( true );
+		    if( $('#c1-while-dragging').prop( 'checked' ) ) {
+		        sendSetIterations( true );
+		        // Re-send the handle over the network, because we just changed to multiple iterations.
+		        var handle_index = parseInt( this.attr('data-handle_index') );
+    			// Send the transform over the network.
+                sendHandleTransformation( handle_index );
+		    }
 		    if( $('#showTargetCurves').prop( 'checked' ) ) sendHandleDragFinished();
-		    gDraggingHandleIndex = null;
+		    
+		    // Hello! A hack because evt.stopPropagation() doesn't keep the background
+		    // from getting a click event.
+		    // We will re-use the global gDraggingHandleIndex from the animation code.
+		    // Instead of setting gDraggingHandleIndex = null; now,
+		    // We'll set a timer to do it in a few milliseconds, after the ui.click()
+		    // handler has been called.
+		    // gDraggingHandleIndex = null;
+		    setTimeout( function() { gDraggingHandleIndex = null; }, 5 );
 		} );
 	
 	// I need to do this to eat click events:
