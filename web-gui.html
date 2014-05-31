@@ -223,6 +223,7 @@ var kDragDropFeedbackSelector = "body";
 var kWebSocketURI = "ws://localhost:9123";
 var kFakeWebSocket = false;
 var kShowDistance = true;
+var kHandlesAreLineLoop = [ 'mvc', 'harmonic' ];
 
 
 ///
@@ -1349,6 +1350,9 @@ function loadGlobals( globals )
             setHandleTransformFromDictionary( handle_index, handle.transform )
         }
         sendHandlePositionsAndTransforms();
+        
+        // Update the connected handles if needed.
+        maybeConnectHandlesHack();
     }
     
     gAnimationRecorder.loadGlobalsFromDict( globals );
@@ -1793,7 +1797,7 @@ function createHandleAtPosition( x, y )
             // Send the transform over the network.
             sendHandleTransformation( handle_index );
             
-            // Maybe connect the handles as a hack
+            // Update the connected handles if needed.
             maybeConnectHandlesHack();
 		},
 		// drag start
@@ -1842,10 +1846,11 @@ function createHandleAtPosition( x, y )
 	
 	// Finally, update the z-order with appendTo()'s in back-to-front order.
 	var svg = $('#svg-overlay-handles > svg' );
-	svg.find( '.handle-loop-original' ).appendTo( svg );
 	svg.find( '.handle-original' ).appendTo( svg );
-	svg.find( '.handle-loop' ).appendTo( svg );
 	svg.find( '.handle' ).appendTo( svg );
+	
+	// Update the connected handles if needed.
+    maybeConnectHandlesHack();
 }
 // Sets the transform for a handle.
 // NOTE: This does not call sendHandleTransformation(). Call that yourself, afterwards.
@@ -1888,8 +1893,14 @@ function deleteHandle( handle_index )
 
 function maybeConnectHandlesHack()
 {
-    return;
+    // Clear the old lines.
+    $('#svg-overlay-handles > svg > .handle-loop').remove();
     
+    var weightFunction = $( "#weight-function" ).val();
+    if( kHandlesAreLineLoop.indexOf( weightFunction ) === -1 ) return;
+    
+    /*
+    // Line loop for the original handle locations.
     maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg .handle-original'),
         {
         class: 'handle-loop-original',
@@ -1899,30 +1910,35 @@ function maybeConnectHandlesHack()
         strokeDasharray: "20,10,5,5,5,10",
         opacity: .5
         });
-    maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg .handle'),
+    */
+    
+    // Add the new lines.
+    maybeConnectHandlesHack_inner( $('#svg-overlay-handles > svg > rect.handle'),
         {
         class: 'handle-loop',
-        fill: "#da55da",
-        stroke: "#000",
-        strokeWidth: 2.,
-        strokeDasharray: "20,10,5,5,5,10"
+        stroke: "#da91da",
+        opacity: .5,
+        strokeWidth: 4.
+        // strokeDasharray: "20,10,5,5,5,10"
         });
+    
+    // Put these lines at the back of the overlay layer.
+    var svg = $('#svg-overlay-handles > svg');
+    svg.find( '.handle-loop' ).prependTo( svg );
 }
 function maybeConnectHandlesHack_inner( handles, attrs )
 {
-    handles.remove();
-    
-    var weightFunction = $( "#weight-function" ).val();
-    if( weightFunction === "bbw" || weightFunction === "shepard" ) return;
-    
-    var closed = weightFunction === "mvc";
-    
     var ui = Snap( '#svg-overlay-handles > svg' );
     
     function xformed_handle_pos( handle )
     {
         var xform0 = Snap( handle ).transform().globalMatrix;
-        var xy = [ parseFloat( handle.getAttribute('x') ), parseFloat( handles[i].getAttribute('y') ) ];
+        var xy = [ parseFloat( handle.getAttribute('x') ), parseFloat( handle.getAttribute('y') ) ];
+        var width = parseFloat( handle.getAttribute('width') );
+        var height = parseFloat( handle.getAttribute('height') );
+        xy[0] = xy[0] + width/2.;
+        xy[1] = xy[1] + width/2.;
+        // return xy;
         return [ xform0.x( xy[0], xy[1] ), xform0.y( xy[0], xy[1] ) ];
     }
     
@@ -1932,6 +1948,7 @@ function maybeConnectHandlesHack_inner( handles, attrs )
         var xy1 = xformed_handle_pos( handles[i+1] );
         ui.line( xy0[0], xy0[1], xy1[0], xy1[1] ).attr( attrs );
     }
+    var closed = true;
     if( closed )
     {
         var xy0 = xformed_handle_pos( handles[handles.length-1] );
@@ -2052,6 +2069,9 @@ function setupGlobalUI()
     /// Setup change callbacks for the toggles.
     $("#weight-function").change( function() {
         sendWeightTypeChanged();
+        
+        // Update the connected handles if needed.
+        maybeConnectHandlesHack();
     } );
     $("#engine-type").change( function() {
         sendEngineTypeChanged();
