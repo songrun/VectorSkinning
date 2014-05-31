@@ -71,9 +71,11 @@ int harmonic(
     MatrixXi F = Eigen::Map< Eigen::Matrix< index_t, Eigen::Dynamic, 3, Eigen::RowMajor > >( faces, num_faces, 3 );
     
     // Make this an Eigen::map from boundary_indices.
-    // VectorXi b = Eigen::Map< Eigen::Matrix< index_t, Eigen::Dynamic, 1 > >( boundary_indices, num_boundary_indices, 1 );
-    // VectorXd bc( num_boundary_indices, num_boundary_indices );
+    VectorXi b = Eigen::Map< Eigen::Matrix< index_t, Eigen::Dynamic, 1 > >( boundary_indices, num_boundary_indices, 1 );
+    MatrixXd bc;
+    bc.setIdentity( num_boundary_indices, num_boundary_indices );
     
+    /*
     // Alec: If your mesh is (V,F) and your control cage is C then first build a #C by 2 MatrixXi of “edge indices” for your control cage. Easy, just:
     MatrixXd C(num_boundary_indices,kVertexDimension);
     MatrixXi CE(num_boundary_indices,2);
@@ -97,6 +99,7 @@ int harmonic(
     {
         return 1;
     }
+    */
     
     // compute harmonic coordinates
     // Weights matrix
