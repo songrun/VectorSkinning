@@ -260,7 +260,7 @@ def harmonic( vertices, faces, boundary_indices, power ):
     assert len( faces.shape ) == 2
     assert faces.shape[1] == 3
     
-    assert len(set( boundary_indices )) == len( boundary_indices )
+    assert len(set( boundary_indices.tolist() )) == len( boundary_indices )
     assert min( boundary_indices ) >= 0
     assert max( boundary_indices ) < len( vertices )
     

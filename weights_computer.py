@@ -402,7 +402,8 @@ def compute_all_weights_harmonic( all_pts, skeleton_handle_vertices, customized 
 	
 	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
 	## The boundary edges are the handle vertices as a loop.
-	boundary_edges = [ ( i, (i+1) % len( registered_pts ) ) for i in xrange( len( all_clean_pts ), len( registered_pts ) ) ]
+	off = len(all_clean_pts)
+	boundary_edges = [ ( off + i, off + ( (i+1) % len( skeleton_handle_vertices ) ) ) for i in xrange(len( skeleton_handle_vertices )) ]
 	
 	tic( 'Computing triangulation...' )
 	vs, faces = triangles_for_points( registered_pts, boundary_edges )
@@ -412,7 +413,7 @@ def compute_all_weights_harmonic( all_pts, skeleton_handle_vertices, customized 
 	faces = asarray(faces)
 	
 	tic( 'Computing Harmonic Coordinates...' )
-	all_weights = bbw.harmonic(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+	all_weights = bbw.harmonic( vs, faces, [ i for i,j in boundary_edges ], 1 )
 	toc()
 	
 	if kBarycentricProjection:

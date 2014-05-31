@@ -172,6 +172,7 @@ Weight type:
         <select id="weight-function" disabled>
         <option value="bbw" selected>BBW</option>
         <option value="shepard">Shepard</option>
+        <option value="harmonic">Harmonic</option>
         <option value="mvc">MVC</option>
         </select>
 </div>
@@ -1696,7 +1697,8 @@ function createHandleUIForSVG()
         // click event in the SVG even when evt.stopPropagation() is called.
         // UPDATE: I made a hack involving 'gDraggingHandleIndex'. See the comments
         // in the handle's drag handler.
-        if( clickable === null || weightFunction === "mvc" || weightFunction === "shepard" )
+        var allowableWeightFunctions = [ "mvc", "harmonic", "shepard" ];
+        if( clickable === null || allowableWeightFunctions.indexOf( weightFunction ) !== -1 )
         {
             if( gDraggingHandleIndex !== null ) return;
             // console.log( 'gDraggingHandleIndex:', gDraggingHandleIndex );
