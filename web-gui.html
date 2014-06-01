@@ -1352,7 +1352,7 @@ function loadGlobals( globals )
         sendHandlePositionsAndTransforms();
         
         // Update the connected handles if needed.
-        maybeConnectHandlesHack();
+        // maybeConnectHandlesHack();
     }
     
     gAnimationRecorder.loadGlobalsFromDict( globals );
@@ -1785,20 +1785,17 @@ function createHandleAtPosition( x, y )
 				console.error("undefined transformation type is chosen.")
 			}
 			
-            // Update the SVG element.
-            this.transform( M );
-            
             // Update the global variable (and the HTML table).
             var handle_index = parseInt( this.attr('data-handle_index') );
             
-            gHandles[ handle_index ].transform = M;
+            // Update the transform (which updates the SVG element and edges if needed).
+            setHandleTransformFromDictionary( handle_index, M );
+            
+            // Update the web form.
             setupHandleControls( handle_index );
             
             // Send the transform over the network.
             sendHandleTransformation( handle_index );
-            
-            // Update the connected handles if needed.
-            maybeConnectHandlesHack();
 		},
 		// drag start
 		function( x, y ) {
@@ -1860,6 +1857,9 @@ function setHandleTransformFromDictionary( handle_index, M )
     gHandles[ handle_index ].transform = matrix;
     var rect = $("#svg-overlay-handles > svg > rect.handle[data-handle_index='" + handle_index + "'")[0];
     Snap( rect ).transform( matrix );
+    
+    // Update the connected handles if needed.
+    maybeConnectHandlesHack();
 }
 function getHandleTransformAsArray( handle_index )
 {
