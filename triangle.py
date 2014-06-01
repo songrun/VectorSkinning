@@ -25,7 +25,12 @@ def triangles_for_points( points, boundary_edges = None ):
     
     import os, subprocess
     
+    ### http://www.cs.cmu.edu/~quake/triangle.switch.html
+    ## -q Quality mesh generation with no angles smaller than 20 degrees. An alternate minimum angle may be specified after the `q'.
+    ## -a Imposes a maximum triangle area constraint. A fixed area constraint (that applies to every triangle) may be specified after the `a', or varying area constraints may be read from a .poly file or .area file.
+    ## -g Outputs the mesh to an Object File Format (.off) file, suitable for viewing with the Geometry Center's Geomview package.
     options = [ '-q', '-a100', '-g' ]
+    # options = [ '-q' ]
     
     if boundary_edges is None: boundary_edges = []
     
@@ -35,6 +40,7 @@ def triangles_for_points( points, boundary_edges = None ):
         subprocess.call( [ triangle_path ] + options + [ input_path ] )
     else:
         input_path = write_poly_file( points, boundary_edges )
+        ## -p Triangulates a Planar Straight Line Graph (.poly file).
         subprocess.call( [ triangle_path ] + options + [ '-p', input_path ] )
     
     ele_path = os.path.splitext( input_path )[0] + '.1.ele'
