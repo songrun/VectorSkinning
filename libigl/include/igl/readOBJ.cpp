@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "readOBJ.h"
 
 #include "list_to_matrix.h"
@@ -31,7 +38,7 @@ IGL_INLINE bool igl::readOBJ(
   F.clear();
   FTC.clear();
   FN.clear();
-  
+
   // variables an constants to assist parsing the .obj file
   // Constant strings to compare against
   std::string v("v");
@@ -39,15 +46,15 @@ IGL_INLINE bool igl::readOBJ(
   std::string vt("vt");
   std::string f("f");
   std::string tic_tac_toe("#");
-#ifndef LINE_MAX
-#  define LINE_MAX 2048
+#ifndef IGL_LINE_MAX
+#  define IGL_LINE_MAX 2048
 #endif
-  
-  char line[LINE_MAX];
+
+  char line[IGL_LINE_MAX];
   int line_no = 1;
-  while (fgets(line, LINE_MAX, obj_file) != NULL) 
+  while (fgets(line, IGL_LINE_MAX, obj_file) != NULL) 
   {
-    char type[LINE_MAX];
+    char type[IGL_LINE_MAX];
     // Read first word containing type
     if(sscanf(line, "%s",type) == 1)
     {
@@ -116,7 +123,7 @@ IGL_INLINE bool igl::readOBJ(
         std::vector<Index > ftc;
         std::vector<Index > fn;
         // Read each "word" after type
-        char word[LINE_MAX];
+        char word[IGL_LINE_MAX];
         int offset;
         while(sscanf(l,"%s%n",word,&offset) == 1)
         {
@@ -167,9 +174,13 @@ IGL_INLINE bool igl::readOBJ(
           fclose(obj_file);
           return false;
         }
-      }else if(strlen(type) >= 1 && type[0] == '#')
+      }else if(strlen(type) >= 1 && (type[0] == '#' || 
+            type[0] == 'g'  ||
+            type[0] == 's'  ||
+            strcmp("usemtl",type)==0 ||
+            strcmp("mtllib",type)==0))
       {
-        //ignore comments
+        //ignore comments or other shit
       }else
       {
         //ignore any other lines
@@ -185,10 +196,10 @@ IGL_INLINE bool igl::readOBJ(
     line_no++;
   }
   fclose(obj_file);
-  
+
   assert(F.size() == FN.size());
   assert(F.size() == FTC.size());
-  
+
   return true;
 }
 
@@ -232,7 +243,7 @@ IGL_INLINE bool igl::readOBJ(
       return false;
     }
   }
-  
+
   if(!vFN.empty())
   {
     bool FN_rect = igl::list_to_matrix(vFN,FN);
@@ -242,10 +253,10 @@ IGL_INLINE bool igl::readOBJ(
       return false;
     }
   }
-  
+
   if(!vTC.empty())
   {
-    
+
     bool T_rect = igl::list_to_matrix(vTC,TC);
     if(!T_rect)
     {
@@ -255,7 +266,7 @@ IGL_INLINE bool igl::readOBJ(
   }
   if(!vFTC.empty())
   {
-    
+
     bool FTC_rect = igl::list_to_matrix(vFTC,FTC);
     if(!FTC_rect)
     {
@@ -297,31 +308,31 @@ IGL_INLINE bool igl::readOBJPoly(
     return false;
 
   F = vF;
-  
+
   if(!vN.empty())
   {
     bool VN_rect = igl::list_to_matrix(vN,CN);
     if(!VN_rect)
       return false;
   }
-  
+
   if(!vFN.empty())
   {
     bool FN_rect = igl::list_to_matrix(vFN,FN);
     if(!FN_rect)
       return false;
   }
-  
+
   if(!vTC.empty())
   {
-    
+
     bool T_rect = igl::list_to_matrix(vTC,TC);
     if(!T_rect)
       return false;
   }
   if(!vFTC.empty())
   {
-    
+
     bool FTC_rect = igl::list_to_matrix(vFTC,FTC);
     if(!FTC_rect)
       return false;
@@ -378,4 +389,5 @@ IGL_INLINE bool igl::readOBJ(
 template bool igl::readOBJ<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<int, -1, -1, 0, -1, -1> >(std::basic_string<char, std::char_traits<char>, std::allocator<char> >, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<int, -1, -1, 0, -1, -1> >&);
 template bool igl::readOBJ<Eigen::Matrix<double, -1, 3, 1, -1, 3>, Eigen::Matrix<unsigned int, -1, -1, 1, -1, -1>, Eigen::Matrix<double, -1, 2, 1, -1, 2> >(std::basic_string<char, std::char_traits<char>, std::allocator<char> >, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 3, 1, -1, 3> >&, Eigen::PlainObjectBase<Eigen::Matrix<unsigned int, -1, -1, 1, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 3, 1, -1, 3> >&, Eigen::PlainObjectBase<Eigen::Matrix<unsigned int, -1, -1, 1, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 2, 1, -1, 2> >&, Eigen::PlainObjectBase<Eigen::Matrix<unsigned int, -1, -1, 1, -1, -1> >&);
 template bool igl::readOBJ<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<int, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, -1, 0, -1, -1> >(std::basic_string<char, std::char_traits<char>, std::allocator<char> >, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<int, -1, -1, 0, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<int, -1, -1, 0, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, -1, 0, -1, -1> >&, Eigen::PlainObjectBase<Eigen::Matrix<int, -1, -1, 0, -1, -1> >&);
+template bool igl::readOBJ<Eigen::Matrix<double, -1, 3, 0, -1, 3>, Eigen::Matrix<int, -1, 3, 0, -1, 3> >(std::string, Eigen::PlainObjectBase<Eigen::Matrix<double, -1, 3, 0, -1, 3> >&, Eigen::PlainObjectBase<Eigen::Matrix<int, -1, 3, 0, -1, 3> >&);
 #endif

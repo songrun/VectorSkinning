@@ -1,10 +1,7 @@
 #include "parse_rhs.h"
 
 #include <igl/matlab/mexStream.h>
-#include <igl/matlab/MatlabWorkspace.h>
-#include <igl/embree/EmbreeIntersector.h>
 #include <igl/embree/ambient_occlusion.h>
-#include <igl/matlab_format.h>
 
 #include <igl/read.h>
 #include <igl/per_vertex_normals.h>
@@ -34,7 +31,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
   // Prepare left-hand side
   nlhs = 1;
 
-  //read("../shared/cheburashka.obj",V,F);
+  //read("../shared/cheburashka.off",V,F);
   //P = V;
   //per_vertex_normals(V,F,N);
   ambient_occlusion(V,F,P,N,num_samples,S);

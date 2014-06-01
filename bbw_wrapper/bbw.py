@@ -18,16 +18,20 @@ except ImportError:
 '''
 # OSX
 g++ -fPIC \
-    bbw.cpp mvc.cpp \
+    bbw.cpp mvc.cpp harmonic.cpp \
+    -std=c++11 \
     -I../libigl/include \
-    -I/opt/local/include/eigen3 \
+    -I/usr/local/include/eigen3 \
+    -I/usr/local/include/eigen3/unsupported \
     -dynamiclib -o bbw.dylib \
     -g -O3 -Wall -Wshadow -Wno-sign-compare
 
 g++-mp-4.7 -static-libgcc -static-libstdc++ -fPIC \
-    bbw.cpp mvc.cpp \
+    bbw.cpp mvc.cpp harmonic.cpp \
+    -std=c++11 \
     -I../libigl/include \
-    -I/opt/local/include/eigen3 \
+    -I/usr/local/include/eigen3 \
+    -I/usr/local/include/eigen3/unsupported \
     -dynamiclib -o bbw.dylib \
     -DNDEBUG \
     /opt/local/lib/gcc47/libgomp.a \
@@ -36,9 +40,11 @@ g++-mp-4.7 -static-libgcc -static-libstdc++ -fPIC \
 # For some reason this seemed faster in practice, but slower on the bbw.py test.
 # Did I compile in between those tests?
 clang++-mp-3.3 -fPIC \
-    bbw.cpp mvc.cpp \
+    bbw.cpp mvc.cpp harmonic.cpp \
+    -std=c++11 \
     -I../libigl/include \
-    -I/opt/local/include/eigen3 \
+    -I/usr/local/include/eigen3 \
+    -I/usr/local/include/eigen3/unsupported \
     -dynamiclib -o bbw.dylib \
     -DNDEBUG \
     -g -O4 -Wall -Wshadow -Wno-sign-compare
@@ -46,8 +52,8 @@ clang++-mp-3.3 -fPIC \
 
 # Linux
 g++ -fPIC \
-    bbw.cpp mvc.cpp \
-    -Ipath/to/igl???? \
+    bbw.cpp mvc.cpp harmonic.cpp \
+    -I../libigl/include \
     -Ipath/to/Eigen???? \
     -shared -o bbw.so \
     -g -O2 -Wall -Wshadow -Wno-sign-compare
@@ -117,6 +123,35 @@ int mvc(
     // The data layout is that all 'num_line_loop' weights for vertex 0
     // appear before all 'num_line_loop' weights for vertex 1, and so on.
     // In other words, a num_vertices-by-num_line_loop matrix packed row-major.
+    real_t* Wout
+    );
+
+// Returns 0 for success, anything else is an error.
+int harmonic(
+    /// Input Parameters
+    // 'vertices' is a pointer to num_vertices*kVertexDimension floating point values,
+    // packed: x0, y0, z0, x1, y1, z1, ...
+    // In other words, a num_vertices-by-kVertexDimension matrix packed row-major.
+    int num_vertices, real_t* vertices,
+    // 'faces' is a pointer to num_faces*3 integers,
+    // where each face is three vertex indices: f0.v0, f0.v1, f0.v2, f1.v0, f1.v1, f1.v2, ...
+    // Face i's vertices are: vertices[ faces[3*i]*2 ], vertices[ faces[3*i+1]*2 ], vertices[ faces[3*i+2]*2 ]
+    // In other words, a num_faces-by-3 matrix packed row-major.
+    int num_faces, index_t* faces,
+    // 'boundary_indices' is a pointer to num_boundary_vertices integers,
+    // where each element "i" in boundary_indices references the vertex whose data
+    // is located at vertices[ boundary_indices[i]*kVertexDimension ].
+    int num_boundary_indices, index_t* boundary_indices,
+    // Power of the harmonic operation (1 is harmonic, 2 is bi-harmonic, etc ),
+    int power,
+    
+    /// Output Parameters
+    // 'Wout' is a pointer to num_vertices*num_boundary_indices values.
+    // Upon return, W will be filled with each vertex in 'num_vertices' weight for
+    // each boundary vertex in 'boundary_indices'.
+    // The data layout is that all 'num_boundary_indices' weights for vertex 0
+    // appear before all 'num_boundary_indices' weights for vertex 1, and so on.
+    // In other words, a num_vertices-by-num_boundary_indices matrix packed row-major.
     real_t* Wout
     );
 """)
@@ -198,6 +233,52 @@ def bbw( vertices, faces, skeleton_handle_vertices, skeleton_point_handles ):
     
     return Wout
 
+def harmonic( vertices, faces, boundary_indices, power ):
+    '''
+    Given an N-by-2 or 3 numpy array 'vertices' of 2D or 3D vertices,
+    an M-by-3 numpy array 'faces' of indices into 'vertices',
+    a length-H sequence 'boundary_indices' of indices into 'vertices' representing the boundary line loop,
+    an integer 'power' representing the harmonic power (1 is harmonic, 2 is bi-harmonic, etc),
+    returns a N-by-H numpy.array of weights per vertex per handle.
+    '''
+    
+    import numpy
+    
+    ## Make sure the input values have their data in a way easy to access from C.
+    vertices = numpy.ascontiguousarray( numpy.asarray( vertices, dtype = real_t ) )
+    faces = numpy.ascontiguousarray( numpy.asarray( faces, dtype = index_t ) )
+    boundary_indices = numpy.ascontiguousarray( numpy.asarray( boundary_indices, dtype = index_t ) )
+    
+    assert len( vertices.shape ) == 2
+    assert vertices.shape[1] in (2,3)
+    ## Turn 2D vertices into 3D vertices by using z = 0.
+    if vertices.shape[1] == 2:
+        vertices2d = vertices
+        vertices = numpy.ascontiguousarray( numpy.zeros( ( len( vertices ), 3 ), dtype = real_t ) )
+        vertices[:,:2] = vertices2d
+    
+    assert len( faces.shape ) == 2
+    assert faces.shape[1] == 3
+    
+    assert len(set( boundary_indices.tolist() )) == len( boundary_indices )
+    assert min( boundary_indices ) >= 0
+    assert max( boundary_indices ) < len( vertices )
+    
+    Wout = numpy.empty( ( len( vertices ), len( boundary_indices ) ), dtype = real_t )
+#     debugger()
+    result = libbbw.harmonic(
+        len( vertices ),                 ffi.cast( 'real_t*',  vertices.ctypes.data ),
+        len( faces ),                    ffi.cast( 'index_t*', faces.ctypes.data ),
+        len( boundary_indices ),         ffi.cast( 'index_t*',  boundary_indices.ctypes.data ),
+        power,
+        
+        ffi.cast( 'real_t*', Wout.ctypes.data )
+        )
+    if result != 0:
+        raise BBWError( 'harmonic() reported an error' )
+    
+    return Wout
+
 def mvc( vertices, line_loop ):
     '''
     Given an N-by-2 numpy array 'vertices' of 2D vertices and
@@ -266,6 +347,17 @@ def test_simple_bbw():
     W = bbw( vs, faces, [ vs[i] for i in handle_points ], list(range(len( handle_points ))) )
     print W
 
+def test_simple_harmonic():
+    print 'test_simple_harmonic()'
+    
+    ## A square and a point inside.
+    vs = array([(-1, -1), (1, -1), (1, 1), (-1, 1), (0, 0)])
+    faces = array([[3, 0, 4], [4, 1, 2], [1, 4, 0], [4, 2, 3]])
+    boundary_indices = [ 0, 1, 2, 3 ]
+    
+    W = harmonic( vs, faces, boundary_indices, 1 )
+    print W
+
 def test_simple_mvc():
     print 'test_simple_mvc()'
     
@@ -283,6 +375,7 @@ def main():
     
     else:
         #test_simple_bbw()
-        test_simple_mvc()
+        #test_simple_mvc()
+        test_simple_harmonic()
 
 if __name__ == '__main__': main()

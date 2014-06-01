@@ -4,7 +4,7 @@ import os
 from numpy import asarray
 
 #triangle_path = os.path.join( "C:\\Users\\Mai\\Dropbox\\Research\\Deformation\\src\\py\\triangle", "triangle.exe")
-triangle_path = os.path.join( os.getcwd(), "triangle/triangle")
+triangle_path = os.path.join( os.path.dirname( __file__ ), "triangle", "triangle" )
 
 if not os.path.exists( triangle_path ):
     raise ImportError, "Triangle not found: " + triangle_path

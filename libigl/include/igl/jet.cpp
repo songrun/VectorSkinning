@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "jet.h"
 #include "colon.h"
 
@@ -47,13 +54,13 @@
 
 
 template <typename T>
-void igl::jet(const T x, T * rgb)
+IGL_INLINE void igl::jet(const T x, T * rgb)
 {
   igl::jet(x,rgb[0],rgb[1],rgb[2]);
 }
 
 template <typename T>
-void igl::jet(const T x, T & r, T & g, T & b)
+IGL_INLINE void igl::jet(const T x, T & r, T & g, T & b)
 {
   // Only important if the number of colors is small. In which case the rest is
   // still wrong anyway
@@ -94,4 +101,5 @@ void igl::jet(const T x, T & r, T & g, T & b)
 #ifndef IGL_NO_HEADER
 template void igl::jet<double>(double, double*);
 template void igl::jet<double>(double, double&, double&, double&);
+template void igl::jet<float>(float, float*);
 #endif

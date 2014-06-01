@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "bbw.h"
 
 #include <igl/cotmatrix.h>
@@ -5,7 +12,6 @@
 #include <igl/invert_diag.h>
 #include <igl/speye.h>
 #include <igl/slice_into.h>
-#include <igl/normalize_row_sums.h>
 #include <igl/min_quad_with_fixed.h>
 
 #define EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET
@@ -102,6 +108,10 @@ IGL_INLINE bool igl::bbw(
     {
       case QP_SOLVER_IGL_ACTIVE_SET:
       {
+        //if(data.verbosity >= 1)
+        //{
+          cout<<"BBW: max_iter: "<<eff_params.max_iter<<endl;
+        //}
         if(data.verbosity >= 1)
         {
           cout<<"BBW: Computing initial weights for "<<m<<" handle"<<
@@ -124,6 +134,7 @@ IGL_INLINE bool igl::bbw(
           }
           if(data.verbosity >= 1)
           {
+#pragma omp critical
             cout<<"BBW: Computing weight for handle "<<i+1<<" out of "<<m<<
               "."<<endl;
           }

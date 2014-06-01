@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_MASSMATRIX_H
 #define IGL_MASSMATRIX_H
 #include "igl_inline.h"
@@ -11,11 +18,12 @@ namespace igl
 
   enum MassMatrixType
   {
-    MASSMATRIX_BARYCENTRIC,
-    MASSMATRIX_VORONOI,
-    MASSMATRIX_FULL
+    MASSMATRIX_BARYCENTRIC = 0,
+    MASSMATRIX_VORONOI = 1,
+    MASSMATRIX_FULL = 2,
+    MASSMATRIX_DEFAULT = 3,
+    NUM_MASSMATRIX = 4
   };
-#define NUM_MASSMATRIXTYPE 3
 
   // Constructs the mass (area) matrix for a given mesh (V,F).
   //

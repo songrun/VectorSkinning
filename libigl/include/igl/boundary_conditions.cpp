@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "boundary_conditions.h"
 
 #include "verbose.h"
@@ -49,13 +56,13 @@ IGL_INLINE bool igl::boundary_conditions(
       double sqrd = (vi-pos).array().pow(2).sum();
       if(sqrd <= FLOAT_EPS)
       {
-        cout<<"sum((["<<
-          V(i,0)<<" "<<
-          V(i,1)<<" "<<
-          V(i,2)<<"] - ["<<
-          pos(0)<<" "<<
-          pos(1)<<" "<<
-          pos(2)<<"]).^2) = "<<sqrd<<endl;
+        //cout<<"sum((["<<
+        //  V(i,0)<<" "<<
+        //  V(i,1)<<" "<<
+        //  V(i,2)<<"] - ["<<
+        //  pos(0)<<" "<<
+        //  pos(1)<<" "<<
+        //  pos(2)<<"]).^2) = "<<sqrd<<endl;
         bci.push_back(i);
         bcj.push_back(p);
         bcv.push_back(1.0);
@@ -149,12 +156,6 @@ IGL_INLINE bool igl::boundary_conditions(
     assert(sum != 0);
     bc.row(i).array() /= sum;
   }
-	// If there's only a single boundary condition, the following tests
-	// are overzealous.
-	if(bc.rows() == 1)
-	{
-		return true;
-	}
 
   // If there's only a single boundary condition, the following tests
   // are overzealous.

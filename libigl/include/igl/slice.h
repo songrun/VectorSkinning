@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_SLICE_H
 #define IGL_SLICE_H
 #include "igl_inline.h"
@@ -35,19 +42,27 @@ namespace igl
     const Eigen::Matrix<int,Eigen::Dynamic,1> & R,
     const int dim,
     Mat& Y);
-
   template <typename DerivedX>
   IGL_INLINE void slice(
     const Eigen::PlainObjectBase<DerivedX> & X,
     const Eigen::Matrix<int,Eigen::Dynamic,1> & R,
     const Eigen::Matrix<int,Eigen::Dynamic,1> & C,
     Eigen::PlainObjectBase<DerivedX> & Y);
-
   template <typename DerivedX>
   IGL_INLINE void slice(
     const Eigen::PlainObjectBase<DerivedX> & X,
     const Eigen::Matrix<int,Eigen::Dynamic,1> & R,
     Eigen::PlainObjectBase<DerivedX> & Y);
+  // VectorXi Y = slice(X,R);
+  template <typename DerivedX>
+  IGL_INLINE Eigen::PlainObjectBase<DerivedX> slice(
+    const Eigen::PlainObjectBase<DerivedX> & X,
+    const Eigen::Matrix<int,Eigen::Dynamic,1> & R);
+  template <typename DerivedX>
+  IGL_INLINE Eigen::PlainObjectBase<DerivedX> slice(
+    const Eigen::PlainObjectBase<DerivedX>& X,
+    const Eigen::Matrix<int,Eigen::Dynamic,1> & R,
+    const int dim);
 }
 
 #ifdef IGL_HEADER_ONLY

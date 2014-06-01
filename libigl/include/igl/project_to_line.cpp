@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "project_to_line.h"
 #include <cassert>
 #include <Eigen/Core>
@@ -32,7 +39,7 @@ IGL_INLINE void igl::project_to_line(
   t.resize(np,1);
   sqrD.resize(np,1);
   // loop over points 
-#pragma omp parallel for
+#pragma omp parallel for if (np>10000)
   for(int i = 0;i<np;i++)
   {
     MatL Pi = P.row(i);
@@ -115,4 +122,5 @@ IGL_INLINE void igl::project_to_line(
 template void igl::project_to_line<Eigen::Matrix<double, -1, -1, 0, -1, -1>, Eigen::Matrix<double, -1, 1, 0, -1, 1>, Eigen::Matrix<double, -1, 1, 0, -1, 1>, Eigen::Matrix<double, -1, 1, 0, -1, 1> >(Eigen::Matrix<double, -1, -1, 0, -1, -1> const&, Eigen::Matrix<double, -1, 1, 0, -1, 1> const&, Eigen::Matrix<double, -1, 1, 0, -1, 1> const&, Eigen::Matrix<double, -1, 1, 0, -1, 1>&, Eigen::Matrix<double, -1, 1, 0, -1, 1>&);
 template void igl::project_to_line<double>(double, double, double, double, double, double, double, double, double, double&, double&);
 template void igl::project_to_line<double>(double, double, double, double, double, double, double, double, double, double&, double&,double&,double&, double&);
+template void igl::project_to_line<Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> >, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> >, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 1, 0, 1, 1> >, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 1, 0, 1, 1> > >(Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 3, 1, 1, 3> > const&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 1, 0, 1, 1> >&, Eigen::PlainObjectBase<Eigen::Matrix<double, 1, 1, 0, 1, 1> >&);
 #endif

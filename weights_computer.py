@@ -207,6 +207,14 @@ def compute_all_weights( all_pts, skeleton_handle_vertices, boundary_index, whic
 			print 'Falling back to Shepard weights.'
 			which = 'shepard'
 	
+	if 'harmonic' == which:
+		try:
+			return compute_all_weights_harmonic( all_pts, skeleton_handle_vertices )
+		except bbw.BBWError as e:
+			print 'Harmonic Computation failed:', e
+			print 'Falling back to Shepard weights.'
+			which = 'shepard'
+	
 	if 'mvc' == which:
 		return compute_all_weights_mvc( all_pts, skeleton_handle_vertices )
 	
@@ -346,6 +354,66 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index, 
 	
 	tic( 'Computing BBW...' )
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
+	toc()
+	
+	if kBarycentricProjection:
+		if __debug__: old_weights = asarray([ all_weights[i] for i in pts_maps ])
+		
+		vs, all_weights, pts_maps = barycentric_projection( vs, faces, boundary_edges, all_weights, all_pts )
+		all_maps = unflatten_data( pts_maps, all_shapes )
+		
+		if __debug__:
+			new_weights = asarray([ all_weights[i] for i in pts_maps ])
+			total_weight_change = abs(old_weights-new_weights).sum()
+			print 'Barycentric projection led to an average change in weights of', total_weight_change/prod( new_weights.shape ), 'and a total change of', total_weight_change
+	
+	if customized == False:
+		return vs, all_weights, all_maps
+	## for the test of naive approaches.
+	else:
+		return vs, faces, boundary_edges, all_weights, all_maps
+
+def compute_all_weights_harmonic( all_pts, skeleton_handle_vertices, customized = False ):
+	'''
+	triangulate a region closed the handles as a cage, and precompute the vertices at each sample point.
+	
+	Given a sequence of sequences of sequences of points 'all_pts' (paths of chains of sampled bezier curves),
+	a sequence of M skeleton handle vertices, and
+	the index into 'all_pts' of the boundary_curve (may be -1 for no boundary),
+	returns
+		a sequence of vertices,
+		a M-dimensional weight for each vertex,
+		and a sequence of sequences mapping the index of a point in 'all_pts' to a vertex index.
+	'''
+	
+	all_pts, all_shapes = flatten_paths( all_pts )
+	
+	tic( 'Removing duplicate points...' )
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 0 )
+	toc()
+	
+	all_maps = unflatten_data( pts_maps, all_shapes )
+	all_clean_pts = asarray( all_clean_pts )[:, :2]
+	
+	## The list of handles.
+	if len( skeleton_handle_vertices ) > 0:
+		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
+	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
+	
+	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
+	## The boundary edges are the handle vertices as a loop.
+	off = len(all_clean_pts)
+	boundary_edges = [ ( off + i, off + ( (i+1) % len( skeleton_handle_vertices ) ) ) for i in xrange(len( skeleton_handle_vertices )) ]
+	
+	tic( 'Computing triangulation...' )
+	vs, faces = triangles_for_points( registered_pts, boundary_edges )
+	toc()
+	
+	vs = asarray(vs)[:, :2] 
+	faces = asarray(faces)
+	
+	tic( 'Computing Harmonic Coordinates...' )
+	all_weights = bbw.harmonic( vs, faces, [ i for i,j in boundary_edges ], 1 )
 	toc()
 	
 	if kBarycentricProjection:

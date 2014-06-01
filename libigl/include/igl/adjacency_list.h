@@ -1,8 +1,14 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_ADJACENCY_LIST_H
 #define IGL_ADJACENCY_LIST_H
 #include "igl_inline.h"
 
-#define EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <vector>
@@ -23,11 +29,19 @@ namespace igl
   //   adjacency_list(F,A);
   //
   // See also: edges, cotmatrix, diag
-  template <typename T, typename M>
+  template <typename Index, typename IndexVector>
   IGL_INLINE void adjacency_list(
-    const M & F, 
-    std::vector<std::vector<T> >& A,
+    const Eigen::PlainObjectBase<Index> & F, 
+    std::vector<std::vector<IndexVector> >& A,
     bool sorted = false);
+
+  // Variant that accepts polygonal faces. 
+  // Each element of F is a set of indices of a polygonal face.
+  template <typename Index>
+  IGL_INLINE void adjacency_list(
+    const std::vector<std::vector<Index> > & F,
+    std::vector<std::vector<Index> >& A);
+
 }
 
 #ifdef IGL_HEADER_ONLY

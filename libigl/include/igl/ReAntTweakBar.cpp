@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "ReAntTweakBar.h"
 #ifndef IGL_NO_ANTTWEAKBAR
 
@@ -9,16 +16,17 @@
 #include <map>
 
 // GLOBAL WRAPPERS
-namespace igl
+namespace 
 {
   std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > > ReTw_custom_types;
 }
 
-TwType igl::ReTwDefineEnum(
+IGL_INLINE TwType igl::ReTwDefineEnum(
   const char *name, 
   const TwEnumVal *enumValues, 
   unsigned int nbValues)
 {
+  using namespace std;
   // copy enum valus into vector
   std::vector<TwEnumVal> enum_vals;
   enum_vals.resize(nbValues);
@@ -30,10 +38,56 @@ TwType igl::ReTwDefineEnum(
 
   ReTw_custom_types[type] = 
     std::pair<const char *,std::vector<TwEnumVal> >(name,enum_vals);
+
   return type;
 }
 
-namespace igl
+IGL_INLINE TwType igl::ReTwDefineEnumFromString(
+  const char * _Name,
+  const char * _EnumString)
+{
+  // Taken directly from TwMgr.cpp, just replace TwDefineEnum with
+  // ReTwDefineEnum
+  using namespace std;
+  {
+    if (_EnumString == NULL) 
+        return ReTwDefineEnum(_Name, NULL, 0);
+
+    // split enumString
+    stringstream EnumStream(_EnumString);
+    string Label;
+    vector<string> Labels;
+    while( getline(EnumStream, Label, ',') ) {
+        // trim Label
+        size_t Start = Label.find_first_not_of(" \n\r\t");
+        size_t End = Label.find_last_not_of(" \n\r\t");
+        if( Start==string::npos || End==string::npos )
+            Label = "";
+        else
+            Label = Label.substr(Start, (End-Start)+1);
+        // store Label
+        Labels.push_back(Label);
+    }
+    // create TwEnumVal array
+    vector<TwEnumVal> Vals(Labels.size());
+    for( int i=0; i<(int)Labels.size(); i++ )
+    {
+        Vals[i].Value = i;
+        // Wrong:
+        //Vals[i].Label = Labels[i].c_str();
+        // Allocate char on heap
+        // http://stackoverflow.com/a/10050258/148668
+        char * c_label = new char[Labels[i].length()+1];
+        std::strcpy(c_label, Labels[i].c_str());
+        Vals[i].Label = c_label;
+    }
+
+    const TwType type = ReTwDefineEnum(_Name, Vals.empty() ? NULL : &(Vals[0]), (unsigned int)Vals.size());
+    return type;
+  }
+}
+
+namespace
 {
   struct ReTwTypeString
   {
@@ -70,19 +124,22 @@ namespace igl
   };
 }
 
-igl::ReTwBar::ReTwBar():
- bar(NULL),rw_items(),cb_items()
+IGL_INLINE igl::ReTwBar::ReTwBar():
+ bar(NULL),
+  name(),
+  rw_items(),cb_items()
 {
 }
 
-igl::ReTwBar::ReTwBar(const igl::ReTwBar & that):
+IGL_INLINE igl::ReTwBar::ReTwBar(const igl::ReTwBar & that):
   bar(that.bar),
+  name(that.name),
   rw_items(that.rw_items),
   cb_items(that.cb_items)
 {
 }
 
-igl::ReTwBar & igl::ReTwBar::operator=(const igl::ReTwBar & that)
+IGL_INLINE igl::ReTwBar & igl::ReTwBar::operator=(const igl::ReTwBar & that)
 {
   // check for self assignment
   if(this != &that)
@@ -96,15 +153,17 @@ igl::ReTwBar & igl::ReTwBar::operator=(const igl::ReTwBar & that)
 
 
 // BAR WRAPPERS
-void igl::ReTwBar::TwNewBar(const char *name)
+IGL_INLINE void igl::ReTwBar::TwNewBar(const char * _name)
 {
-  // double colon without anything in front of it means look for this in the
-  // global namespace... I hope...
-  //this->name = name;
-  this->bar = ::TwNewBar(name);
+  this->bar = ::TwNewBar(_name);
+  // Alec: This causes trouble (not sure why) in multiple applications
+  // (medit, puppet) Probably there is some sort of memory corrpution.
+  // this->name = _name;
+  // Suspiciously this also fails:
+  //this->name = "foobar";
 }
 
-int igl::ReTwBar::TwAddVarRW(
+IGL_INLINE int igl::ReTwBar::TwAddVarRW(
   const char *name, 
   TwType type, 
   void *var, 
@@ -119,7 +178,7 @@ int igl::ReTwBar::TwAddVarRW(
   return ret;
 }
 
-int igl::ReTwBar::TwAddVarCB(
+IGL_INLINE int igl::ReTwBar::TwAddVarCB(
   const char *name, 
   TwType type, 
   TwSetVarCallback setCallback, 
@@ -137,7 +196,7 @@ int igl::ReTwBar::TwAddVarCB(
   return ret;
 }
 
-int igl::ReTwBar::TwAddVarRO(
+IGL_INLINE int igl::ReTwBar::TwAddVarRO(
   const char *name, 
   TwType type, 
   void *var, 
@@ -152,7 +211,7 @@ int igl::ReTwBar::TwAddVarRO(
   return ret;
 }
 
-int igl::ReTwBar::TwAddButton(
+IGL_INLINE int igl::ReTwBar::TwAddButton(
   const char *name, 
   TwButtonCallback buttonCallback, 
   void *clientData, 
@@ -168,7 +227,7 @@ int igl::ReTwBar::TwAddButton(
   return ret;
 }
 
-int igl::ReTwBar::TwSetParam(
+IGL_INLINE int igl::ReTwBar::TwSetParam(
   const char *varName, 
   const char *paramName, 
   TwParamValueType paramValueType, 
@@ -186,7 +245,7 @@ int igl::ReTwBar::TwSetParam(
       inValues);
 }
 
-int igl::ReTwBar::TwGetParam(
+IGL_INLINE int igl::ReTwBar::TwGetParam(
   const char *varName, 
   const char *paramName, 
   TwParamValueType paramValueType, 
@@ -203,12 +262,12 @@ int igl::ReTwBar::TwGetParam(
       outValues);
 }
 
-int igl::ReTwBar::TwRefreshBar()
+IGL_INLINE int igl::ReTwBar::TwRefreshBar()
 {
   return ::TwRefreshBar(this->bar);
 }
 
-int igl::ReTwBar::TwTerminate()
+IGL_INLINE int igl::ReTwBar::TwTerminate()
 {
   //std::cout<<"TwTerminate"<<std::endl;
   int r = ::TwTerminate();
@@ -216,7 +275,7 @@ int igl::ReTwBar::TwTerminate()
   return r;
 }
 
-bool igl::ReTwBar::save(const char *file_name)
+IGL_INLINE bool igl::ReTwBar::save(const char *file_name)
 {
   FILE * fp;
   if(file_name == NULL)
@@ -279,7 +338,7 @@ bool igl::ReTwBar::save(const char *file_name)
   return true;
 }
 
-std::string igl::ReTwBar::get_value_as_string(
+IGL_INLINE std::string igl::ReTwBar::get_value_as_string(
   void * var, 
   TwType type)
 {
@@ -298,7 +357,7 @@ std::string igl::ReTwBar::get_value_as_string(
         // Q: Why does casting to double* work? shouldn't I have to cast to
         // double**?
         double * q = static_cast<double*>(var);
-        sstr << q[0] << " " << q[1] << " " << q[2] << " " << q[3];
+        sstr << std::setprecision(15) << q[0] << " " << q[1] << " " << q[2] << " " << q[3];
         break;
       }
     case TW_TYPE_QUAT4F:
@@ -328,7 +387,7 @@ std::string igl::ReTwBar::get_value_as_string(
       {
         sstr << "TW_TYPE_DIR3D" << " ";
         double * d = static_cast<double*>(var);
-        sstr << d[0] << " " << d[1] << " " << d[2];
+        sstr << std::setprecision(15) << d[0] << " " << d[1] << " " << d[2];
         break;
       }
     case TW_TYPE_DIR3F:
@@ -378,14 +437,15 @@ std::string igl::ReTwBar::get_value_as_string(
       }
     default:
       {
-        std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > >::iterator iter = 
+        using namespace std;
+        std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > >::const_iterator iter = 
           ReTw_custom_types.find(type);
         if(iter != ReTw_custom_types.end())
         {
           sstr << (*iter).second.first << " ";
           int enum_val = *(static_cast<int*>(var));
           // try find display name for enum value
-          std::vector<TwEnumVal>::iterator eit = (*iter).second.second.begin();
+          std::vector<TwEnumVal>::const_iterator eit = (*iter).second.second.begin();
           bool found = false;
           for(;eit<(*iter).second.second.end();eit++)
           {
@@ -410,7 +470,7 @@ std::string igl::ReTwBar::get_value_as_string(
   return sstr.str();
 }
 
-bool igl::ReTwBar::load(const char *file_name)
+IGL_INLINE bool igl::ReTwBar::load(const char *file_name)
 {
   FILE * fp;
   fp = fopen(file_name,"r");
@@ -471,7 +531,7 @@ bool igl::ReTwBar::load(const char *file_name)
   return true;
 }
 
-bool igl::ReTwBar::type_from_string(const char *type_str, TwType & type)
+IGL_INLINE bool igl::ReTwBar::type_from_string(const char *type_str, TwType & type)
 {
   // first check default types
   for(int j = 0; j < RETW_NUM_DEFAULT_TYPE_STRINGS; j++)
@@ -485,7 +545,7 @@ bool igl::ReTwBar::type_from_string(const char *type_str, TwType & type)
   }
 
   // then check custom types
-  std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > >::iterator iter = 
+  std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > >::const_iterator iter = 
     ReTw_custom_types.begin();
   for(;iter != ReTw_custom_types.end(); iter++)
   {
@@ -642,11 +702,11 @@ bool igl::ReTwBar::set_value_from_string(
       }
     default:
       // Try to find type in custom enum types
-      std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > >::iterator iter = 
+      std::map<TwType,std::pair<const char *,std::vector<TwEnumVal> > >::const_iterator iter = 
         ReTw_custom_types.find(type);
       if(iter != ReTw_custom_types.end())
       {
-        std::vector<TwEnumVal>::iterator eit = (*iter).second.second.begin();
+        std::vector<TwEnumVal>::const_iterator eit = (*iter).second.second.begin();
         bool found = false;
         for(;eit<(*iter).second.second.end();eit++)
         {
@@ -826,12 +886,12 @@ bool igl::ReTwBar::set_value_from_string(
   return true;
 }
 
-const std::vector<igl::ReTwRWItem> & igl::ReTwBar::get_rw_items()
+IGL_INLINE const std::vector<igl::ReTwRWItem> & igl::ReTwBar::get_rw_items()
 {
   return rw_items;
 }
 
-const std::vector<igl::ReTwCBItem> & igl::ReTwBar::get_cb_items()
+IGL_INLINE const std::vector<igl::ReTwCBItem> & igl::ReTwBar::get_cb_items()
 {
   return cb_items;
 }

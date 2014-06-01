@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "mesh_with_skeleton.h"
 
 #include <igl/sample_edges.h>
@@ -10,7 +17,7 @@
 // to produce a graded tet mesh
 const static std::string DEFAULT_TETGEN_FLAGS = "pq2Y";
 
-bool igl::mesh_with_skeleton(
+IGL_INLINE bool igl::mesh_with_skeleton(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::MatrixXd & C,
@@ -79,7 +86,7 @@ bool igl::mesh_with_skeleton(
   return true;
 }
 
-bool igl::mesh_with_skeleton(
+IGL_INLINE bool igl::mesh_with_skeleton(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::MatrixXd & C,
@@ -94,3 +101,7 @@ bool igl::mesh_with_skeleton(
   return igl::mesh_with_skeleton(
     V,F,C,P,BE,CE,samples_per_bone,DEFAULT_TETGEN_FLAGS,VV,TT,FF);
 }
+
+#ifndef IGL_HEADER_ONLY
+// Explicit template instanciation
+#endif

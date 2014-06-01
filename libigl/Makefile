@@ -1,12 +1,6 @@
 .PHONY: all
 all: lib extras examples
-
-GG=g++
-#GG=clang++
-#GG=/usr/bin/g++     17s
-#GG=/usr/bin/clang++ 14s
-#GG=g++-mp-4.3       15.5s
-#GG=g++-mp-4.7       19.9s
+framework: lib extras lib/igl.framework/
 
 # Shared flags etc.
 include Makefile.conf
@@ -20,32 +14,49 @@ debug: OPTFLAGS= -g -Wall
 debug: DEBUG=debug
 CFLAGS += $(OPTFLAGS)
 #CFLAGS += -DIGL_NO_OPENGL -DIGL_NO_ANTTWEAKBAR
+# We use well-supported features of c++11
 
 EXTRA_DIRS=
-ifeq ($(IGL_WITH_TETGEN),1)
-	# append tetgen extra dir
-	EXTRA_DIRS+=include/igl/tetgen
-endif
-ifeq ($(IGL_WITH_MATLAB),1)
-	EXTRA_DIRS+=include/igl/matlab
-endif
 ifeq ($(IGL_WITH_BBW),1)
-	EXTRA_DIRS+=include/igl/BBW
-endif
-ifeq ($(IGL_WITH_MOSEK),1)
-	EXTRA_DIRS+=include/igl/mosek
-endif
-ifeq ($(IGL_WITH_PNG),1)
-	EXTRA_DIRS+=include/igl/png
-endif
-ifeq ($(IGL_WITH_XML),1)
-	EXTRA_DIRS+=include/igl/xml
-endif
-ifeq ($(IGL_WITH_EMBREE),1)
-	EXTRA_DIRS+=include/igl/embree
+	EXTRA_DIRS+=include/igl/bbw
+	EXTRAS += bbw
 endif
 ifeq ($(IGL_WITH_BOOST),1)
 	EXTRA_DIRS+=include/igl/boost
+	EXTRAS += boost
+endif
+ifeq ($(IGL_WITH_CGAL),1)
+	EXTRA_DIRS+=include/igl/cgal
+	EXTRAS += cgal
+endif
+ifeq ($(IGL_WITH_EMBREE),1)
+	EXTRA_DIRS+=include/igl/embree
+	EXTRAS += embree
+endif
+ifeq ($(IGL_WITH_MATLAB),1)
+	EXTRA_DIRS+=include/igl/matlab
+	EXTRAS += matlab
+endif
+ifeq ($(IGL_WITH_MOSEK),1)
+	EXTRA_DIRS+=include/igl/mosek
+	EXTRAS += mosek
+endif
+ifeq ($(IGL_WITH_PNG),1)
+	EXTRA_DIRS+=include/igl/png
+	EXTRAS += png
+endif
+ifeq ($(IGL_WITH_SVD3X3),1)
+	EXTRA_DIRS+=include/igl/svd3x3
+	EXTRAS += svd3x3
+endif
+ifeq ($(IGL_WITH_TETGEN),1)
+	# append tetgen extra dir
+	EXTRA_DIRS+=include/igl/tetgen
+	EXTRAS += tetgen
+endif
+ifeq ($(IGL_WITH_XML),1)
+	EXTRA_DIRS+=include/igl/xml
+	EXTRAS += xml
 endif
 
 .PHONY: examples
@@ -66,6 +77,7 @@ extras:
 # SOURCE 
 #############################################################################
 CPP_FILES=$(wildcard include/igl/*.cpp)
+H_FILES=$(wildcard include/igl/*.h)
 OBJ_FILES=$(addprefix obj/,$(notdir $(CPP_FILES:.cpp=.o)))
 
 # include igl headers
@@ -92,10 +104,11 @@ INC+=$(ANTTWEAKBAR_INC)
 #LIB+=-framework GLUT
 #LIB+=-framework AppKit
 
+.PHONY: obj
 obj: 
 	mkdir -p obj
 
-lib/libigl.a: $(OBJ_FILES)
+lib/libigl.a: obj $(OBJ_FILES)
 	mkdir -p lib
 	rm -f $@
 	ar cqs $@ $(OBJ_FILES)
@@ -103,7 +116,23 @@ lib/libigl.a: $(OBJ_FILES)
 obj/%.o: include/igl/%.cpp include/igl/%.h
 	$(GG) $(CFLAGS) $(AFLAGS) -c -o $@ $< $(INC)
 
+lib/igl.framework/:
+	mkdir -p $@
+	cp lib/*.a $@
+	mv $@/libigl.a $@/igl
+	mkdir -p $@/Libraries
+	mv $@/*.a $@/Libraries
+	mkdir -p $@/Headers
+	cp $(H_FILES) $@/Headers
+	for p in $(EXTRAS); \
+	do \
+	mkdir $@/Headers/$$p; \
+	cp include/igl/$$p/*.h $@/Headers/$$p; \
+	done
+
+
 clean:
+	rm -rf lib/igl.framework/
 	rm -f obj/*.o
 	rm -f lib/libigl.a
 	make -C examples clean

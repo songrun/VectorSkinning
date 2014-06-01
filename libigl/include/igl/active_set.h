@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #ifndef IGL_ACTIVE_SET_H
 #define IGL_ACTIVE_SET_H
 
@@ -26,11 +33,13 @@ namespace igl
   //   Y  list of fixed values corresponding to known rows in Z
   //   Aeq  meq by n list of linear equality constraint coefficients
   //   Beq  meq by 1 list of linear equality constraint constant values
-  //   Aieq  mieq by n list of linear equality constraint coefficients
-  //   Bieq  mieq by 1 list of linear equality constraint constant values
+  //   Aieq  mieq by n list of linear inequality constraint coefficients
+  //   Bieq  mieq by 1 list of linear inequality constraint constant values
   //   lx  n by 1 list of lower bounds [] implies -Inf
   //   ux  n by 1 list of upper bounds [] implies Inf
   //   params  struct of additional parameters (see below)
+  //   Z  if not empty, is taken to be an n by 1 list of initial guess values
+  //     (see output)
   // Outputs:
   //   Z  n by 1 list of solution values
   // Returns true on success, false on error
@@ -73,7 +82,7 @@ struct igl::active_set_params
 {
   // Input parameters for active_set:
   //   Auu_pd  whether Auu is positive definite {false}
-  //   max_iter  Maximum number of iterations ({0} = Infinity)
+  //   max_iter  Maximum number of iterations (0 = Infinity, {100})
   //   inactive_threshold  Threshold on Lagrange multiplier values to determine
   //     whether to keep constraints active {EPS}
   //   constraint_threshold  Threshold on whether constraints are violated (0
@@ -87,7 +96,7 @@ struct igl::active_set_params
   double solution_diff_threshold;
   active_set_params():
     Auu_pd(false),
-    max_iter(-1),
+    max_iter(100),
     inactive_threshold(igl::DOUBLE_EPS),
     constraint_threshold(igl::DOUBLE_EPS),
     solution_diff_threshold(igl::DOUBLE_EPS)

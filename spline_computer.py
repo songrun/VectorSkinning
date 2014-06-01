@@ -612,7 +612,7 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				last_odd_solutions = solutions
 		
 		print 'iterations:', iteration
-		#oddfast.update_system_with_result_of_previous_iteration( solutions )
+		oddfast.update_system_with_result_of_previous_iteration( solutions )
 		return solutions
 	
 	return update_with_transforms					

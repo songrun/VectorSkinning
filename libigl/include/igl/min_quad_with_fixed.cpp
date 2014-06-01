@@ -1,3 +1,10 @@
+// This file is part of libigl, a simple c++ geometry processing library.
+// 
+// Copyright (C) 2013 Alec Jacobson <alecjacobson@gmail.com>
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public License 
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can 
+// obtain one at http://mozilla.org/MPL/2.0/.
 #include "min_quad_with_fixed.h"
 
 #include "slice.h"
@@ -28,7 +35,7 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
   min_quad_with_fixed_data<T> & data
   )
 {
-// #define MIN_QUAD_WITH_FIXED_CPP_DEBUG
+//#define MIN_QUAD_WITH_FIXED_CPP_DEBUG
   using namespace Eigen;
   using namespace std;
   using namespace igl;
@@ -117,7 +124,9 @@ IGL_INLINE bool igl::min_quad_with_fixed_precompute(
     assert(data.Aequ.rows() == neq);
     assert(data.Aequ.cols() == data.unknown.size());
     data.AeqTQR.compute(data.Aequ.transpose().eval());
+#ifdef MIN_QUAD_WITH_FIXED_CPP_DEBUG
     cout<<endl<<matlab_format(SparseMatrix<T>(data.Aequ.transpose().eval()),"AeqT")<<endl<<endl;
+#endif
     switch(data.AeqTQR.info())
     {
       case Eigen::Success:
