@@ -291,66 +291,67 @@ def compute_all_weights_bbw( all_pts, skeleton_handle_vertices, boundary_index, 
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
 	tic( 'Removing duplicate points...' )
-	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 0 )
+	## NOTE: The handles must be in here, because if we add them later we might end up with duplicate points.
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( concatenate( ( skeleton_handle_vertices, all_pts ), axis = 0 ), threshold = 0 )
 	toc()
 	
-	all_maps = unflatten_data( pts_maps, all_shapes )
+	all_maps = unflatten_data( pts_maps[len(skeleton_handle_vertices):], all_shapes )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
 	## This will store a sequence of tuples ( edge_start_index, edge_end_index ).
 	## UPDATE: We need to make sure that this boundary loop stays manifold.
 	##		   That means: no vertex index should be the start index more than once,
 	##		   and no vertex index should be the end index more than once.
-	boundary_edges = []
+	### 1 Collect all vertex indices on the boundary. Skip repeated vertex indices.
+	### 2 Find all repeated vertex indices.
+	### 3 Snip out all but the longest sequence.
+	### 4 Make a sequence of edges for boundary_edges.
+	
+	### 1
+	boundary_vertex_indices = []
 	for curve in all_maps[ boundary_index ]:
 		for vi in curve:
-			## An edge in progress isn't a tuple, it's directly edge_start_index.
-			if len( boundary_edges ) == 0:
-				boundary_edges.append( vi )
-			## Skip repeated points
-			elif boundary_edges[-1] == vi:
-				## This happens a lot.
-				# print 'Skipping a collapsed boundary edge'
-				pass
-			## UPDATE: And skip a point that would make us fold back on ourselves!
-			##		   It's possible due to rounding that the two points on the
-			##		   bottom of a ^ sticking out of the mesh collapses, leading
-			##		   us with a | shape and a duplicate (undirected) edge.
-			##		   It's easy to check for that here.
-			##		   If it comes up again, though, just wait until the
-			##		   end of the loop and filter boundary_edges like so:
-			##			   boundary_edges = [ tuple( edge ) for edge in set([ frozenset( edge ) for edge in boundary_edges ]) ]
-			##		   For now, just check for immediately collapsed edges.
-			##		   NOTE: This came up with the alligator.
-			## UPDATE 2: Filtering at the end still might not work in weird cases.
-			##			 If it comes up again, we'll need to make sure that
-			##			 the boundary loop stays manifold, which means:
-			##			 no vertex index should be the start index more than once,
-			##			 and no vertex index should be the end index more than once.
-			elif len( boundary_edges ) > 1 and boundary_edges[-2][0] == vi:
-				print 'Skipping a boundary foldback'
-				pass
-			else:
-				## Replace the edge-in-progress with a proper tuple.
-				boundary_edges[-1] = ( boundary_edges[-1], vi )
-				boundary_edges.append( vi )
-	## We don't need to do anything to close the curve, because a closed curve
-	## will have its last and first points overlapping.
-	assert boundary_edges[-1] == boundary_edges[0][0]
-	del boundary_edges[-1]
+			if len( boundary_vertex_indices ) == 0 or boundary_vertex_indices[-1] != vi:
+				boundary_vertex_indices.append( vi )
 	
-	## The list of handles.
-	if len( skeleton_handle_vertices ) > 0:
-		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
-	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
+	### 2
+	changed = True
+	while changed:
+		changed = False
+		boundary_vertex_indices = asarray( boundary_vertex_indices )
+		for i in xrange( len( boundary_vertex_indices ) ):
+			same_indices = where( boundary_vertex_indices == boundary_vertex_indices[i] )[0]
+			if len( same_indices ) > 1:
+				print 'Found a boundary foldback. Snipping.'
+				
+				### 3
+				lengths = []
+				for j in xrange(len( same_indices )):
+					lengths.append( ( same_indices[ (j+1) % len(same_indices) ] + len( boundary_vertex_indices ) - same_indices[j] ) % len( boundary_vertex_indices ) )
+				
+				maxj = argmax( lengths )
+				if maxj+1 < len( same_indices ):
+					boundary_vertex_indices = boundary_vertex_indices[ same_indices[maxj] : same_indices[maxj+1] ]
+				else:
+					boundary_vertex_indices = concatenate( ( boundary_vertex_indices[ same_indices[-1]: ], boundary_vertex_indices[ : same_indices[0] ] ), axis = 0 )
+				
+				changed = True
+				break
 	
-	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
+	### 4
+	boundary_edges = []
+	for i in xrange(len( boundary_vertex_indices )):
+		boundary_edges.append( ( boundary_vertex_indices[i], boundary_vertex_indices[ (i+1) % len(boundary_vertex_indices) ] ) )
+	
 	tic( 'Computing triangulation...' )
-	vs, faces = triangles_for_points( registered_pts, boundary_edges )
+	vs, faces = triangles_for_points( all_clean_pts, boundary_edges )
 	toc()
 	
 	vs = asarray(vs)[:, :2] 
 	faces = asarray(faces)
+	
+	skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
+	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
 	tic( 'Computing BBW...' )
 	all_weights = bbw.bbw(vs, faces, skeleton_handle_vertices, skeleton_point_handles)
@@ -389,10 +390,11 @@ def compute_all_weights_harmonic( all_pts, skeleton_handle_vertices, customized 
 	all_pts, all_shapes = flatten_paths( all_pts )
 	
 	tic( 'Removing duplicate points...' )
-	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( all_pts, threshold = 0 )
+	## NOTE: The handles must be in here, because if we add them later we might end up with duplicate points.
+	all_clean_pts, pts_maps = uniquify_points_and_return_input_index_to_unique_index_map( concatenate( ( skeleton_handle_vertices, all_pts ), axis = 0 ), threshold = 0 )
 	toc()
 	
-	all_maps = unflatten_data( pts_maps, all_shapes )
+	all_maps = unflatten_data( pts_maps[len(skeleton_handle_vertices):], all_shapes )
 	all_clean_pts = asarray( all_clean_pts )[:, :2]
 	
 	## The list of handles.
@@ -400,13 +402,11 @@ def compute_all_weights_harmonic( all_pts, skeleton_handle_vertices, customized 
 		skeleton_handle_vertices = asarray( skeleton_handle_vertices )[:, :2]
 	skeleton_point_handles = list( range( len(skeleton_handle_vertices) ) )
 	
-	registered_pts = concatenate( ( all_clean_pts, skeleton_handle_vertices ), axis = 0 )
-	## The boundary edges are the handle vertices as a loop.
-	off = len(all_clean_pts)
-	boundary_edges = [ ( off + i, off + ( (i+1) % len( skeleton_handle_vertices ) ) ) for i in xrange(len( skeleton_handle_vertices )) ]
+	boundary_edges = [ ( pts_maps[i], pts_maps[(i+1) % len( skeleton_handle_vertices )] ) for i in xrange(len( skeleton_handle_vertices )) ]
+	assert len(set( boundary_edges )) == len( boundary_edges )
 	
 	tic( 'Computing triangulation...' )
-	vs, faces = triangles_for_points( registered_pts, boundary_edges )
+	vs, faces = triangles_for_points( all_clean_pts, boundary_edges )
 	toc()
 	
 	vs = asarray(vs)[:, :2] 
