@@ -1,4 +1,5 @@
 from copy import copy, deepcopy
+import parameters
 from generate_chain_system import *
 from bezier_constraint_odd_solver import BezierConstraintSolverOdd
 from bezier_constraint_odd_solver_fast import BezierConstraintSolverOddFast
@@ -538,15 +539,18 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 	is_closed = array_equal( controls[0,0], controls[-1,-1])
 	### 1
 	oddfast = BezierConstraintSolverOddFast(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
+	## For timing reasons, include this:
+	if parameters.kGatheringTiming: oddfast.solve()
 	
 	smoothness = [ constraint[0] for constraint in constraints ]
 	if 'A' in smoothness or 'G1' in smoothness:
 		odd = BezierConstraintSolverOdd(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		even = BezierConstraintSolverEven(W_matrices, controls, constraints, transforms, lengths, ts, dts, is_closed, kArcLength )
 		## There is some clamping that even.solve() does, which makes everything better behaved when we get bad input.
-		sol = even.solve()
-		odd.update_system_with_result_of_previous_iteration( sol )
-		oddfast.update_system_with_result_of_previous_iteration( sol )
+		if not parameters.kGatheringTiming:
+			sol = even.solve()
+			odd.update_system_with_result_of_previous_iteration( sol )
+			oddfast.update_system_with_result_of_previous_iteration( sol )
 	
 	def update_with_transforms( transforms, multiple_iterations = True ):
 		#multiple_iterations = False
@@ -612,7 +616,8 @@ def prepare_approximate_beziers( controls, constraints, handles, transforms, len
 				last_odd_solutions = solutions
 		
 		print 'iterations:', iteration
-		oddfast.update_system_with_result_of_previous_iteration( solutions )
+		if not parameters.kGatheringTiming:
+			oddfast.update_system_with_result_of_previous_iteration( solutions )
 		return solutions
 	
 	return update_with_transforms					

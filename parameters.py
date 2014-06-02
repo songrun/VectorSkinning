@@ -16,3 +16,4 @@ kNoOverlays = False
 ## Show comparison curves to Schneider 1990?
 kComputeComparisonCurves = False
 kEngineType = EngineType['YSApproach']
+kGatheringTiming = False
