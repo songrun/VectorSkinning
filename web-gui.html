@@ -191,6 +191,7 @@ Approach type:
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
 <div class="checkbox"><label>Arc Length Parameterization <input id="usingArcLengthParameterization" type="checkbox" /></label></div>
 <div class="checkbox"><label>C1-only while dragging <input id="c1-while-dragging" type="checkbox" checked/></label></div>
+<div class="checkbox"><label>C1-only always <input id="c1-always" type="checkbox"/></label></div>
 <button type="button" id="record-start" class="btn btn-default" style="margin-bottom: 20px">Play and Record</button>
 <button type="button" id="record-pause" class="btn btn-default" style="margin-bottom: 20px">Pause</button>
 <button type="button" id="record-erase" class="btn btn-default" style="margin-bottom: 20px">Erase</button>
@@ -549,7 +550,7 @@ function setupWebSocket( connected_func )
         if( connected_func !== undefined ) connected_func();
         };
     gSocket.onclose = function(evt) { console.log( 'DISCONNECTED' ); };
-    gSocket.onmessage = function(evt) { receiveSocketMessage( evt.data ) };
+    gSocket.onmessage = function(evt) { receiveSocketMessage( evt.data ); };
     gSocket.onerror = function(evt) { console.log( 'ERROR: ' + evt.data ); };
 }
 function receiveSocketMessage( data )
@@ -1734,7 +1735,7 @@ function createHandleAtPosition( x, y )
         fill: "#da55da",
         stroke: "#000",
         strokeWidth: 2.,
-        opacity: .5,
+        opacity: 0.,
         'data-handle_index': handle_index
         });
     
@@ -1818,7 +1819,7 @@ function createHandleAtPosition( x, y )
 		    //       The user can ensure they don't see both changes at once by
 		    //       waiting with the mouse button held until the last transformation
 		    //       comes back.
-		    if( $('#c1-while-dragging').prop( 'checked' ) ) {
+		    if( $('#c1-while-dragging').prop( 'checked' ) && !$('#c1-always').prop( 'checked' ) ) {
 		        sendSetIterations( true );
 		        // Re-send the handle over the network, because we just changed to multiple iterations.
 		        var handle_index = parseInt( this.attr('data-handle_index') );
@@ -2102,8 +2103,14 @@ function setupGlobalUI()
         }
         $('#svg-overlay-beziers-deformed').toggle( checked );
     } ).change();
+    // Why I can't I call change on this right now or with setTimeout?
+    $("#c1-always").change( function() {
+        var checked = $(this).prop('checked');
+        sendSetIterations( !checked );
+    } );
+    // setTimeout( $("#c1-always").change(), 1000 );
     
-    $("#record-start").click( function() { gAnimationRecorder.startRecording(); } );
+    $("#record-start").click( function() { sendSetIterations( false ); gAnimationRecorder.startRecording(); } );
     $("#record-pause").click( function() { gAnimationRecorder.pauseRecording(); } );
     $("#record-erase").click( function() { gAnimationRecorder.eraseRecording(); } );
     $("#record-slider,#record-slider-number").change( function() { gAnimationRecorder.moveToFrameIndex( parseInt( $(this).val() ) ); } );
