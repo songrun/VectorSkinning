@@ -192,9 +192,9 @@ class BezierConstraintSolverOddFast( BezierConstraintSolver ):
 				solved = zeros( self.rhs[i].shape )
 				for j in xrange( self.rhs[i].shape[1] ):
 					solved[:,j] = self.system_factored( self.rhs[i,:,j] )
-				self.Os.append( solved )
+				self.Os.append( solved[:self.total_dofs,:] )
 		
-		x = zeros( self.rhs.shape[1] )
+		x = zeros( self.total_dofs )
 		for i in xrange(len( self.Ts )):
 			T = self.Ts[i]
 			O = self.Os[i]
@@ -206,7 +206,7 @@ class BezierConstraintSolverOddFast( BezierConstraintSolver ):
 		# x = linalg.solve( self.system, self.rhs )
 		# x = scipy.sparse.linalg.spsolve( self.system, self.rhs )
 		### Return a nicely formatted chain of bezier curves.
-		x = array( x[:self.total_dofs] ).reshape(-1,4).T
+		x = x.reshape(-1,4).T
 		
 		solution = []
 		for i in range(num):
