@@ -186,6 +186,7 @@ Approach type:
         </select>
 </div>
 <div class="checkbox"><label>Save overlays <input id="kSaveDecorations" type="checkbox" checked/></label></div>
+<div class="checkbox"><label>Show handles <input id="showHandles" type="checkbox" checked /></label></div>
 <div class="checkbox"><label>Show target curves <input id="showTargetCurves" type="checkbox" /></label>
     <div class="checkbox"><label>Live update <input id="liveTargetCurves" type="checkbox" disabled /></label></div></div>
 <div class="checkbox"><label>Show control points <input id="showDeformedControlPoints" type="checkbox" /></label></div>
@@ -2082,6 +2083,10 @@ function setupGlobalUI()
     } );
     
     // Set it up and trigger it.
+    $("#showHandles").change( function() {
+        var checked = $(this).prop('checked');
+        $('#svg-overlay-handles').toggle( checked );
+    } ).change();
     $("#showTargetCurves").change( function() {
         var checked = $(this).prop('checked');
         $('#liveTargetCurves').prop( 'disabled', !checked );
