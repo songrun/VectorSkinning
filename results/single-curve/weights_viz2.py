@@ -44,7 +44,10 @@ artboard = zeros( ( 30*xdpi, 100*xdpi ) )
 w = where( ones( artboard.shape, dtype = bool ) )
 weights = shepard_fast( array( w ).T, xdpi*array([ ( 20, 10 ), ( 20, 90 ), ( 12.585, 50 ) ]) )
 import colormap
-colormaps = 'PiYG', 'RdBu', 'BrBG', 'PRGn', 'PuOr', 'Greens'
+## The double-ended color maps are wrong! They switch colors at .5.
+## We want to show the influence of the center handle.
+# colormaps = 'PiYG', 'RdBu', 'BrBG', 'PRGn', 'PuOr', 'Greens'
+colormaps = 'Greens'
 import Image
 middle_weights = weights[:,2].reshape( artboard.shape )
 for cmap in colormaps:
