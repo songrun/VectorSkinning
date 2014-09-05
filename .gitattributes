@@ -1,2 +1,3 @@
 *.pdf	-crlf -diff merge=binary
 *.ai	-crlf -diff merge=binary
+*.svg    -diff
