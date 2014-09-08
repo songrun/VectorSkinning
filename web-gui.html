@@ -1393,6 +1393,27 @@ function loadSVG( svg_text, filename )
     */
     
     var svg = $('#svg-file > svg');
+    // Some SVG files have bogus width and height, but great viewBox attributes.
+    // If there is a viewBox attribute present, use it.
+    /*
+    var viewBox = svg.attr('viewBox');
+    if( undefined !== viewBox && "" !== viewBox )
+    {
+        var viewBoxSplit = viewBox.split( /\s+/ );
+        if( viewBoxSplit.length == 4 )
+        {
+            svg.width( viewBoxSplit[3] );
+            svg.height( viewBoxSplit[4] );
+        }
+    }
+    */
+    var viewBox = svg.prop('viewBox');
+    if( undefined !== viewBox )
+    {
+        svg.width( viewBox.baseVal.width );
+        svg.height( viewBox.baseVal.height );
+    }
+    // Set the holder's width and height to the SVG's width and height.
     svg_holder.width( svg.width() );
     svg_holder.height( svg.height() );
     
