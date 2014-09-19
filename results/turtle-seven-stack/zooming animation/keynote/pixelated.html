@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style> 
+#image {
+    position: absolute;
+    
+    
+    width: 514px;
+    height: auto;
+    -webkit-animation: zoomin 10s; /* Chrome, Safari, Opera */
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-direction: normal;
+    -webkit-animation-timing-function: ease-in-out;
+    animation: zoomin 10s;
+    animation-iteration-count: infinite;
+    animation-direction: normal;
+    animation-timing-function: ease-in-out;
+    
+    /* nearest neighbor! */
+	image-rendering: optimizeSpeed;
+	image-rendering: -moz-crisp-edges;
+	image-rendering: -webkit-optimize-contrast;
+	image-rendering: optimize-contrast;
+	-ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Chrome, Safari, Opera */
+@-webkit-keyframes zoomin {
+    0% { width: 514px; left: 383px; top: 68px; }
+    10% { width: 514px; left: 383px; top: 68px; }
+    40% { width: 5140px; left: -1272px; top: 56px; }
+    60% { width: 5140px; left: -1272px; top: 56px; }
+    90% { width: 514px; left: 383px; top: 68px; }
+    100% { width: 514px; left: 383px; top: 68px; }
+}
+
+/* Standard syntax */
+@keyframes zoomin {
+    0% { width: 514px; left: 383px; top: 68px; }
+    10% { width: 514px; left: 383px; top: 68px; }
+    40% { width: 5140px; left: -1272px; top: 56px; }
+    60% { width: 5140px; left: -1272px; top: 56px; }
+    90% { width: 514px; left: 383px; top: 68px; }
+    100% { width: 514px; left: 383px; top: 68px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Run with SVG in Chrome and with PNG in Mozilla, because Chrome doesn't do nearest-neighbor -->
+<img id="image" alt="turtles" src="turtles-seven.svg">
+
+</body>
+</html>
