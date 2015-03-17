@@ -1383,14 +1383,14 @@ function loadSVG( svg_text, filename )
     // Set the width and height of the SVG area.
     var svg_holder = $('#svg-holder');
     
-    /*
+    
     // Get the actual SVG dom element with [0] rather than a jquery object.
     // UPDATE: This gets the bounding box size of the contents, not the size of the actual
     //         SVG-defined viewport, which is what is used for drawing.
+    /*
     var svg = $('#svg-file > svg')[0];
     svg_holder.width( svg.getBBox().width );
     svg_holder.height( svg.getBBox().height );
-    */
     
     var svg = $('#svg-file > svg');
     // Some SVG files have bogus width and height, but great viewBox attributes.
@@ -1416,6 +1416,15 @@ function loadSVG( svg_text, filename )
     // Set the holder's width and height to the SVG's width and height.
     svg_holder.width( svg.width() );
     svg_holder.height( svg.height() );
+    */
+    
+    var svg = $('#svg-file > svg');
+    width = svg.prop("viewBox").baseVal.width
+    height = svg.prop("viewBox").baseVal.height
+    svg.width( width )
+    svg.height( height )
+    svg_holder.width( width );
+    svg_holder.height( height );
     
     // Normalize SVG paths by converting them entirely to cubic bezier.
     normalizeSVG();

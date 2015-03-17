@@ -13,9 +13,9 @@ except ImportError:
 
 ## All payloads are JSON-formatted.
 import json
-import parameters
-from spline_computer import *
-from tictoc import tic, toc, tictoc_dec
+import src.parameters
+from src.spline_computer import *
+from src.tictoc import tic, toc, tictoc_dec
 from itertools import izip as zip
 from numpy import argmax
 

@@ -1,3 +1,0 @@
-The one we used in the paper is: "bbw-l1"
-
-The others were attempts at getting the tiny turtles not to end up garbled.

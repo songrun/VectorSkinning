@@ -1,7 +1,9 @@
-# Skinning Vector Graphics
-### Songrun Liu, Alec Jacobson, Yotam Gingold
+# Skinning Cubic Bézier Splines
 
-Software for deforming.
+This code implements the cubic Bézier spline portion of our SIGGRAPH Asia 2014 paper
+[Skinning Cubic Bézier Splines and Catmull-Clark Subdivision Surfaces](http://cs.gmu.edu/~ygingold/splineskin/)
+by [Songrun Liu](http://cs.gmu.edu/~sliu11/), [Alec Jacobson](http://www.cs.columbia.edu/~jacobson/), and [Yotam Gingold](http://cs.gmu.edu/~ygingold/).
+The implementation consists of a web GUI that communicates with a Python back end.
 
 ## Installation
 
@@ -72,6 +74,7 @@ Although largely written in Python, there are several optional compiled componen
 Compiled versions are checked into the repository, but you can compile them from scratch.
 
 1. (required for BBW weights) [Triangle](http://www.cs.cmu.edu/~quake/triangle.html). There should be a `triangle` directory containing a compiled binary of `triangle`.
-2. (required for BBW weights) `bbw_wrapper` contains a compiled dynamic library. `cd` into the directory and run the appropriate one-liner located at the top of `bbw_wrapper/bbw.py`.
-3. (optional for comparison with Schneider 1990 Graphics Gems) `FitCurves` contains a compiled dynamic library. `cd` into the directory and run the appropriate one-liner located at the top of `FitCurves/FitCurves.py`.
-4. (optional for barycentric interpolation; disabled by default) `raytri` contains a compiled dynamic library. `cd` into the directory and run the appropriate one-liner located at the top of `raytri/raytri.py`.
+2. (required for BBW weights) [libigl](https://github.com/libigl/libigl). There should be a directory or symbolic link to the root of `libigl` in the `src` directory.
+3. (required for BBW weights) `bbw_wrapper` contains a compiled dynamic library. `cd` into the directory and run the appropriate one-liner located at the top of `bbw_wrapper/bbw.py`.
+4. (optional for comparison with Schneider 1990 Graphics Gems) `FitCurves` contains a compiled dynamic library. `cd` into the directory and run the appropriate one-liner located at the top of `FitCurves/FitCurves.py`.
+5. (optional for barycentric interpolation; disabled by default) `raytri` contains a compiled dynamic library. `cd` into the directory and run the appropriate one-liner located at the top of `raytri/raytri.py`.

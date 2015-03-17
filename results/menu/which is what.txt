@@ -1,4 +1,0 @@
-The one we used in the paper is: "bbw"
-
-The others were attempts at turning the rects into paths for warping.
-

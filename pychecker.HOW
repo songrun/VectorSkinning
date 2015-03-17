@@ -1,1 +1,0 @@
-pychecker-2.7 --noeffect --intdivide --changetypes --blacklist numpy -# 300 spline_computer.py
