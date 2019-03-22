@@ -5,7 +5,7 @@ This code implements the cubic Bézier spline portion of our SIGGRAPH Asia 2014 
 by [Songrun Liu](http://cs.gmu.edu/~sliu11/), [Alec Jacobson](http://www.cs.columbia.edu/~jacobson/), and [Yotam Gingold](http://cs.gmu.edu/~ygingold/).
 The implementation consists of a web GUI that communicates with a Python back end.
 
-This work has been adopted and implemented by Adobe as Puppet Warp in Illustrator.
+# This work has been adopted and implemented by Adobe as Puppet Warp in Illustrator.
 
 ## Installation
 
